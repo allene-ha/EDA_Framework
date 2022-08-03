@@ -74,7 +74,6 @@ AND
 
 class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attributes
     """Mysql connector to collect knobs/metrics from the MySQL database"""
-
     VERSION_SQL = "SELECT VERSION();"
     KNOBS_SQL = "SHOW GLOBAL VARIABLES;"
     METRICS_SQL = "SHOW GLOBAL STATUS;"
@@ -101,6 +100,7 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
     ENGINE_MASTER_SQL = "SHOW MASTER STATUS;"
 
     def __init__(self, conn: mysql_conn.MySQLConnection, version: str) -> None:
+        print("hello")
         """
         Callers should make sure that the connection object is closed after using
         the collector. This likely means that callers should not insantiate this class
@@ -207,7 +207,7 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
         return success, results, text
 
     def collect_knobs(self) -> Dict[str, Any]:
-        """Collect database knobs information
+        """Collect database knobs informationß
         Returns:
             Database knob data
         Raises:
@@ -218,6 +218,12 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
 
         knobs["global"]["global"] = dict(self._cmd(self.KNOBS_SQL)[0])
         return knobs
+
+    def collect_test(self): 
+        TEST_SQL = "select round(timer_wait/1000000000,6) as time_ms, digest_text, thread_id, lock_time/1000000000 as lock_time_ms   from events_statements_current;"
+        result = self._cmd(TEST_SQL)[0]
+        print(result)
+        return None
 
     def collect_metrics(self) -> Dict[str, Any]:
         """Collect database metrics information

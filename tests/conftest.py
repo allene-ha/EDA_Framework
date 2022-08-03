@@ -7,7 +7,7 @@ def pytest_addoption(parser) -> None:  # type: ignore
 
     # mysql database connection options
     parser.addoption("--mysql_user", default="root")
-    parser.addoption("--mysql_password", default="")
+    parser.addoption("--mysql_password", default="1234")
     parser.addoption("--mysql_host", default="127.0.0.1")
     parser.addoption("--mysql_port", default="3306")
     parser.addoption("--mysql_database", default="")
