@@ -1,6 +1,7 @@
 """MySQL database collector to get knob and metric data from the target database"""
 import json
 from decimal import Decimal
+from token import TILDE
 from typing import Dict, List, Any, Tuple
 import logging
 import mysql.connector
@@ -225,7 +226,7 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
         with open('end_time', 'r') as infile:
             end_time = infile.read()
         print("before",end_time)
-        QUERY_DIGEST_SQL = f"select round(timer_wait/1000000000,6) as time_ms, digest_text, thread_id, timer_end from performance_schema.events_statements_history where timer_end>{end_time};"
+        QUERY_DIGEST_SQL = f"select round(timer_wait/1000000000,6) as time_ms, digest, digest_text, thread_id, timer_end from performance_schema.events_statements_history where timer_end>{end_time};"
         try:
             query_digest_data, query_digest_meta = self._cmd(QUERY_DIGEST_SQL)
             end_time = str(query_digest_data[-1][-1])
@@ -240,21 +241,22 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
         TID = []
         for i in query_digest_data:
             #print(i)
-            TID.append(i[2])
-
-        #thread_data = []
-        #thread_meta = []
+            TID.append(i[3])
+        TID = set(TID)
+        thread_data = []
+        thread_meta = []
         thread_result = []
-        #for i in TID:
-        #    THREAD_SQL = f"select * from performance_schema.threads  where thread_id={i};"
-        #    thread_data = self._cmd(THREAD_SQL)[0]
-        #    thread_meta = self._cmd(THREAD_SQL)[1]
-        #    thread_result.append(self._make_list(thread_data, thread_meta))
+        print(TID)
+        for i in TID:
+            THREAD_SQL = f"select thread_id, thread_os_id from performance_schema.threads  where thread_id={i};"
+            thread_data = self._cmd(THREAD_SQL)[0]
+            thread_meta = self._cmd(THREAD_SQL)[1]
+            thread_result.append(self._make_list(thread_data, thread_meta))
             
         result = {}
 
-        #result['threads'] = json.dumps(thread_result)
-        result['events_statements_history'] = json.dumps(query_digest)
+        result['threads'] = thread_result # json.dumps 해제
+        result['events_statements_history'] = query_digest # json.dumps(query_digest)
 
         ps_result = subprocess.check_output(['ps -ef | grep mysql'], shell=True).decode()
         ps_lines = ps_result.splitlines()

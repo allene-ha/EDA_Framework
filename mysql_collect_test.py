@@ -155,7 +155,7 @@ def run() -> None:
     mysql_user='root'
     mysql_password=''
     mysql_database=''
-    monitor_interval=60
+    monitor_interval=10
     table_level_monitor_interval=5000
 
 
