@@ -7,6 +7,7 @@ import mysql.connector
 import mysql.connector.connection as mysql_conn
 from mysql.connector import errorcode
 
+import subprocess
 from driver.exceptions import MysqlCollectorException
 from driver.collector.base_collector import BaseDbCollector, PermissionInfo
 
@@ -100,7 +101,6 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
     ENGINE_MASTER_SQL = "SHOW MASTER STATUS;"
 
     def __init__(self, conn: mysql_conn.MySQLConnection, version: str) -> None:
-        print("hello")
         """
         Callers should make sure that the connection object is closed after using
         the collector. This likely means that callers should not insantiate this class
@@ -120,6 +120,7 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
             self.ENGINE_REPLICA_SQL: str = "SHOW REPLICA STATUS;"
         else:
             self.ENGINE_REPLICA_SQL: str = "SHOW SLAVE STATUS;"
+        #self.end_time
 
     def _cmd(self, sql: str):  # type: ignore
         """Run the command line (sql query), and fetch the returned results.
@@ -216,26 +217,85 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
 
         knobs: Dict[str, Any] = {"global": {"global": {}}, "local": None}
 
-        knobs["global"]["global"] = dict(self._cmd(self.KNOBS_SQL)[0])
+        #knobs["global"]["global"] = dict(self._cmd(self.KNOBS_SQL)[0])
         return knobs
 
-    def collect_test(self): 
-        TID = []
-        TEST_SQL = "select round(timer_wait/1000000000,6) as time_ms, digest_text, thread_id, lock_time/1000000000 as lock_time_ms from performance_schema.events_statements_current;"
-        result = self._cmd(TEST_SQL)[0]
+    def collect_thread(self): 
         
-        print(result)
-        print(type(result))
-        print(len(result))
-        for i in result:
-            print(i)
+        with open('end_time', 'r') as infile:
+            end_time = infile.read()
+        print("before",end_time)
+        QUERY_DIGEST_SQL = f"select round(timer_wait/1000000000,6) as time_ms, digest_text, thread_id, timer_end from performance_schema.events_statements_history where timer_end>{end_time};"
+        try:
+            query_digest_data, query_digest_meta = self._cmd(QUERY_DIGEST_SQL)
+            end_time = str(query_digest_data[-1][-1])
+            print("after",end_time)
+            with open('end_time', 'w') as outfile:
+                outfile.write(end_time)
+            query_digest = self._make_list(query_digest_data, query_digest_meta)
+        except Exception as ex:
+            logging.error("Failed to collect query digest: %s", ex)
+            query_digest = []
+
+        TID = []
+        for i in query_digest_data:
+            #print(i)
             TID.append(i[2])
-        print(TID)
-        for i in TID:
-            THREAD_SQL = f"select * from performance_schema.threads  where thread_id={i};"
-            thread_result = self._cmd(THREAD_SQL)[0]
-            print(thread_result)
-        return None
+
+        #thread_data = []
+        #thread_meta = []
+        thread_result = []
+        #for i in TID:
+        #    THREAD_SQL = f"select * from performance_schema.threads  where thread_id={i};"
+        #    thread_data = self._cmd(THREAD_SQL)[0]
+        #    thread_meta = self._cmd(THREAD_SQL)[1]
+        #    thread_result.append(self._make_list(thread_data, thread_meta))
+            
+        result = {}
+
+        #result['threads'] = json.dumps(thread_result)
+        result['events_statements_history'] = json.dumps(query_digest)
+
+        ps_result = subprocess.check_output(['ps -ef | grep mysql'], shell=True).decode()
+        ps_lines = ps_result.splitlines()
+        TID = []
+        for ps_line in ps_lines:
+            ps_line=ps_line.replace("  ",' ').replace("  ",' ').replace("  ",' ').replace("  ",' ').replace("  ",' ')
+            ps = ps_line.split(' ')
+            if 'mysql' in ps[0]:
+                TID.append(ps[1])
+        #print(TID)
+        pidstat_result = subprocess.check_output(['pidstat', '-t']).decode()
+        #pidstat_result.splitlines()
+        lines = pidstat_result.splitlines()[3:]
+        dict={}
+        collect = False
+        for line in lines:
+            line=line.replace("     ",' ').replace("    ",' ').replace("   ",' ').replace("  ",' ').replace("  ",' ')
+            words = line.split(' ')
+            # TID = words[3]
+            # %cpu = words[8]
+            #print(words)
+            if words[2] in TID:
+                collect = True
+                #print("1", words[2])
+                continue
+            elif collect == True and words[2] !='-':
+                #print("2", words[2])
+                collect = False
+                continue
+            elif collect == False:
+                #print("3", words[2])
+                continue
+            
+            dict[words[3]] = words[8]
+
+
+        sorted(dict.items(),key=lambda x:x[1],reverse=True)
+        result['cpu_usage'] = dict
+        #print(dict)
+
+        return result
 
     def collect_metrics(self) -> Dict[str, Any]:
         """Collect database metrics information
@@ -255,53 +315,56 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
             },
             "local": None,
         }
-        self._global_status = {
-            x[0].lower(): x[1] for x in self._cmd(self.METRICS_SQL)[0]
-        }
-        metrics["global"]["global"] = self._global_status
-        metrics["global"]["innodb_metrics"] = dict(
-            self._cmd(self.METRICS_INNODB_SQL)[0]
-        )
-        status_raw = self._cmd(self.ENGINE_INNODB_SQL)[0]
-        if len(status_raw) > 0:
-            self._innodb_status = self._truncate_innodb_status(status_raw[0][-1])
+        # self._global_status = {
+        #     x[0].lower(): x[1] for x in self._cmd(self.METRICS_SQL)[0]
+        # }
+        # metrics["global"]["global"] = self._global_status
+        # metrics["global"]["innodb_metrics"] = dict(
+        #     self._cmd(self.METRICS_INNODB_SQL)[0]
+        # )
+        # status_raw = self._cmd(self.ENGINE_INNODB_SQL)[0]
+        # if len(status_raw) > 0:
+        #     self._innodb_status = self._truncate_innodb_status(status_raw[0][-1])
 
-        metrics["global"]["engine"]["innodb_status"] = self._innodb_status
-        metrics["global"]["derived"] = self._collect_derived_metrics()
-        # replica status and master status
-        replica_metrics, replica_meta = self._cmd(self.ENGINE_REPLICA_SQL)
-        if len(replica_metrics) > 0:
-            replica_metrics = replica_metrics[0]
-            replica_json = dict(zip(replica_meta, replica_metrics))
-            metrics["global"]["engine"]["replica_status"] = json.dumps(replica_json)
-        else:
-            metrics["global"]["engine"]["replica_status"] = ""
+        # metrics["global"]["engine"]["innodb_status"] = self._innodb_status
+        # metrics["global"]["derived"] = self._collect_derived_metrics()
+        # # replica status and master status
+        # replica_metrics, replica_meta = self._cmd(self.ENGINE_REPLICA_SQL)
+        # if len(replica_metrics) > 0:
+        #     replica_metrics = replica_metrics[0]
+        #     replica_json = dict(zip(replica_meta, replica_metrics))
+        #     metrics["global"]["engine"]["replica_status"] = json.dumps(replica_json)
+        # else:
+        #     metrics["global"]["engine"]["replica_status"] = ""
 
-        master_metrics, master_meta = self._cmd(self.ENGINE_MASTER_SQL)
-        if len(master_metrics) > 0:
-            master_metrics = master_metrics[0]
-            master_json = dict(zip(master_meta, master_metrics))
-            metrics["global"]["engine"]["master_status"] = json.dumps(master_json)
-        else:
-            metrics["global"]["engine"]["master_status"] = ""
+        # master_metrics, master_meta = self._cmd(self.ENGINE_MASTER_SQL)
+        # if len(master_metrics) > 0:
+        #     master_metrics = master_metrics[0]
+        #     master_json = dict(zip(master_meta, master_metrics))
+        #     metrics["global"]["engine"]["master_status"] = json.dumps(master_json)
+        # else:
+        #     metrics["global"]["engine"]["master_status"] = ""
 
-        try:
-            digest_data, digest_meta = self._cmd(self.QUERY_DIGEST_TIME)
-            summary_by_digest = self._make_list(digest_data, digest_meta)
-        except Exception as ex:  # pylint: disable=broad-except
-            logging.error("Failed to collect query latency metrics: %s", ex)
-            summary_by_digest = []
+        # try:
+        #     digest_data, digest_meta = self._cmd(self.QUERY_DIGEST_TIME)
+        #     summary_by_digest = self._make_list(digest_data, digest_meta)
+        # except Exception as ex:  # pylint: disable=broad-except
+        #     logging.error("Failed to collect query latency metrics: %s", ex)
+        #     summary_by_digest = []
 
-        metrics["global"]["performance_schema"][
-            "events_statements_summary_by_digest"
-        ] = json.dumps(summary_by_digest)
+        # metrics["global"]["performance_schema"][
+        #     "events_statements_summary_by_digest"
+        # ] = json.dumps(summary_by_digest)
 
-        if self._version >= 8.0:
-            # latency histogram
-            histogram_data, histogram_meta = self._cmd(self.METRICS_LATENCY_HIST_SQL)
-            metrics["global"]["performance_schema"][
-                "events_statements_histogram_global"
-            ] = json.dumps(self._make_list(histogram_data, histogram_meta))
+        # if self._version >= 8.0:
+        #     # latency histogram
+        #     histogram_data, histogram_meta = self._cmd(self.METRICS_LATENCY_HIST_SQL)
+        #     metrics["global"]["performance_schema"][
+        #         "events_statements_histogram_global"
+        #     ] = json.dumps(self._make_list(histogram_data, histogram_meta))
+
+        thread_metrics = self.collect_thread()
+        metrics['global']["performance_schema"].update(thread_metrics)
         return metrics
 
     def collect_table_row_number_stats(self) -> Dict[str, Any]:

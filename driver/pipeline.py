@@ -3,7 +3,7 @@
 from datetime import datetime
 import logging
 from requests import Session
-
+import json
 from apscheduler.schedulers.background import BlockingScheduler
 
 from driver.driver_config_builder import DriverConfig
@@ -12,6 +12,7 @@ from driver.database import (
     collect_db_level_observation_for_on_prem,
     collect_table_level_observation_for_on_prem,
 )
+from datetime import datetime
 
 
 TUNE_JOB_ID = "tune_job"
@@ -30,18 +31,20 @@ def driver_pipeline(
     logging.info("Running driver pipeline deployment!")
 
 
-    compute_server_client = ComputeServerClient(
-        config.server_url, Session(), config.api_key
-    )
+    #compute_server_client = ComputeServerClient(
+    #    config.server_url, Session(), config.api_key
+    #)
 
     if job_id == DB_LEVEL_MONITOR_JOB_ID:
-        _db_level_monitor_driver_pipeline_for_on_prem(config, compute_server_client)
+        _db_level_monitor_driver_pipeline_for_on_prem(config)
     elif job_id == TABLE_LEVEL_MONITOR_JOB_ID:
-        _table_level_monitor_driver_pipeline_for_on_prem(config, compute_server_client)
+        _table_level_monitor_driver_pipeline_for_on_prem(config)
+    # elif job_id == LINUX
+
 
 def _db_level_monitor_driver_pipeline_for_on_prem(
     config: DriverConfig,
-    compute_server_client: ComputeServerClient,
+    #compute_server_client: ComputeServerClient,
 ) -> None:
     """
     Regular monitoring pipeline that collects database level metrics and configs every minute
@@ -55,13 +58,19 @@ def _db_level_monitor_driver_pipeline_for_on_prem(
     """
     logging.debug("Collecting db level observation data.")
     db_level_observation = collect_db_level_observation_for_on_prem(config)
+    #import pprint
+    #pprint.pprint(db_level_observation)
+    now = datetime.now()
+    file_name = now.strftime('%Y%m%d_%H%M%S')
+    with open('/root/db_agent/data/'+file_name, 'w') as outfile:
+        json.dump(db_level_observation, outfile)
+    logging.debug("Saving db level observation data to the server.")
 
-    logging.debug("Posting db level observation data to the server.")
-    compute_server_client.post_db_level_observation(db_level_observation)
+    #compute_server_client.post_db_level_observation(db_level_observation)
 
 def _table_level_monitor_driver_pipeline_for_on_prem(
     config: DriverConfig,
-    compute_server_client: ComputeServerClient,
+    #compute_server_client: ComputeServerClient,
 ) -> None:
     """
     Regular monitoring pipeline that collects table level metrics every hour
@@ -77,15 +86,15 @@ def _table_level_monitor_driver_pipeline_for_on_prem(
     table_level_observation = collect_table_level_observation_for_on_prem(config)
 
     logging.debug("Posting table level observation data to the server.")
-    compute_server_client.post_table_level_observation(table_level_observation)
+    #compute_server_client.post_table_level_observation(table_level_observation)
 
 def _get_interval(config: DriverConfig, job_id: str) -> int:
     """Get the scheduled time interval (sec) based on job id."""
 
     if job_id == DB_LEVEL_MONITOR_JOB_ID:
-        interval_s = int(config.monitor_interval)
+        interval_s = int(config['monitor_interval'])
     elif job_id == TABLE_LEVEL_MONITOR_JOB_ID:
-        interval_s = int(config.table_level_monitor_interval)
+        interval_s = int(config['table_level_monitor_interval'])
     else:
         raise ValueError(f"Job {job_id} is not supported")
     return interval_s

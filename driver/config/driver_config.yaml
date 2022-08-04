@@ -6,14 +6,14 @@
 # This section is required for connecting to the ottertune compute server
 
 # URL of the OtterTune server that the driver communicates with
-server_url: 'https://api.ottertune.com'
+#server_url: 'https://api.ottertune.com'
 
 # ====================================================================
 #  METRICS OPTIONS
 # ====================================================================
 # This section is required for determining what metrics to collect
 
-metric_source: ["cloudwatch"]
+metric_source: ["mysql","linux"]
 
 # ====================================================================
 #  DRIVER OPTIONS

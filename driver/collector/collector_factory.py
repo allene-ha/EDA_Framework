@@ -150,6 +150,8 @@ def connect_mysql(mysql_conf: Dict[str, Any]) -> mysql.connector.MySQLConnection
     Raises:
         MysqlCollectorException: unable to query DB for version
     """
+    print(mysql_conf)
+    #mysql_conf['passwd']='1234'
     try:
         return mysql.connector.connect(**mysql_conf, autocommit=True)
     except mysql.connector.Error as ex:

@@ -26,9 +26,9 @@ def collect_db_level_observation_for_on_prem(config: DriverConfig) -> DBLevelObs
         MysqlCollectorException: unable to connect to MySQL database or get version.
         PostgresCollectorException: unable to connect to Postgres database or get version.
     """
-    observation = collect_db_level_data_from_database(config._asdict())
-    metrics_from_sources = collect_data_from_metric_sources(config._asdict())
-    observation["metrics_data"]["global"].update(metrics_from_sources)
+    observation = collect_db_level_data_from_database(config)
+    #metrics_from_sources = collect_data_from_metric_sources(config._asdict())
+    #observation["metrics_data"]["global"].update(metrics_from_sources)
     return observation
 
 
@@ -46,7 +46,7 @@ def collect_table_level_observation_for_on_prem(config: DriverConfig) -> TableLe
         MysqlCollectorException: unable to connect to MySQL database or get version.
         PostgresCollectorException: unable to connect to Postgres database or get version.
     """
-    observation = collect_table_level_data_from_database(config._asdict())
+    observation = collect_table_level_data_from_database(config)
     return observation
 
 

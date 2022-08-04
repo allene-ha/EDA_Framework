@@ -182,7 +182,7 @@ class DriverConfigBuilder(BaseDriverConfigBuilder):
 
     def __init__(self, aws_region) -> None:
         self.config = {}
-        self.rds_client = AwsWrapper.rds_client(aws_region)
+        #self.rds_client = AwsWrapper.rds_client(aws_region)
         self.has_determined_db_type = False
 
     def from_file(self, config_path: str) -> BaseDriverConfigBuilder:
