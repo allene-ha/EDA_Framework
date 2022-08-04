@@ -220,9 +220,21 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
         return knobs
 
     def collect_test(self): 
-        TEST_SQL = "select round(timer_wait/1000000000,6) as time_ms, digest_text, thread_id, lock_time/1000000000 as lock_time_ms   from events_statements_current;"
+        TID = []
+        TEST_SQL = "select round(timer_wait/1000000000,6) as time_ms, digest_text, thread_id, lock_time/1000000000 as lock_time_ms from performance_schema.events_statements_current;"
         result = self._cmd(TEST_SQL)[0]
+        
         print(result)
+        print(type(result))
+        print(len(result))
+        for i in result:
+            print(i)
+            TID.append(i[2])
+        print(TID)
+        for i in TID:
+            THREAD_SQL = f"select * from performance_schema.threads  where thread_id={i};"
+            thread_result = self._cmd(THREAD_SQL)[0]
+            print(thread_result)
         return None
 
     def collect_metrics(self) -> Dict[str, Any]:

@@ -34,6 +34,11 @@ class BaseDbCollector(ABC):
         """Get the information of tables to collect table and index stats"""
 
     @abstractmethod
+    def collect_test(self): 
+        """HAHA"""
+
+
+    @abstractmethod
     def collect_table_level_metrics(self,
                                     target_table_info: Dict[str, Any]) -> Dict[str, Any]:
         """Collect table level statistics"""

@@ -18,8 +18,7 @@ from pydantic import (
 )
 import yaml
 
-from driver.aws.rds import get_db_version, get_db_port, get_db_hostname, get_db_type
-from driver.aws.wrapper import AwsWrapper
+
 from driver.exceptions import DriverConfigException
 
 
