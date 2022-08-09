@@ -143,6 +143,22 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
             msg = f"Failed to execute sql {sql}"
             raise MysqlCollectorException(msg, ex) from ex
 
+    def _cmd_wo_fetch(self, sql: str):  # type: ignore
+        """Run the command line (sql query), and fetch the returned results.
+        Args:
+            sql: Sql query which is executed
+        Returns:
+            Fetched results of the query, as well as table meta data
+        Raises:
+            MysqlCollectorException: Failed to execute the sql query
+        """
+        try:
+            cursor = self._conn.cursor(dictionary=False)
+            cursor.execute(sql)
+        except Exception as ex:  # pylint: disable=broad-except
+            msg = f"Failed to execute sql {sql}"
+            raise MysqlCollectorException(msg, ex) from ex
+
     def get_version(self) -> str:
         """Get database version"""
 
@@ -225,15 +241,22 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
         
         with open('end_time', 'r') as infile:
             end_time = infile.read()
-        print("before",end_time)
-        QUERY_DIGEST_SQL = f"select round(timer_wait/1000000000,6) as time_ms, digest, digest_text, thread_id, timer_end from performance_schema.events_statements_history where timer_end>{end_time};"
+        #print("before",end_time)
+        QUERY_DIGEST_SQL = f"select round(history.timer_wait/1000000000,6) as time_ms, history.digest, history.digest_text, history.thread_id, summary.count_star as count, history.timer_end from performance_schema.events_statements_history history inner join performance_schema.events_statements_summary_by_digest summary on history.digest=summary.digest where history.timer_end>{end_time};"
+        #events_statements_history 에서 count 관련 정보는 없지만 digest를 얻을 수 있음
+        #이 digest를 기준으로 이 테이블과 events_statements_summary_by_digest를 digest로 inner join해서
+        #events_statements_summary_by_digest 테이블에 count_star
+        # select round(history.timer_wait/1000000000,6) as time_ms, history.digest, history.digest_text, history.thread_id, summary.count_star as count, history.timer_end from performance_schema.events_statements_history history inner join performance_schema.events_statements_summary_by_digest summary on history.digest=summary.digest where history.timer_end>0;
+        # digest랑 Count_star는 중복제거 해야함
         try:
             query_digest_data, query_digest_meta = self._cmd(QUERY_DIGEST_SQL)
+            self._cmd_wo_fetch("truncate table performance_schema.events_statements_summary_by_digest;")
             end_time = str(query_digest_data[-1][-1])
-            print("after",end_time)
+            #print("after",end_time)
             with open('end_time', 'w') as outfile:
                 outfile.write(end_time)
             query_digest = self._make_list(query_digest_data, query_digest_meta)
+            #print(query_digest[0])
         except Exception as ex:
             logging.error("Failed to collect query digest: %s", ex)
             query_digest = []
@@ -267,35 +290,44 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
             if 'mysql' in ps[0]:
                 TID.append(ps[1])
         #print(TID)
-        pidstat_result = subprocess.check_output(['pidstat', '-t']).decode()
-        #pidstat_result.splitlines()
-        lines = pidstat_result.splitlines()[3:]
+        pidstat_cpu_result = subprocess.check_output(['pidstat -t'], shell=True).decode()
+        lines = pidstat_cpu_result.splitlines()[3:]
         dict={}
         collect = False
         for line in lines:
             line=line.replace("     ",' ').replace("    ",' ').replace("   ",' ').replace("  ",' ').replace("  ",' ')
             words = line.split(' ')
-            # TID = words[3]
-            # %cpu = words[8]
-            #print(words)
             if words[2] in TID:
                 collect = True
-                #print("1", words[2])
                 continue
             elif collect == True and words[2] !='-':
-                #print("2", words[2])
                 collect = False
                 continue
             elif collect == False:
-                #print("3", words[2])
                 continue
-            
             dict[words[3]] = words[8]
-
-
         sorted(dict.items(),key=lambda x:x[1],reverse=True)
         result['cpu_usage'] = dict
-        #print(dict)
+
+        pidstat_io_result = subprocess.check_output(['pidstat -d -t'], shell=True).decode()
+        lines = pidstat_io_result.splitlines()[3:]
+        dict={}
+        collect = False
+        for line in lines:
+            line=line.replace("     ",' ').replace("    ",' ').replace("   ",' ').replace("  ",' ').replace("  ",' ')
+            words = line.split(' ')
+            if words[2] in TID:
+                collect = True
+                continue
+            elif collect == True and words[2] !='-':
+                collect = False
+                continue
+            elif collect == False:
+                continue
+            dict[words[3]] = words[7]# float(words[4])+float(words[5]) # clock ticks
+        sorted(dict.items(),key=lambda x:x[1],reverse=True)
+        result['io'] = dict
+        print(dict)
 
         return result
 
@@ -324,11 +356,11 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
         # metrics["global"]["innodb_metrics"] = dict(
         #     self._cmd(self.METRICS_INNODB_SQL)[0]
         # )
-        status_raw = self._cmd(self.ENGINE_INNODB_SQL)[0]
-        if len(status_raw) > 0:
-            self._innodb_status = self._truncate_innodb_status(status_raw[0][-1])
-        metrics["global"]["engine"]["innodb_status"] = self._innodb_status
-        metrics["global"]["engine"]["innodb_status_io"] = self._extract_from_innodb_status(self._innodb_status)
+        # status_raw = self._cmd(self.ENGINE_INNODB_SQL)[0]
+        # if len(status_raw) > 0:
+        #     self._innodb_status = self._truncate_innodb_status(status_raw[0][-1])
+        # metrics["global"]["engine"]["innodb_status"] = self._innodb_status
+        # metrics["global"]["engine"]["innodb_status_io"] = self._extract_from_innodb_status(self._innodb_status)
         # metrics["global"]["derived"] = self._collect_derived_metrics()
         # # replica status and master status
         # replica_metrics, replica_meta = self._cmd(self.ENGINE_REPLICA_SQL)
