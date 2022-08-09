@@ -324,11 +324,11 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
         # metrics["global"]["innodb_metrics"] = dict(
         #     self._cmd(self.METRICS_INNODB_SQL)[0]
         # )
-        # status_raw = self._cmd(self.ENGINE_INNODB_SQL)[0]
-        # if len(status_raw) > 0:
-        #     self._innodb_status = self._truncate_innodb_status(status_raw[0][-1])
-
-        # metrics["global"]["engine"]["innodb_status"] = self._innodb_status
+        status_raw = self._cmd(self.ENGINE_INNODB_SQL)[0]
+        if len(status_raw) > 0:
+            self._innodb_status = self._truncate_innodb_status(status_raw[0][-1])
+        metrics["global"]["engine"]["innodb_status"] = self._innodb_status
+        metrics["global"]["engine"]["innodb_status_io"] = self._extract_from_innodb_status(self._innodb_status)
         # metrics["global"]["derived"] = self._collect_derived_metrics()
         # # replica status and master status
         # replica_metrics, replica_meta = self._cmd(self.ENGINE_REPLICA_SQL)
@@ -567,6 +567,31 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
         new_lines.extend(lines[-100:])
         truncated_status = "\n".join(new_lines)
         return truncated_status
+
+    @staticmethod
+    def _extract_from_innodb_status(status: str) -> dict:
+        """
+        extract data i/o and log i/o from innodb status
+        """
+        file_io = ''
+        log_io = ''
+        lines = status.splitlines()
+        for line in lines:
+            if 'OS file reads,' in line:
+                file_io = line
+            elif 'log i/o' in line:
+                log_io = line
+        
+        import re
+        file_io_number = re.findall(r'\d+', file_io)
+        log_io_number = re.findall(r'\d+', log_io)
+        #print(file_io_number)        
+        #print(log_io_number)
+        dict = {}
+        dict['data_io'] = int(file_io_number[0]) + int(file_io_number[1])
+        dict['log_io'] = int(log_io_number[0])
+        print(dict)
+        return dict 
 
     @staticmethod
     def _make_list(data, meta: List[str]) -> List[Dict[str, Any]]:  # type: ignore
