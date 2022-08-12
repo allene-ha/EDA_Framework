@@ -62,7 +62,7 @@ def _db_level_monitor_driver_pipeline_for_on_prem(
     #pprint.pprint(db_level_observation)
     now = datetime.now()
     file_name = now.strftime('%Y%m%d_%H%M%S')
-    with open('/root/db_agent/data/'+file_name, 'w') as outfile:
+    with open('data/'+file_name, 'w') as outfile:
         json.dump(db_level_observation, outfile)
     logging.debug("Saving db level observation data to the server.")
 
