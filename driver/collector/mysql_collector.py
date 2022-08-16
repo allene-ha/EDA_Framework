@@ -269,7 +269,7 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
         thread_data = []
         thread_meta = []
         thread_result = []
-        print(TID)
+        #print(TID)
         for i in TID:
             THREAD_SQL = f"select thread_id, thread_os_id from performance_schema.threads  where thread_id={i};"
             thread_data = self._cmd(THREAD_SQL)[0]
@@ -327,7 +327,7 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
             dict[words[3]] = words[7]# float(words[4])+float(words[5]) # clock ticks
         sorted(dict.items(),key=lambda x:x[1],reverse=True)
         result['io'] = dict
-        print(dict)
+        #print(dict)
 
         return result
 
@@ -349,19 +349,32 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
             },
             "local": None,
         }
-        # self._global_status = {
-        #     x[0].lower(): x[1] for x in self._cmd(self.METRICS_SQL)[0]
-        # }
-        # metrics["global"]["global"] = self._global_status
-        # metrics["global"]["innodb_metrics"] = dict(
-        #     self._cmd(self.METRICS_INNODB_SQL)[0]
-        # )
-        # status_raw = self._cmd(self.ENGINE_INNODB_SQL)[0]
-        # if len(status_raw) > 0:
-        #     self._innodb_status = self._truncate_innodb_status(status_raw[0][-1])
-        # metrics["global"]["engine"]["innodb_status"] = self._innodb_status
-        # metrics["global"]["engine"]["innodb_status_io"] = self._extract_from_innodb_status(self._innodb_status)
-        # metrics["global"]["derived"] = self._collect_derived_metrics()
+        self._global_status = {
+            x[0].lower(): x[1] for x in self._cmd(self.METRICS_SQL)[0]
+        }
+        metrics["global"]["global"] = self._global_status
+        metrics["global"]["innodb_metrics"] = dict(
+            self._cmd(self.METRICS_INNODB_SQL)[0]
+        )
+        status_raw = self._cmd(self.ENGINE_INNODB_SQL)[0]
+        if len(status_raw) > 0:
+            self._innodb_status = self._truncate_innodb_status(status_raw[0][-1])
+        metrics["global"]["engine"]["innodb_status"] = self._innodb_status
+        metrics["global"]["engine"]["innodb_status_io"] = self._extract_from_innodb_status(self._innodb_status)
+        metrics["global"]["derived"] = self._collect_derived_metrics()
+        
+        # CPU
+        pidstat_cpu_usage = subprocess.check_output(['pidstat -C mysql'], shell=True).decode()
+        lines = pidstat_cpu_usage.splitlines()[3:]
+        temp = 0
+
+        for line in lines:
+            line=line.replace("     ",' ').replace("    ",' ').replace("   ",' ').replace("  ",' ').replace("  ",' ')
+            words = line.split(' ')
+            
+            temp += float(words[7])# float(words[4])+float(words[5]) # clock ticks
+        metrics["global"]["cpu"] = temp
+        
         # # replica status and master status
         # replica_metrics, replica_meta = self._cmd(self.ENGINE_REPLICA_SQL)
         # if len(replica_metrics) > 0:
@@ -622,7 +635,7 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
         dict = {}
         dict['data_io'] = int(file_io_number[0]) + int(file_io_number[1])
         dict['log_io'] = int(log_io_number[0])
-        print(dict)
+        #print(dict)
         return dict 
 
     @staticmethod
