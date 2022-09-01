@@ -141,14 +141,7 @@ def get_config(args):
 
     return config
 
-
-def run() -> None:
-    """
-    The main entrypoint for the driver
-    """
-
-
-
+def connect_config():
     db_type='mysql'
     mysql_host='localhost'
     mysql_port='3306'
@@ -176,6 +169,16 @@ def run() -> None:
     if not isinstance(numeric_level, int):
         raise ValueError(f"Invalid log level: {loglevel}")
     logging.basicConfig(level=numeric_level)
+    return config
+
+def run() -> None:
+    """
+    The main entrypoint for the driver
+    """
+
+    config = connect_config()
+
+
     end_time = str(0) # initialize
     with open('end_time', 'w') as outfile:
         outfile.write(end_time)

@@ -122,6 +122,9 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
         else:
             self.ENGINE_REPLICA_SQL: str = "SHOW SLAVE STATUS;"
         #self.end_time
+    
+    def get_conn(self):
+        return self._conn
 
     def _cmd(self, sql: str):  # type: ignore
         """Run the command line (sql query), and fetch the returned results.
@@ -144,14 +147,6 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
             raise MysqlCollectorException(msg, ex) from ex
 
     def _cmd_wo_fetch(self, sql: str):  # type: ignore
-        """Run the command line (sql query), and fetch the returned results.
-        Args:
-            sql: Sql query which is executed
-        Returns:
-            Fetched results of the query, as well as table meta data
-        Raises:
-            MysqlCollectorException: Failed to execute the sql query
-        """
         try:
             cursor = self._conn.cursor(dictionary=False)
             cursor.execute(sql)

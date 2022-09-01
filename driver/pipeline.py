@@ -58,8 +58,6 @@ def _db_level_monitor_driver_pipeline_for_on_prem(
     """
     logging.debug("Collecting db level observation data.")
     db_level_observation = collect_db_level_observation_for_on_prem(config)
-    #import pprint
-    #pprint.pprint(db_level_observation)
     now = datetime.now()
     file_name = now.strftime('%Y%m%d_%H%M%S')
     with open('data/'+file_name, 'w') as outfile:
