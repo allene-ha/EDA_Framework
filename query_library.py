@@ -1,5 +1,6 @@
-def get_query_library():
+def get_query_library(table_name='', limit=5):
 
+    
     query_library = {}
 
     # 1 Data
@@ -16,7 +17,7 @@ def get_query_library():
     GROUP BY Data_Type
     ORDER BY Number""" # 테이블별 데이터 타입의 개수
 
-    data['Database_Size'] = """SELECT
+    data['Database_Size'] = f"""SELECT
     TABLE_SCHEMA  AS Database,
     SUM(
         (data_length + index_length) / (1024 * 1024)
@@ -25,7 +26,7 @@ def get_query_library():
     information_schema.TABLES
     GROUP BY table_schema
     ORDER BY Database_Size DESC
-    LIMIT 5;""" # Top 5 데이터베이스의 사이즈
+    LIMIT {limit};""" # Top 5 데이터베이스의 사이즈
 
     data['Diskinfo'] = """SELECT
     TABLE_SCHEMA AS Database,
@@ -52,13 +53,13 @@ def get_query_library():
     ORDER BY TABLE_SCHEMA,
     TABLE_NAME;""" # FULLTEXT 인덱스 목록
 
-    index['Schema_Redundant_Index'] = """SELECT *
-    FROM sys.schema_redundant_indexes LIMIT 5;""" # 불필요한 중복되는 인덱스
+    index['Schema_Redundant_Index'] = f"""SELECT *
+    FROM sys.schema_redundant_indexes LIMIT {limit};""" # 불필요한 중복되는 인덱스
 
-    index['Unused_Indexes_In_Schema'] = """SELECT *
-    FROM sys.schema_unused_indexes limit 5;""" # 테이블에서 사용되지 않은 인덱스
+    index['Unused_Indexes_In_Schema'] = f"""SELECT *
+    FROM sys.schema_unused_indexes LIMIT {limit};""" # 테이블에서 사용되지 않은 인덱스
 
-    index['WorstIndex'] = """SELECT
+    index['WorstIndex'] = f"""SELECT
     t.TABLE_SCHEMA AS Db,
     t.TABLE_NAME AS Table,
     s.INDEX_NAME AS Index_Name,
@@ -96,20 +97,20 @@ def get_query_library():
         AND s.TABLE_NAME = s2.TABLE_NAME
         AND s.INDEX_NAME = s2.INDEX_NAME
     WHERE t.TABLE_SCHEMA != 'mysql'
-    LIMIT 10 ;""" # 성능이 가장 떨어지는 상위 10개 인덱스
+    LIMIT {limit} ;""" # 성능이 가장 떨어지는 상위 10개 인덱스
 
 
     # 3 Host
 
     query_library['Host'] = {}
     host = query_library['Host']
-    host['Host_Hitting_by_File_io'] = """SELECT host
+    host['Host_Hitting_by_File_io'] = f"""SELECT host
     FROM sys.x$host_summary
-    ORDER BY file_ios DESC LIMIT 5;""" # 총 파일 I/O를 기반으로 서버에 도달한 호스트
+    ORDER BY file_ios DESC LIMIT {limit};""" # 총 파일 I/O를 기반으로 서버에 도달한 호스트
 
-    host['Host_Hitting_by_Tablescans'] = """SELECT host
+    host['Host_Hitting_by_Tablescans'] = f"""SELECT host
     FROM sys.x$host_summary
-    ORDER BY table_scans DESC LIMIT 5;""" # 테이블 스캔을 통해 서버에 도달한 호스트
+    ORDER BY table_scans DESC LIMIT {limit};""" # 테이블 스캔을 통해 서버에 도달한 호스트
 
     # 4 User
 
@@ -125,17 +126,17 @@ def get_query_library():
     GROUP BY Host_Name
     ORDER BY No_Of_connections DESC ;""" # 현재 연결된 사용자
 
-    user['Users_Hitting_by_File_io'] = """SELECT user
+    user['Users_Hitting_by_File_io'] = f"""SELECT user
     FROM sys.x$user_summary
-    ORDER BY file_ios DESC LIMIT 5;""" # 총 파일 I/O를 기준으로 서버에 접속한 사용자
+    ORDER BY file_ios DESC LIMIT {limit};""" # 총 파일 I/O를 기준으로 서버에 접속한 사용자
 
-    user['Users_Hitting_by_Tablescans'] = """SELECT user
+    user['Users_Hitting_by_Tablescans'] = f"""SELECT user
     FROM sys.x$user_summary
-    ORDER BY table_scans DESC LIMIT 5;""" # 테이블 스캔으로 서버에 접속한 사용자
+    ORDER BY table_scans DESC LIMIT {limit};""" # 테이블 스캔으로 서버에 접속한 사용자
 
-    user['Users_statements_executed'] = """SELECT *
+    user['Users_statements_executed'] = f"""SELECT *
     FROM sys.x$user_summary_by_statement_latency
-    ORDER BY total_latency DESC LIMIT 5;""" # 사용자가 실행한 총 명령문 수를 기반으로 한 사용자
+    ORDER BY total_latency DESC LIMIT {limit};""" # 사용자가 실행한 총 명령문 수를 기반으로 한 사용자
 
     # 5 Object
 
@@ -150,9 +151,9 @@ def get_query_library():
     AND TABLE_SCHEMA NOT IN ('mysql','performance_schema',
     'information_schema');""" # Innodb가 아닌 테이블 수	
 
-    object['Object_accessed_the_most'] = """SELECT table_schema,table_name
+    object['Object_accessed_the_most'] = f"""SELECT table_schema,table_name
     FROM sys.x$schema_table_statistics
-    ORDER BY io_read_latency DESC LIMIT 5;""" # 가장 많이 엑세스한 테이블
+    ORDER BY io_read_latency DESC LIMIT {limit};""" # 가장 많이 엑세스한 테이블
 
     object['Storage_Engine'] = """SELECT
     ENGINE AS Engine,
@@ -192,9 +193,9 @@ def get_query_library():
     GROUP BY ENGINE
     ORDER BY SUM(data_length + index_length) DESC ;""" # 테이블별 엔진 타입
 
-    object['Table_InnoDB_Buffer_Pool'] = """SELECT object_schema,object_name
+    object['Table_InnoDB_Buffer_Pool'] = f"""SELECT object_schema,object_name
     FROM sys.x$innodb_buffer_stats_by_table
-    ORDER BY pages DESC LIMIT 5;""" # InnoDB 버퍼 풀에 가장 많은 페이지를 저장하는 테이블
+    ORDER BY pages DESC LIMIT {limit};""" # InnoDB 버퍼 풀에 가장 많은 페이지를 저장하는 테이블
 
     object['Tables_Size'] = """SELECT
     COUNT(*) AS Tables,
@@ -260,9 +261,9 @@ def get_query_library():
     WHERE referenced_table_name IS NOT NULL
     ORDER BY referenced_table_name;""" # FK 제약 조건 테이블 찾기
 
-    object['Hot_Tables'] = """select * from sys.io_global_by_file_by_bytes where file like '%.ibd' limit 10;""" 
+    object['Hot_Tables'] = f"""select * from sys.io_global_by_file_by_bytes where file like '%.ibd' LIMIT {limit};""" 
 
-    object['Hot_Schemas'] = """`select SUBSTRING_INDEX(SUBSTRING_INDEX(file,'/', 5),'/',-1) AS d, format_bytes(sum(total)) as bytes from x$io_global_by_file_by_bytes where file like '%.ibd' group by d order by sum(total) desc limit 10;`"""
+    object['Hot_Schemas'] = f"""`select SUBSTRING_INDEX(SUBSTRING_INDEX(file,'/', 5),'/',-1) AS d, format_bytes(sum(total)) as bytes from x$io_global_by_file_by_bytes where file like '%.ibd' group by d order by sum(total) desc LIMIT {limit};`"""
 
     # 6 Performance
 
@@ -281,7 +282,13 @@ def get_query_library():
     performance['Primary_Key_Ratio'] = """SELECT
     @tblWithoutPk :=
     (SELECT
-        COUNT()   FROM     information_schema.TABLES AS t     LEFT JOIN information_schema.KEY_COLUMN_USAGE AS c       ON t.TABLE_NAME = c.TABLE_NAME       AND c.CONSTRAINT_SCHEMA = t.TABLE_SCHEMA   WHERE t.TABLE_SCHEMA NOT IN ('information_schema', 'mysql','performance_schema')     AND constraint_name IS NULL) AS Tables_Without_PK,   @tblwithPk :=   (SELECT     COUNT()
+        COUNT()
+        FROM     information_schema.TABLES AS t     
+        LEFT JOIN information_schema.KEY_COLUMN_USAGE AS c       
+        ON t.TABLE_NAME = c.TABLE_NAME       
+        AND c.CONSTRAINT_SCHEMA = t.TABLE_SCHEMA   
+        WHERE t.TABLE_SCHEMA NOT IN ('information_schema', 'mysql','performance_schema')     
+        AND constraint_name IS NULL) AS Tables_Without_PK,   @tblwithPk :=   (SELECT     COUNT()
     FROM
         information_schema.TABLES AS t
         LEFT JOIN information_schema.KEY_COLUMN_USAGE AS c
@@ -291,9 +298,9 @@ def get_query_library():
         AND constraint_name = 'PRIMARY') AS Tables_With_PK,
     @tblwithPk / (@tblWithoutPk + @tblwithPk) * 100 AS Ratio ;""" # Primary Key Ratio
 
-    performance['Tables_with_full_table_scans'] = """SELECT *
+    performance['Tables_with_full_table_scans'] = f"""SELECT *
     FROM sys.x$schema_tables_with_full_table_scans
-    ORDER BY rows_full_scanned DESC,latency DESC LIMIT 5;""" # 쿼리 실행 시 전체 테이블 스캔을 수행하는 테이블 확인
+    ORDER BY rows_full_scanned DESC,latency DESC LIMIT {limit};""" # 쿼리 실행 시 전체 테이블 스캔을 수행하는 테이블 확인
 
     performance['Tables_Fragmentation'] = """SELECT TABLE_NAME, (DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024 AS sizeMb,DATA_FREE / 1024 / 1024 AS data_free_MB
     FROM information_schema.TABLES
@@ -372,12 +379,25 @@ def get_query_library():
     query_library['Statements'] = {}
     statements = query_library['Statements']
 
-    statements['most frequent query'] = """select * from sys.statement_analysis where query is not NULL and query <> 'COMMIT' order by exec_count desc limit 1;"""
+    statements['most frequent query'] = f"""select * from sys.statement_analysis where query is not NULL and query <> 'COMMIT' order by exec_count desc LIMIT {limit};"""
 
 
-    statements['statements with temp table'] = """select * from sys.statements_with_temp_tables where query like '%select%' order by exec_count desc limit 1;"""
+    statements['statements with temp table'] = f"""select * from sys.statements_with_temp_tables where query like '%select%' order by exec_count desc LIMIT {limit};"""
 
-    statements['statements with sorting'] = """select * from sys.statements_with_sorting where query is not null order by exec_count desc limit 1;"""
+    statements['statements with sorting'] = f"""select * from sys.statements_with_sorting where query is not null order by exec_count desc LIMIT {limit};"""
+    
+    statements['time consuming query'] = f"""SELECT (100 * SUM_TIMER_WAIT / sum(SUM_TIMER_WAIT) OVER ()) percent, 
+        sum_timer_wait as total, 
+        count_star as calls, 
+        avg_timer_wait as mean,
+        substring(digest_text,1,75)
+FROM 
+performance_schema.events_statements_summary_by_digest 
+        ORDER BY sum_timer_wait DESC
+        LIMIT {limit};"""
+    
+    
+    
 
     # 9 Table Statistics
     # Table name 받아야 함
@@ -387,9 +407,9 @@ def get_query_library():
     query_library['Table_Statistics'] = {}
     table_statistics = query_library['Table_Statistics']
 
-    table_statistics['table_statistics'] = f"""select * from sys.schema_table_statistics where table_schema = {table_name} limit 1;"""
+    table_statistics['table_statistics'] = f"""select * from sys.schema_table_statistics where table_schema = {table_name} LIMIT {limit};"""
 
-    table_statistics['table_statistics_with_buffer'] = f"""select * from sys.schema_table_statistics_with_buffer where table_schema = {table_name} limit 1;"""
+    table_statistics['table_statistics_with_buffer'] = f"""select * from sys.schema_table_statistics_with_buffer where table_schema = {table_name} LIMIT {limit};"""
 
 
     # 10
@@ -397,7 +417,7 @@ def get_query_library():
     query_library['etc'] = {}
     etc = query_library['etc']
 
-    etc['latest_file_io'] = """select * from sys.latest_file_io limit 1;"""
+    etc['latest_file_io'] = f"""select * from sys.latest_file_io LIMIT {limit};"""
     etc['Unclosed connections not closed properly'] = """SELECT ess.user, ess.host, (a.total_connections - a.current_connections) -ess.count_star as not_colsed, ((a.total_connections - a.current_connections)-ess.count_star)*100 / (a.total_connections - a.current_connections) as pct_not_closed 
     from performance_schema.events_statements_summary_by_account_by_event_name ess 
     JOIN performance_schema.accounts a 
