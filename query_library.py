@@ -231,7 +231,7 @@ def get_query_library(table_name='', limit=5):
     FROM
     information_schema.TABLES ;""" # 총 테이블 수와 크기
 
-    object['Tables_Without_PK_UK'] = """SELECT
+    object['Tables_Without_PK_UK'] = """SELECT DISTINCT
         t.TABLE_SCHEMA,
         t.TABLE_NAME,
         ENGINE
