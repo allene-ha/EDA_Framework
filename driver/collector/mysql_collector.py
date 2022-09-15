@@ -7,6 +7,8 @@ import logging
 import mysql.connector
 import mysql.connector.connection as mysql_conn
 from mysql.connector import errorcode
+import pandas as pd
+from IPython.display import display, clear_output
 
 import subprocess
 from driver.exceptions import MysqlCollectorException
@@ -97,6 +99,7 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
         "round(avg_timer_wait/1000000000, 6) as avg_time_ms "
         "FROM performance_schema.events_statements_summary_by_digest;"
     )
+    WAIT_SUMMARY_SQL = "select event_name, sum_timer_wait from performance_schema.events_waits_summary_global_by_event_name;"
 
     ENGINE_INNODB_SQL = "SHOW ENGINE INNODB STATUS;"
     ENGINE_MASTER_SQL = "SHOW MASTER STATUS;"
@@ -326,6 +329,13 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
 
         return result
 
+    def collect_waits(self):
+        self._cmd_wo_fetch("truncate table performance_schema.events_waits_summary_global_by_event_name;")
+        temp = dict(self._cmd(self.WAIT_SUMMARY_SQL)[0])
+        print(temp)
+        #temp= list(map(list, zip(*temp)))     
+        return temp
+       
     def collect_metrics(self) -> Dict[str, Any]:
         """Collect database metrics information
         Returns:
@@ -357,6 +367,7 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
         metrics["global"]["engine"]["innodb_status"] = self._innodb_status
         metrics["global"]["engine"]["innodb_status_io"] = self._extract_from_innodb_status(self._innodb_status)
         metrics["global"]["derived"] = self._collect_derived_metrics()
+        metrics["global"]["wait"] = self.collect_waits() # dict
         
         # CPU
         pidstat_cpu_usage = subprocess.check_output(['pidstat -C mysql'], shell=True).decode()
