@@ -3,20 +3,16 @@ from matplotlib import pyplot as plt
 from matplotlib.container import BarContainer
 import matplotlib
 import numpy as np
-import math
 import pandas as pd
 import copy
 import ipywidgets as widgets
 from ipywidgets import Label, HBox, VBox, Button, HTML
-from ipywidgets import interact, interact_manual, Layout
+from ipywidgets import Layout
 import IPython.display
 from IPython.display import display, clear_output
-import mplcursors
-from matplotlib.legend_handler import HandlerLine2D
-from collections import Counter
-from matplotlib.animation import FuncAnimation
+
+
 import seaborn as sns
-from matplotlib.dates import DateFormatter
 
 plt.style.use('seaborn-notebook')
 

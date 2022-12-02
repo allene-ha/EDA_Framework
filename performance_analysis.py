@@ -531,10 +531,7 @@ def visualize_multiple_chart_type(category, num, time_range, chart_type, m_agg='
             else:
                 print("?")
             x = ts
-            print("after assignment", x) # 여까지 ㅇㅋㅇㅋ
             y = y[len(y)-len(ts):]
-
-            print("after assignment", y) 
             if chart_type != 'bar':
                 mask = (y != 0)
                 x = [i for indx,i in enumerate(x) if mask[indx] == True]
@@ -542,7 +539,6 @@ def visualize_multiple_chart_type(category, num, time_range, chart_type, m_agg='
             x = x_pad(x, window_size)
             
             x = x[::window_size]
-            print(x, y, window_size)
             y = resample(y, window_size, how=m_agg) # Rollup, Aggregate
 
             assert len(x) == len(y)
@@ -598,7 +594,6 @@ def print_raw_data(dic, category, time_range,top_qid):
         i=0
         for i, t in enumerate(dic[query].timestamp):
             if t > dic[query].timestamp[-1] - time_range:
-                #print(i)
                 break
     
         if qid in top_qid:
@@ -606,15 +601,10 @@ def print_raw_data(dic, category, time_range,top_qid):
                 
     df = pd.DataFrame(data, columns = ['QID', 'Digest Text','CPU usage','Disk IO','Duration(ms)','Execution Count'])
     df = df.set_index('QID')
-    #qgrid.enable()
-    #from itables import init_notebook_mode
-
-    #init_notebook_mode(all_interactive=True)
-    #display(df) # VSCODE에서는 안보인다고하네...
+    
     from IPython.display import display, HTML
 
     display(HTML(df.to_html()))
-    #print(df)
     dropdown = widgets.Select(
                         options=df.index,
                         description='Select QID',
@@ -622,17 +612,16 @@ def print_raw_data(dic, category, time_range,top_qid):
                         layout={'height':'100px', 'width':'40%'})
     def filter_dataframe(widget):
         global filtered_df
-        selection = widget['new'] # qid?
+        selection = widget['new'] 
         
         with out:
-            clear_output() # 효과를 확인해야 함
-           # print(selection)
+            clear_output() 
             for digest in dic:
                 if dic[digest].query_id == selection:
                     q = dic[digest]
                     break
             x = q.timestamp
-            #y = q.cpu_usage
+            
             plt.close()
             fig, axes = plt.subplots(nrows=4, sharex = True)
             axes[0].plot(x,q.cpu_usage, label = "cpu usage")
@@ -661,7 +650,7 @@ def print_raw_data(dic, category, time_range,top_qid):
             multi = MultiCursor(fig.canvas, [axes[0],axes[1],axes[2]], color='r', lw=1)
             cursor = mplcursors.cursor(plt.gcf(), hover = True)
             plt.draw()
-            #filtered_df = df.loc[selection]
+            
 
     out = widgets.Output()
     dropdown.observe(filter_dataframe, names='value')
@@ -678,35 +667,30 @@ def query_visualizer():
     w1 = widgets.Dropdown(
         options=['CPU', 'Disk IO', 'Duration', 'Execution Count'],
         value='Duration',
-        #description='Metric type:',
         style = style,
         layout = layout,
     )
     w2 = widgets.Dropdown(
         options=['Last 1 min', 'Last 5 min','Last 10 min','Last 1 hr', 'Last 6 hrs', 'Last 24 hrs', 'past week', 'past month', 'custom'],
         value='Last 10 min',
-        #description='Time Period:',
         style = style,
         layout = layout,
     )
     w3 = widgets.Dropdown(
         options=['5','10','15'],
         value='5',
-        #description='# of queries:',
         style = style,
         layout=Layout(flex='1 1 25%', align_items='center', width='80%'),
     )
     w4 = widgets.Dropdown(
         options=['line', 'area','bar'],
         value='line',
-        #description='Query aggregation:',
         style = style,
         layout = layout,
     )
     w5 = widgets.Dropdown(
         options=['avg','min','max'],
         value='avg',
-        #description='Metrics aggregation:',
         style = style,
         layout = layout,
     )
@@ -737,7 +721,6 @@ def query_visualizer():
             time_range = dt.timedelta(hours = 24)
         clear_output(wait = True)
         display(HBox(widget_list))
-        #visualize(w1.value, num, time_range, w5.value)
         visualize_multiple_chart_type(w1.value, num, time_range, w4.value, w5.value, col)
 
     plt.figure(1) # CPU
@@ -788,8 +771,7 @@ def visualize_metrics():
         
         if len(selected_metrics) == 1:
             fig, ax1 = plt.subplots()
-            #resample(inp_array,window_size,how='avg')
-            #print(selected_metrics)
+            
             y = np.array(metrics[category][selected_metrics[0]], dtype=np.float32)
             y = resample(y, window_size) # Rollup, Aggregate
             ln1 = ax1.plot_date(x, y, 'g-', ms=0, label = selected_metrics[0])
@@ -813,17 +795,14 @@ def visualize_metrics():
             
             
             
-            #plt.gcf().legend(title = "METRIC", loc='lower left', mode = "expand", bbox_to_anchor=(0,1.02,1,0.2), ncol = 4)
         else:
-            #lines = None
-            
             min_metric = selected_metrics[0]
             min_value = max(metrics[category][min_metric].to_numpy(dtype=np.float32))
             max_metric = selected_metrics[0]
             max_value = max(metrics[category][max_metric].to_numpy(dtype=np.float32))
             
             for metric in selected_metrics: #min, max metric을 찾아서 축을 분리할 예정
-                #print(metric)
+               
                 if max(metrics[category][metric].to_numpy(dtype=np.float32)) > max_value:
                     max_value = max(metrics[category][metric].to_numpy(dtype=np.float32))
                     max_metric = metric
@@ -859,7 +838,7 @@ def visualize_metrics():
             for metric in selected_metrics:
                 y = np.array(metrics[category][metric], dtype=np.float32)
                 y = resample(y, window_size)
-                #print(metric)
+              
                 if max(metrics[category][metric].to_numpy(dtype=np.float32)) > (min_value+max_value)/2:
                     line = ax2.plot_date(x, y,  ms=0,  ls = '-', label = metric)
                 else:
@@ -870,8 +849,6 @@ def visualize_metrics():
         labs = [l.get_label() for l in lines]        
         plt.legend(lines, labs, bbox_to_anchor=(0,1.02,1,0.2), loc="lower left",
                 mode="expand", borderaxespad=0, ncol=3)
-
-        #plt.xlim(x[-1]-time_range,x[-1])
         plt.gcf().autofmt_xdate()
         plt.gcf().suptitle(f"Metrics Visualization", size=20, fontweight="bold")
         mplcursors.cursor(plt.gcf(), hover = True)   
@@ -887,13 +864,10 @@ def visualize_metrics():
                             layout={'height':'100px', 'width':'40%'})
 
 
-    #selection = widget['new'] # qid?
 
     def filter_dataframe(widget):
         def on_click_callback(widget): # visualize metrics
-        #clear_output()
             visualize(dropdown.value, list(dropdown2.value))
-            #print(dropdown2.value)
         selection = widget['new'] 
         button = widgets.Button(description='Click me')
 
@@ -901,9 +875,7 @@ def visualize_metrics():
         hbox = HBox ([dropdown, dropdown2,button])
         clear_output()
         display(hbox)
-        #dropdown2.observe(visualize_metrics, names='value')
         button.on_click(on_click_callback)
-        #clear_output() # 효과를 확인해야 함
 
 
     out = widgets.Output()
@@ -952,11 +924,7 @@ def wait_visualizer():
         elif w2.value == 'Last 24 hrs':
             time_range = dt.timedelta(hours = 24)
         
-        # option
-        # timerange
-        # #queries
-        # charttype
-        # aggregation
+
         ts = [i for i in all_timestamp if i > all_timestamp[-1]-time_range]
         wait1 = wait.iloc[len(wait.index)-len(ts):]
         
@@ -965,7 +933,6 @@ def wait_visualizer():
         
         wait_viz = wait1[top_index]
         wait_viz.index = ts
-        #display(wait_viz)
         
         wait_viz[::5].plot(grid = True, kind = w3.value, title = 'Wait Time Analysis', fontsize= 10, alpha = 0.5)
         plt.title( 'Wait Time Analysis', fontdict = {'weight':'bold','fontsize' : 25})

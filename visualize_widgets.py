@@ -1,31 +1,13 @@
 from query import * 
 from dataframe_visualization import *
 from performance_analysis import *
-
-import json
-import os
-import pprint
-import datetime as dt
 from matplotlib import pyplot as plt
-from matplotlib.container import BarContainer
-
 import numpy as np
-import math
 import pandas as pd
-import textwrap
-
 import ipywidgets as widgets
 from ipywidgets import Label, HBox, VBox, Button, HTML
-from ipywidgets import interact, interact_manual, Layout
-import IPython.display
-from IPython.display import display, clear_output
-import mplcursors
-from matplotlib.legend_handler import HandlerLine2D
-from collections import Counter
-from matplotlib.animation import FuncAnimation
-import matplotlib.dates as mdates 
-import copy
-from matplotlib.dates import DateFormatter
+from ipywidgets import Layout
+
 plt.style.use('seaborn-notebook')
 
 
