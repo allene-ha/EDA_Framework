@@ -12,7 +12,7 @@ from driver.database import (
     collect_db_level_data_from_database,
     collect_table_level_data_from_database,
 )
-from tests.useful_literals import TABLE_LEVEL_MYSQL_COLUMNS
+#from tests.useful_literals import TABLE_LEVEL_MYSQL_COLUMNS
 
 # pylint: disable=ungrouped-imports
 from driver.collector.mysql_collector import MysqlCollector
