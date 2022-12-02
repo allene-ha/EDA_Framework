@@ -12,7 +12,7 @@ from ipywidgets import HBox, VBox, Button
 from ipywidgets import interact, interact_manual, Layout
 import mplcursors
 
-from mysql_collect_test import connect_config
+from mysql_collect import connect_config
 from driver.collector.collector_factory import get_collector
 from driver.collector.mysql_collector import MysqlCollector
 from IPython.core.display import HTML

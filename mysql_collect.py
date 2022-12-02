@@ -142,12 +142,21 @@ def get_config(args):
     return config
 
 def connect_config():
-    db_type='mysql'
-    mysql_host='localhost'
-    mysql_port='3306'
-    mysql_user='root'
-    mysql_password=''
-    mysql_database=''
+    with open('connect_config.json') as json_file:
+        data = json.load(json_file)
+
+    db_type=data["db_type"]
+    mysql_host=data["mysql_host"]
+    mysql_port=data["mysql_port"]
+    mysql_user=data["mysql_user"]
+    mysql_password=data["mysql_password"]
+    mysql_database=data["mysql_database"]   
+    # db_type='mysql'
+    # mysql_host='localhost'
+    # mysql_port='3306'
+    # mysql_user='root'
+    # mysql_password=''
+    # mysql_database=''
     monitor_interval=10
     table_level_monitor_interval=5000
 

@@ -306,6 +306,7 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
             dict[words[3]] = words[8]
         sorted(dict.items(),key=lambda x:x[1],reverse=True)
         result['cpu_usage'] = dict
+        #print(dict)
 
         pidstat_io_result = subprocess.check_output(['pidstat -d -t'], shell=True).decode()
         lines = pidstat_io_result.splitlines()[3:]
@@ -332,7 +333,7 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
     def collect_waits(self):
         self._cmd_wo_fetch("truncate table performance_schema.events_waits_summary_global_by_event_name;")
         temp = dict(self._cmd(self.WAIT_SUMMARY_SQL)[0])
-        print(temp)
+        #print(temp)
         #temp= list(map(list, zip(*temp)))     
         return temp
        
@@ -371,6 +372,7 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
         
         # CPU
         pidstat_cpu_usage = subprocess.check_output(['pidstat -C mysql'], shell=True).decode()
+        
         lines = pidstat_cpu_usage.splitlines()[3:]
         temp = 0
 
@@ -379,6 +381,7 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
             words = line.split(' ')
             
             temp += float(words[7])# float(words[4])+float(words[5]) # clock ticks
+        #print("cpu collection test!!!",temp)
         metrics["global"]["cpu"] = temp
         
         # # replica status and master status
