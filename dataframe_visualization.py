@@ -117,6 +117,30 @@ def dataframe_visualization(df):
             df_pivot_mean = pd.pivot_table(self.df, index = dropdown_y.dropdown.value, columns = dropdown_x.dropdown.value, values = dropdown_color.dropdown.value, aggfunc = 'mean')
             #index = y, colunns = x, vlaues = color
             sns.heatmap(df_pivot_mean, cbar_kws={'label': dropdown_color.dropdown.value}).set(title = title)
+            ax = plt.gca()
+            if self.detail is not None:
+                min, max, interval, scale = self.detail['X-axis']
+                if min == 'None':
+                    min, _ = ax.get_xlim()
+                if max == 'None':
+                    _, max = ax.get_xlim()
+                if interval == 'None':
+                    ax.set_xlim(min, max)
+                else:
+                    ax.xaxis.set_ticks(np.arange(min, max, interval))
+                ax.set_xscale(scale)
+
+                min, max, interval, scale = self.detail['Y-axis']
+                if min == 'None':
+                    min, _ = ax.get_ylim()
+                if max == 'None':
+                    _, max = ax.get_ylim()
+                if interval == 'None':
+                    ax.set_ylim(min, max)
+                else:
+                    ax.yaxis.set_ticks(np.arange(min, max, interval))
+                ax.set_yscale(scale)
+   
             clear_output(wait=True)
             display_df(self.df)
             display_widgets()
@@ -136,6 +160,32 @@ def dataframe_visualization(df):
             plt.clf()
             sns.set(rc={'figure.figsize':(12,9)})
             sns.relplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, ci=None, legend = 'full', kind = 'line', **d, data=df).set(title = title)
+            
+            ax = plt.gca()
+            if self.detail is not None:
+                min, max, interval, scale = self.detail['X-axis']
+                if min == 'None':
+                    min, _ = ax.get_xlim()
+                if max == 'None':
+                    _, max = ax.get_xlim()
+                if interval == 'None':
+                    ax.set_xlim(min, max)
+                else:
+                    ax.xaxis.set_ticks(np.arange(min, max, interval))
+                ax.set_xscale(scale)
+
+                min, max, interval, scale = self.detail['Y-axis']
+                if min == 'None':
+                    min, _ = ax.get_ylim()
+                if max == 'None':
+                    _, max = ax.get_ylim()
+                if interval == 'None':
+                    ax.set_ylim(min, max)
+                else:
+                    ax.yaxis.set_ticks(np.arange(min, max, interval))
+                ax.set_yscale(scale)
+              
+            
             clear_output(wait=True)
             display_df(self.df)
             display_widgets()
@@ -156,6 +206,30 @@ def dataframe_visualization(df):
             plt.clf()
             sns.set(rc={'figure.figsize':(12,9)})
             sns.relplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, **d, data=self.df, legend = 'full').set(title = title)
+
+            ax = plt.gca()
+            if self.detail is not None:
+                min, max, interval, scale = self.detail['X-axis']
+                if min == 'None':
+                    min, _ = ax.get_xlim()
+                if max == 'None':
+                    _, max = ax.get_xlim()
+                if interval == 'None':
+                    ax.set_xlim(min, max)
+                else:
+                    ax.xaxis.set_ticks(np.arange(min, max, interval))
+                ax.set_xscale(scale)
+
+                min, max, interval, scale = self.detail['Y-axis']
+                if min == 'None':
+                    min, _ = ax.get_ylim()
+                if max == 'None':
+                    _, max = ax.get_ylim()
+                if interval == 'None':
+                    ax.set_ylim(min, max)
+                else:
+                    ax.yaxis.set_ticks(np.arange(min, max, interval))
+                ax.set_yscale(scale)
 
             # if dropdown_marker.dropdown.value == True and dropdown_color.dropdown.value != 'None':
             #     m = ['o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X']
@@ -212,6 +286,21 @@ def dataframe_visualization(df):
                     for i,thisbar in enumerate(bar.patches):
                         # Set a different hatch for each bar
                         thisbar.set_hatch(hatches[i%len(hatches)])
+
+            if self.detail is not None:
+
+                min, max, interval, scale = self.detail['Y-axis']
+                if min == 'None':
+                    min, _ = ax.get_ylim()
+                if max == 'None':
+                    _, max = ax.get_ylim()
+                if interval == 'None':
+                    ax.set_ylim(min, max)
+                else:
+                    ax.yaxis.set_ticks(np.arange(min, max, interval))
+                ax.set_yscale(scale)
+
+
             clear_output(wait=True)
             display_df(self.df)
             display_widgets()
