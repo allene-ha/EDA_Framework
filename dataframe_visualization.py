@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import copy
 import ipywidgets as widgets
-from ipywidgets import Label, HBox, VBox, Button, HTML, FloatText
+from ipywidgets import Label, HBox, VBox, Button, HTML, FloatText, Text
 from ipywidgets import Layout
 import IPython.display
 from IPython.display import display, clear_output
@@ -16,140 +16,207 @@ import seaborn as sns
 
 plt.style.use('seaborn-notebook')
 
+  # X ticks 
+    # 조건 numeric할 것
+    # 최소값, 최댓값, 간격
+    # plt.xticks(np.arange(min(x), max(x)+1, 1.0))
+    # xlabel
+    # xscale
+    # Y ticks
+    
+    # Z ticks
 
+    # x scale
+    ##
+# detail: 
 
 def dataframe_visualization(df):
-    def draw_surface_chart(df):
+    class Chart(object):
+        def __init__(self, type, df):
+            self.type = type
+            self.df = df
+            self.detail = None
 
-        title = dropdown_z.dropdown.value + ' by ' + dropdown_y.dropdown.value + ' and '+ dropdown_x.dropdown.value
-        plt.clf()
-        fig = plt.figure()
-        ax = fig.add_subplot(projection='3d')
-        df_pivot_mean = pd.pivot_table(df, index = dropdown_y.dropdown.value, columns =  dropdown_x.dropdown.value, values = dropdown_z.dropdown.value, aggfunc = 'mean')
-        # #index = y, colunns = x, vlaues = color
-
-        X_ = df_pivot_mean.columns.tolist()
-        Y_ = df_pivot_mean.index.tolist()
-        X = [X_ for _ in range(len(Y_))]
-        Y = [[y_]*len(X_) for y_ in Y_]
-        Z = df_pivot_mean.values
-
-        ax.plot_surface(X,Y,Z, cmap="inferno")
-        plt.title(title)
-
-        clear_output(wait=True)
-        display_df(df)
-        display_widgets()
-        plt.show()
-
-    def draw_heatmap_chart(df):
-        #sns.set(rc={'figure.figsize':(12,12)})
-        title = dropdown_color.dropdown.value + ' by ' + dropdown_y.dropdown.value + ' and '+ dropdown_x.dropdown.value
-        plt.clf()
-        #temp = df.pivot("sepal_length", "sepal_width", "petal_width")
-        df_pivot_mean = pd.pivot_table(df, index = dropdown_y.dropdown.value, columns = dropdown_x.dropdown.value, values = dropdown_color.dropdown.value, aggfunc = 'mean')
-        #index = y, colunns = x, vlaues = color
-        sns.heatmap(df_pivot_mean, cbar_kws={'label': dropdown_color.dropdown.value}).set(title = title)
-        clear_output(wait=True)
-        display_df(df)
-        display_widgets()
-        plt.show()
-
-
-    def draw_line_chart(df):
-        title = dropdown_y.dropdown.value + ' by ' + dropdown_x.dropdown.value
-        d = {}
-        if dropdown_color.dropdown.value != 'None':
-            d['hue'] = dropdown_color.dropdown.value
-        if dropdown_marker.dropdown.value != 'None':
-            d['style'] = dropdown_marker.dropdown.value
-        if dropdown_row.dropdown.value != 'None':
-            d['row'] = dropdown_row.dropdown.value
-        if dropdown_column.dropdown.value != 'None':
-            d['col'] = dropdown_column.dropdown.value
-        plt.clf()
-        sns.set(rc={'figure.figsize':(12,9)})
-        sns.relplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, ci=None, legend = 'full', kind = 'line', **d, data=df).set(title = title)
-        clear_output(wait=True)
-        display_df(df)
-        display_widgets()
-        plt.show()
-
-    def draw_scatter_chart(df):
-        title = dropdown_y.dropdown.value + ' by ' + dropdown_x.dropdown.value
-        d = {}
-        if dropdown_color.dropdown.value != 'None':
-            d['hue'] = dropdown_color.dropdown.value
-        if dropdown_marker.dropdown.value != 'None':
-            d['style'] = dropdown_marker.dropdown.value
-        if dropdown_row.dropdown.value != 'None':
-            d['row'] = dropdown_row.dropdown.value
-        if dropdown_column.dropdown.value != 'None':
-            d['col'] = dropdown_column.dropdown.value
-
-        plt.clf()
-        sns.set(rc={'figure.figsize':(12,9)})
-        sns.relplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, **d, data=df, legend = 'full').set(title = title)
-
-        # if dropdown_marker.dropdown.value == True and dropdown_color.dropdown.value != 'None':
-        #     m = ['o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X']
-        #     m = m[0:df.nunique(dropna=True)]
-        #     sns.lmplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, fit_reg = False, markers = m, **d, data=df)
-        # else:
-        #     sns.lmplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, fit_reg = False, **d, data=df)
-        clear_output(wait=True)
-        display_df(df)
-        display_widgets()
-        plt.show()
- 
-    def draw_bar_chart(df):
-        title = dropdown_y.dropdown.value + ' by ' + dropdown_x.dropdown.value
-        d = {}
-        g = {}
-        if dropdown_color.dropdown.value != 'None':
-            d['hue'] = dropdown_color.dropdown.value
-        if dropdown_row.dropdown.value != 'None':
-            g['row'] = dropdown_row.dropdown.value
-        if dropdown_column.dropdown.value != 'None':
-            g['col'] = dropdown_column.dropdown.value
-        plt.clf()
-        sns.set(rc={'figure.figsize':(12,9)})
+        def set_detail(self, detail):
+            self.detail = detail
         
-        # Form a facetgrid using columns with a hue
-        if dropdown_row.dropdown.value != 'None' or dropdown_column.dropdown.value != 'None':
+        def set_type(self, type):
+            self.type = type
+        
+        def draw(self):
+            if self.type == 'Bar':
+                self.draw_bar_chart()
+            elif self.type =='Scatter':
+                self.draw_scatter_chart()
+            elif self.type == 'Line':
+                self.draw_line_chart()
+            elif self.type == 'Heatmap':
+                self.draw_heatmap_chart()
+            elif self.type == 'Surface':
+                self.draw_surface_chart()
+
+        def draw_surface_chart(self):
+            title = dropdown_z.dropdown.value + ' by ' + dropdown_y.dropdown.value + ' and '+ dropdown_x.dropdown.value
+            plt.clf()
+            fig = plt.figure()
+            ax = fig.add_subplot(projection='3d')
+            df_pivot_mean = pd.pivot_table(self.df, index = dropdown_y.dropdown.value, columns =  dropdown_x.dropdown.value, values = dropdown_z.dropdown.value, aggfunc = 'mean')
+            # #index = y, colunns = x, vlaues = color
+
+            X_ = df_pivot_mean.columns.tolist()
+            Y_ = df_pivot_mean.index.tolist()
+            X = [X_ for _ in range(len(Y_))]
+            Y = [[y_]*len(X_) for y_ in Y_]
+            Z = df_pivot_mean.values
+            if self.detail is not None:
+                min, max, interval, scale = self.detail['X-axis']
+                if min == 'None':
+                    min, _ = ax.get_xlim()
+                if max == 'None':
+                    _, max = ax.get_xlim()
+                if interval == 'None':
+                    ax.set_xlim(min, max)
+                else:
+                    ax.xaxis.set_ticks(np.arange(min, max, interval))
+                ax.set_xscale(scale)
+
+                min, max, interval, scale = self.detail['Y-axis']
+                if min == 'None':
+                    min, _ = ax.get_ylim()
+                if max == 'None':
+                    _, max = ax.get_ylim()
+                if interval == 'None':
+                    ax.set_ylim(min, max)
+                else:
+                    ax.yaxis.set_ticks(np.arange(min, max, interval))
+                ax.set_yscale(scale)
+   
+                min, max, interval, scale = self.detail['Z-axis']
+                if min == 'None':
+                    min, _ = ax.get_zlim()
+                if max == 'None':
+                    _, max = ax.get_zlim()
+                if interval == 'None':
+                    ax.set_zlim(min, max)
+                else:
+                    ax.zaxis.set_ticks(np.arange(min, max, interval))
+                ax.set_zscale(scale)
+            ax.plot_surface(X,Y,Z, cmap="inferno")
+            plt.title(title)
+
+            clear_output(wait=True)
+            display_df(self.df)
+            display_widgets()
+            plt.show()
+
+        def draw_heatmap_chart(self):
+            #sns.set(rc={'figure.figsize':(12,12)})
+            title = dropdown_color.dropdown.value + ' by ' + dropdown_y.dropdown.value + ' and '+ dropdown_x.dropdown.value
+            plt.clf()
+            #temp = df.pivot("sepal_length", "sepal_width", "petal_width")
+            df_pivot_mean = pd.pivot_table(self.df, index = dropdown_y.dropdown.value, columns = dropdown_x.dropdown.value, values = dropdown_color.dropdown.value, aggfunc = 'mean')
+            #index = y, colunns = x, vlaues = color
+            sns.heatmap(df_pivot_mean, cbar_kws={'label': dropdown_color.dropdown.value}).set(title = title)
+            clear_output(wait=True)
+            display_df(self.df)
+            display_widgets()
+            plt.show()
+
+        def draw_line_chart(self):
+            title = dropdown_y.dropdown.value + ' by ' + dropdown_x.dropdown.value
+            d = {}
             if dropdown_color.dropdown.value != 'None':
-                grid = sns.FacetGrid(df, **g, hue = d['hue'], margin_titles = True, legend_out = True)
-            else: 
-                grid = sns.FacetGrid(df, **g, margin_titles = True)
-            grid.map(sns.barplot, dropdown_x.dropdown.value, dropdown_y.dropdown.value)
-            grid.add_legend()
-            grid.fig.suptitle(title)
-            #plt.legend(loc = 2, bbox_to_anchor = (1,1))
-        else:
-            bar = sns.barplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, **d, data=df).set(title = title)
-            plt.legend(loc = 2, bbox_to_anchor = (1,1))
- 
-        if dropdown_pattern.dropdown.value != 'False':
+                d['hue'] = dropdown_color.dropdown.value
+            if dropdown_marker.dropdown.value != 'None':
+                d['style'] = dropdown_marker.dropdown.value
+            if dropdown_row.dropdown.value != 'None':
+                d['row'] = dropdown_row.dropdown.value
+            if dropdown_column.dropdown.value != 'None':
+                d['col'] = dropdown_column.dropdown.value
+            plt.clf()
+            sns.set(rc={'figure.figsize':(12,9)})
+            sns.relplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, ci=None, legend = 'full', kind = 'line', **d, data=df).set(title = title)
+            clear_output(wait=True)
+            display_df(self.df)
+            display_widgets()
+            plt.show()
+
+        def draw_scatter_chart(self):
+            title = dropdown_y.dropdown.value + ' by ' + dropdown_x.dropdown.value
+            d = {}
+            if dropdown_color.dropdown.value != 'None':
+                d['hue'] = dropdown_color.dropdown.value
+            if dropdown_marker.dropdown.value != 'None':
+                d['style'] = dropdown_marker.dropdown.value
+            if dropdown_row.dropdown.value != 'None':
+                d['row'] = dropdown_row.dropdown.value
+            if dropdown_column.dropdown.value != 'None':
+                d['col'] = dropdown_column.dropdown.value
+
+            plt.clf()
+            sns.set(rc={'figure.figsize':(12,9)})
+            sns.relplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, **d, data=self.df, legend = 'full').set(title = title)
+
+            # if dropdown_marker.dropdown.value == True and dropdown_color.dropdown.value != 'None':
+            #     m = ['o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X']
+            #     m = m[0:df.nunique(dropna=True)]
+            #     sns.lmplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, fit_reg = False, markers = m, **d, data=df)
+            # else:
+            #     sns.lmplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, fit_reg = False, **d, data=df)
+            clear_output(wait=True)
+            display_df(self.df)
+            display_widgets()
+            plt.show()
+    
+        def draw_bar_chart(self):
+            title = dropdown_y.dropdown.value + ' by ' + dropdown_x.dropdown.value
+            d = {}
+            g = {}
+            if dropdown_color.dropdown.value != 'None':
+                d['hue'] = dropdown_color.dropdown.value
+            if dropdown_row.dropdown.value != 'None':
+                g['row'] = dropdown_row.dropdown.value
+            if dropdown_column.dropdown.value != 'None':
+                g['col'] = dropdown_column.dropdown.value
+            plt.clf()
+            sns.set(rc={'figure.figsize':(12,9)})
+            
+            # Form a facetgrid using columns with a hue
             if dropdown_row.dropdown.value != 'None' or dropdown_column.dropdown.value != 'None':
-                for ax in grid.axes_dict.values():
-                    bars = [rect for rect in ax.get_children() if isinstance(rect, matplotlib.patches.Rectangle)]
+                if dropdown_color.dropdown.value != 'None':
+                    grid = sns.FacetGrid(self.df, **g, hue = d['hue'], margin_titles = True, legend_out = True)
+                else: 
+                    grid = sns.FacetGrid(self.df, **g, margin_titles = True)
+                grid.map(sns.barplot, dropdown_x.dropdown.value, dropdown_y.dropdown.value)
+                grid.add_legend()
+                grid.fig.suptitle(title)
+                #plt.legend(loc = 2, bbox_to_anchor = (1,1))
+            else:
+                bar = sns.barplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, **d, data=df).set(title = title)
+                plt.legend(loc = 2, bbox_to_anchor = (1,1))
+    
+            if dropdown_pattern.dropdown.value != 'False':
+                if dropdown_row.dropdown.value != 'None' or dropdown_column.dropdown.value != 'None':
+                    for ax in grid.axes_dict.values():
+                        bars = [rect for rect in ax.get_children() if isinstance(rect, matplotlib.patches.Rectangle)]
+                        hatches = ['-', '+', 'x', '\\', '*', 'o']
+                        for i,thisbar in enumerate(bars):
+                            # Set a different hatch for each bar
+                            thisbar.set_hatch(hatches[i%len(hatches)])
+                        
+                else:
+                    # Define some hatches
                     hatches = ['-', '+', 'x', '\\', '*', 'o']
-                    for i,thisbar in enumerate(bars):
+
+                    # Loop over the bars
+                    for i,thisbar in enumerate(bar.patches):
                         # Set a different hatch for each bar
                         thisbar.set_hatch(hatches[i%len(hatches)])
-                    
-            else:
-                # Define some hatches
-                hatches = ['-', '+', 'x', '\\', '*', 'o']
-
-                # Loop over the bars
-                for i,thisbar in enumerate(bar.patches):
-                    # Set a different hatch for each bar
-                    thisbar.set_hatch(hatches[i%len(hatches)])
-        clear_output(wait=True)
-        display_df(df)
-        display_widgets()
-        plt.show()
+            clear_output(wait=True)
+            display_df(self.df)
+            display_widgets()
+            plt.show()
+    chart = Chart('line', df)
 
     def display_df(df):
         display(HTML(df.head().to_html()))
@@ -215,6 +282,7 @@ def dataframe_visualization(df):
 
     dropdown_type =  widgets.Select(
                         options=['Line','Bar', 'Scatter', 'Heatmap','Surface'],
+                        value = 'Line',
                         disabled=False,
                         layout=Layout(width='90%'))
 
@@ -236,10 +304,12 @@ def dataframe_visualization(df):
         clear_output(wait=True)
         #display(HBox([toggle_label, toggle]))
         right_box2 = compose_box(dropdowns)
-        #VBox ([right_box3,right_box4, accordion], layout = Layout(display='flex', flex_flow='column', align_items='center', width='80%'))#col_layout_r2)# , layout=Layout(width='100%'))
+        detail, detail_widgets = compose_detail_tab() # dict, widgets
+        accordion = widgets.Accordion(children=[detail_widgets], selected_index = None, layout=Layout(margin = '10px',width='90%'))
+        accordion.set_title(0, 'Detail')        #VBox ([right_box3,right_box4, accordion], layout = Layout(display='flex', flex_flow='column', align_items='center', width='80%'))#col_layout_r2)# , layout=Layout(width='100%'))
         right_box1 = HBox([VBox([type_label, dropdown_type],layout = Layout(display='flex', flex_flow='column', align_items='center',
                             width='25%')), right_box2], layout = Layout(align_items = 'center',width = '100%')) # 비율이 1:3 정도
-        right_box = VBox([right_label, right_box1, draw_button], layout = col_layout_r) 
+        right_box = VBox([right_label, right_box1, accordion, draw_button], layout = col_layout_r) 
         display(right_box)
         # if toggle.value == True:
         #     display(widgets.HBox([left_box, right_box]))
@@ -250,6 +320,7 @@ def dataframe_visualization(df):
     def type_changed(d):
         if d['type'] =='change' and d['name']=='value':
             display_widgets()
+            chart.set_type(d['new'])
 
     dropdown_type.observe(type_changed)
 
@@ -263,7 +334,7 @@ def dataframe_visualization(df):
     def compose_box(dropdowns):
         if len(dropdowns) <=3:
             row1 = HBox(dropdowns, layout=row_layout)
-            return VBox([row1, accordion], layout = Layout(display='flex', flex_flow='column', align_items='center',
+            return VBox([row1], layout = Layout(display='flex', flex_flow='column', align_items='center',
                         width='80%'))#col_layout_r2)# , layout=Layout(width='100%'))
         elif len(dropdowns)==4:
             row1 = HBox(dropdowns[0:2], layout=row_layout)
@@ -273,7 +344,7 @@ def dataframe_visualization(df):
             row2 = HBox(dropdowns[3:], layout = row_layout)
 
 
-        return VBox([row1,row2, accordion], layout = Layout(display='flex', flex_flow='column', align_items='center',
+        return VBox([row1,row2], layout = Layout(display='flex', flex_flow='column', align_items='center',
                         width='80%'))#col_layout_r2)# , layout=Layout(width='100%'))
     df_numerics_only = df.select_dtypes(include=np.number)
 
@@ -305,59 +376,67 @@ def dataframe_visualization(df):
     output = widgets.Output(layout=Layout(width='100%'))
     left_box = VBox([left_label, output], layout = col_layout_l)
 
-    accordion = widgets.Accordion(children=[widgets.IntSlider()], selected_index = None, layout=Layout(margin = '10px',width='90%'))
-    accordion.set_title(0, 'Detail')
+    class axis(object):
+        def __init__(self, description):
+            self.description = description
+            self.label = HTML(value='<b>'+description)
+            self.min_label = HTML(value='Minimum axis value')
+            self.min = Text(disabled=False, value ='auto', layout = Layout(width = '90%'))
+            self.max_label = HTML(value='Max axis value')
+            self.max = Text(disabled=False, value ='auto', layout = Layout(width = '90%'))
+            self.interval_label = HTML(value='Interval')
+            self.interval = Text(disabled=False,  value ='auto',layout = Layout(width = '90%'))
+            self.scale_label = HTML(value='Scale')
+            self.scale = widgets.Dropdown(options=["linear", "log", "symlog", "logit"],value='linear',  layout = Layout(width = '90%'))
+            box_layout = Layout(display = 'flex', flex_flow='column', align_items='center', width='25%')
+            self.box = VBox([self.label, HBox([VBox([self.min_label, self.min], layout =box_layout), 
+                                                VBox([self.max_label, self.max], layout =box_layout), 
+                                                VBox([self.interval_label, self.interval], layout =box_layout), 
+                                                VBox([self.scale_label, self.scale], layout =box_layout)], layout = Layout (justify_content = 'space-around'))])
+        def get_info(self):
+            return self.description, [self.min, self.max, self.interval, self.scale]
 
     ## Accordian Box # chart drawing 함수들이 여기서 얻은 정보들을 갖고실행될 수 있도록
     def compose_detail_tab():
-        class tick(object):
-            def __init__(self, description):
-                self.label = HTML(value=description)
-                self.min = FloatText(description='Min:',disabled=False)
-                self.max = FloatText(description='Max:',disabled=False)
-                self.interval = FloatText(description='Interval:',disabled=False)
-                self.box = VBox([self.label, HBox([self.min, self.max, self.interval])])
-        
+                #print(dropdown_type.value)
+        results = {}
         boxes = []
         if dropdown_type.value == 'Line' or dropdown_type.value == 'Scatter' or dropdown_type.value == 'Heatmap'or dropdown_type.value == 'Surface': # xticks
-            x_tick = tick('X-tick')
+            x_tick = axis('X-axis')
+            x_tick.get_info()
+            result = x_tick.get_info()
+            results[result[0]] = result[1]
             boxes.append(x_tick.box)
         
-        y_tick = tick('Y-tick')
-        boxes.append(y_tick)
+        y_tick = axis('Y-axis')
+        result = y_tick.get_info()
+        results[result[0]] = result[1]
+        boxes.append(y_tick.box)
         
         if dropdown_type.value == 'Surface':
-            z_tick = tick('Z-tick')
-            boxes.append(z_tick)
+            z_tick = axis('Z-axis')
+            result = z_tick.get_info()
+            results[result[0]] = result[1]
+            boxes.append(z_tick.box)
         
+        return results, VBox(boxes)
 
-    # X ticks 
-    # 조건 numeric할 것
-    # 최소값, 최댓값, 간격
-    # plt.xticks(np.arange(min(x), max(x)+1, 1.0))
-    # xlabel
-    # xscale
-    # Y ticks
-    
-    # Z ticks
-
-    # x scale
-    ##
+    detail, detail_widgets = compose_detail_tab() # dict, widgets
+    detail_button = Button(description = "Apply")
+    def detail_on_click_callback(clicked_button: widgets.Button) -> None:
+        chart.set_detail(detail)
+    detail_button.on_click(detail_on_click_callback)
+    accordion = widgets.Accordion(children=[detail_widgets], selected_index = None, layout=Layout(margin = '10px',width='90%'))
+    accordion.set_title(0, 'Detail')
+  
 
     def draw_on_click_callback(clicked_button: widgets.Button) -> None:
-        if dropdown_type.value == 'Bar':
-            draw_bar_chart(df)
-        elif dropdown_type.value =='Scatter':
-            draw_scatter_chart(df)
-        elif dropdown_type.value == 'Line':
-            draw_line_chart(df)
-        # elif dropdown_type.value == 'Box':
-        #     draw_box_chart(df)
-        elif dropdown_type.value == 'Heatmap':
-            draw_heatmap_chart(df)
-        elif dropdown_type.value == 'Surface':
-            draw_surface_chart(df)
-        """버튼이 눌렸을 때 동작하는 이벤트 핸들러"""
+        #chart.set_detail(detail)
+        chart.draw()
+ 
+
+    
+            
 
     draw_button = Button(description = "Draw", button_style='primary', layout = Layout(flex = '0 0 auto', align_self='flex-end', width = '20%', margin ='10px 30px'))
     draw_button.on_click(draw_on_click_callback)
@@ -371,7 +450,7 @@ def dataframe_visualization(df):
     #VBox ([right_box3,right_box4, accordion], layout = Layout(display='flex', flex_flow='column', align_items='center', width='80%'))#col_layout_r2)# , layout=Layout(width='100%'))
     right_box1 = HBox([VBox([type_label, dropdown_type],layout = Layout(display='flex', flex_flow='column', align_items='center',
                         width='25%')), right_box2], layout = Layout(align_items = 'center',width = '100%')) # 비율이 1:3 정도
-    right_box = VBox([right_label, right_box1, draw_button], layout = col_layout_r) 
+    right_box = VBox([right_label, right_box1, accordion, draw_button], layout = col_layout_r) 
 
     with output: # drawing recommended Chart. only activated when recommendation toggle is on.
         plt.close()
