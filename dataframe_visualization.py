@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import copy
 import ipywidgets as widgets
-from ipywidgets import Label, HBox, VBox, Button, HTML
+from ipywidgets import Label, HBox, VBox, Button, HTML, FloatText
 from ipywidgets import Layout
 import IPython.display
 from IPython.display import display, clear_output
@@ -249,19 +249,6 @@ def dataframe_visualization(df):
     
     def type_changed(d):
         if d['type'] =='change' and d['name']=='value':
-            print(d['new']) # type
-            if d['new'] =='Line' or d['new'] == 'Scatter':
-                dropdowns = [dropdown_x.d, dropdown_color.d, dropdown_row.d, dropdown_y.d, dropdown_marker.d, dropdown_column.d]
-            elif d['new'] == 'Bar': 
-                dropdowns = [dropdown_x.d, dropdown_color.d, dropdown_row.d, dropdown_y.d, dropdown_pattern.d, dropdown_column.d]
-            elif d['new'] == 'Pie': 
-                dropdowns = [dropdown_label.d, dropdown_size.d, dropdown_row.d, dropdown_column.d]
-            elif d['new'] == 'Heatmap': 
-                dropdowns = [dropdown_x.d, dropdown_y.d, dropdown_color.d]
-            elif d['new'] == 'Surface': 
-                dropdowns = [dropdown_x.d, dropdown_y.d, dropdown_z.d, dropdown_row.d, dropdown_column.d]
-            else:
-                print("Undefined Type")
             display_widgets()
 
     dropdown_type.observe(type_changed)
@@ -320,6 +307,42 @@ def dataframe_visualization(df):
 
     accordion = widgets.Accordion(children=[widgets.IntSlider()], selected_index = None, layout=Layout(margin = '10px',width='90%'))
     accordion.set_title(0, 'Detail')
+
+    ## Accordian Box # chart drawing 함수들이 여기서 얻은 정보들을 갖고실행될 수 있도록
+    def compose_detail_tab():
+        class tick(object):
+            def __init__(self, description):
+                self.label = HTML(value=description)
+                self.min = FloatText(description='Min:',disabled=False)
+                self.max = FloatText(description='Max:',disabled=False)
+                self.interval = FloatText(description='Interval:',disabled=False)
+                self.box = VBox([self.label, HBox([self.min, self.max, self.interval])])
+        
+        boxes = []
+        if dropdown_type.value == 'Line' or dropdown_type.value == 'Scatter' or dropdown_type.value == 'Heatmap'or dropdown_type.value == 'Surface': # xticks
+            x_tick = tick('X-tick')
+            boxes.append(x_tick.box)
+        
+        y_tick = tick('Y-tick')
+        boxes.append(y_tick)
+        
+        if dropdown_type.value == 'Surface':
+            z_tick = tick('Z-tick')
+            boxes.append(z_tick)
+        
+
+    # X ticks 
+    # 조건 numeric할 것
+    # 최소값, 최댓값, 간격
+    # plt.xticks(np.arange(min(x), max(x)+1, 1.0))
+    # xlabel
+    # xscale
+    # Y ticks
+    
+    # Z ticks
+
+    # x scale
+    ##
 
     def draw_on_click_callback(clicked_button: widgets.Button) -> None:
         if dropdown_type.value == 'Bar':
