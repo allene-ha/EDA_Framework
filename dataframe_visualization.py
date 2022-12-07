@@ -16,26 +16,97 @@ import seaborn as sns
 
 plt.style.use('seaborn-notebook')
 
-  # X ticks 
-    # 조건 numeric할 것
-    # 최소값, 최댓값, 간격
-    # plt.xticks(np.arange(min(x), max(x)+1, 1.0))
-    # xlabel
-    # xscale
-    # Y ticks
-    
-    # Z ticks
-
-    # x scale
-    ##
-# detail: 
-
 def dataframe_visualization(df):
     class Chart(object):
         def __init__(self, type, df):
             self.type = type
             self.df = df
             self.detail = None
+
+            # axis
+            self.x = dropdown_x.dropdown.value
+            self.y = dropdown_y.dropdown.value
+            self.z = dropdown_z.dropdown.value
+            
+            # other properties
+            self.color = dropdown_color.dropdown.value
+            self.marker = dropdown_marker.dropdown.value
+
+            # # of charts
+            self.row = dropdown_row.dropdown.value
+            self.column = dropdown_column.dropdown.value
+
+        def type_to_property(self):
+            df_numerics_only = df.select_dtypes(include=np.number)
+            col_date = list(df.select_dtypes(include=[np.datetime64]).columns)
+            col_num = list(df_numerics_only.columns)
+            col_cat = [x for x in df.columns if x not in col_num]
+            col_tot = list(df.columns)
+            
+            def type_to_x(self): #candidate column의 list
+                candidate = []
+                if self.type == "Line":
+                    if len(col_date)>0:
+                        for col in col_date:
+                            if df[col].nunique()>5:
+                                candidate.append(col)
+                elif self.type == "Bar":
+                    if len(col_cat) == 1:
+                        candidate.append(col_cat[0])
+                    elif len(col_cat)>1:
+                        for col in col_cat:
+                            if df[col].nunique()<20 and df[col].nunique()>=5:
+                                candidate.append(col)
+                        if len(candidate)==0:
+                            for col in col_cat:
+                                if df[col].nunique()<20:
+                                    candidate.append(col)
+                else:
+                    if len(col_num) == 1:
+                        candidate.append(col_num[0])
+                    elif len(col_num) >1:
+                        for col in col_num:
+                            if df[col].nunique()>=5:
+                                candidate.append(col)
+                return candidate
+            def type_to_y(self):
+                candidate = []
+                for col in col_num:
+                    if df[col].nunique()>3:
+                        candidate.append(col)
+                return 
+            def # 조합 짜는 함수
+
+                    
+
+
+
+
+
+            # 'Bar':
+            #     self.draw_bar_chart()
+            # elif self.type =='Scatter':
+            #     self.draw_scatter_chart()
+            # elif self.type == 'Line':
+            #     self.draw_line_chart()
+            # elif self.type == 'Heatmap':
+            #     self.draw_heatmap_chart()
+            # elif self.type == 'Surface':
+
+        
+        def set_property(self):
+            self.x = dropdown_x.dropdown.value
+            self.y = dropdown_y.dropdown.value
+            self.z = dropdown_z.dropdown.value
+            
+            # other properties
+            self.color = dropdown_color.dropdown.value
+            self.marker = dropdown_marker.dropdown.value
+
+            # # of charts
+            self.row = dropdown_row.dropdown.value
+            self.column = dropdown_column.dropdown.value
+
 
         def set_detail(self, detail):
             self.detail = detail
@@ -56,11 +127,11 @@ def dataframe_visualization(df):
                 self.draw_surface_chart()
 
         def draw_surface_chart(self):
-            title = dropdown_z.dropdown.value + ' by ' + dropdown_y.dropdown.value + ' and '+ dropdown_x.dropdown.value
+            title = self.z + ' by ' + self.y + ' and '+ self.x
             plt.clf()
             fig = plt.figure()
             ax = fig.add_subplot(projection='3d')
-            df_pivot_mean = pd.pivot_table(self.df, index = dropdown_y.dropdown.value, columns =  dropdown_x.dropdown.value, values = dropdown_z.dropdown.value, aggfunc = 'mean')
+            df_pivot_mean = pd.pivot_table(self.df, index = self.y, columns = self.x, values = self.z, aggfunc = 'mean')
             # #index = y, colunns = x, vlaues = color
 
             X_ = df_pivot_mean.columns.tolist()
@@ -111,12 +182,12 @@ def dataframe_visualization(df):
 
         def draw_heatmap_chart(self):
             #sns.set(rc={'figure.figsize':(12,12)})
-            title = dropdown_color.dropdown.value + ' by ' + dropdown_y.dropdown.value + ' and '+ dropdown_x.dropdown.value
+            title = self.color + ' by ' + self.y + ' and '+ self.x
             plt.clf()
             #temp = df.pivot("sepal_length", "sepal_width", "petal_width")
-            df_pivot_mean = pd.pivot_table(self.df, index = dropdown_y.dropdown.value, columns = dropdown_x.dropdown.value, values = dropdown_color.dropdown.value, aggfunc = 'mean')
+            df_pivot_mean = pd.pivot_table(self.df, index = self.y, columns = self.x, values = self.color, aggfunc = 'mean')
             #index = y, colunns = x, vlaues = color
-            sns.heatmap(df_pivot_mean, cbar_kws={'label': dropdown_color.dropdown.value}).set(title = title)
+            sns.heatmap(df_pivot_mean, cbar_kws={'label': self.color}).set(title = title)
             ax = plt.gca()
             if self.detail is not None:
                 min, max, interval, scale = self.detail['X-axis']
@@ -147,19 +218,19 @@ def dataframe_visualization(df):
             plt.show()
 
         def draw_line_chart(self):
-            title = dropdown_y.dropdown.value + ' by ' + dropdown_x.dropdown.value
+            title = self.y + ' by ' + self.x
             d = {}
-            if dropdown_color.dropdown.value != 'None':
-                d['hue'] = dropdown_color.dropdown.value
-            if dropdown_marker.dropdown.value != 'None':
-                d['style'] = dropdown_marker.dropdown.value
-            if dropdown_row.dropdown.value != 'None':
-                d['row'] = dropdown_row.dropdown.value
-            if dropdown_column.dropdown.value != 'None':
-                d['col'] = dropdown_column.dropdown.value
+            if self.color != 'None':
+                d['hue'] = self.color
+            if self.marker != 'None':
+                d['style'] = self.marker
+            if self.row != 'None':
+                d['row'] = self.row
+            if self.column != 'None':
+                d['col'] = self.column
             plt.clf()
             sns.set(rc={'figure.figsize':(12,9)})
-            sns.relplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, ci=None, legend = 'full', kind = 'line', **d, data=df).set(title = title)
+            sns.relplot(x=self.x, y=self.y, ci=None, legend = 'full', kind = 'line', **d, data=df).set(title = title)
             
             ax = plt.gca()
             if self.detail is not None:
@@ -192,20 +263,20 @@ def dataframe_visualization(df):
             plt.show()
 
         def draw_scatter_chart(self):
-            title = dropdown_y.dropdown.value + ' by ' + dropdown_x.dropdown.value
+            title = self.y + ' by ' + self.x
             d = {}
-            if dropdown_color.dropdown.value != 'None':
-                d['hue'] = dropdown_color.dropdown.value
-            if dropdown_marker.dropdown.value != 'None':
-                d['style'] = dropdown_marker.dropdown.value
-            if dropdown_row.dropdown.value != 'None':
-                d['row'] = dropdown_row.dropdown.value
-            if dropdown_column.dropdown.value != 'None':
-                d['col'] = dropdown_column.dropdown.value
+            if self.color != 'None':
+                d['hue'] = self.color
+            if self.marker != 'None':
+                d['style'] = self.marker
+            if self.row != 'None':
+                d['row'] = self.row
+            if self.column != 'None':
+                d['col'] = self.column
 
             plt.clf()
             sns.set(rc={'figure.figsize':(12,9)})
-            sns.relplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, **d, data=self.df, legend = 'full').set(title = title)
+            sns.relplot(x=self.x, y=self.y, **d, data=self.df, legend = 'full').set(title = title)
 
             ax = plt.gca()
             if self.detail is not None:
@@ -243,34 +314,34 @@ def dataframe_visualization(df):
             plt.show()
     
         def draw_bar_chart(self):
-            title = dropdown_y.dropdown.value + ' by ' + dropdown_x.dropdown.value
+            title = self.y + ' by ' + self.x
             d = {}
             g = {}
-            if dropdown_color.dropdown.value != 'None':
-                d['hue'] = dropdown_color.dropdown.value
-            if dropdown_row.dropdown.value != 'None':
-                g['row'] = dropdown_row.dropdown.value
-            if dropdown_column.dropdown.value != 'None':
-                g['col'] = dropdown_column.dropdown.value
+            if self.color != 'None':
+                d['hue'] = self.color
+            if self.row != 'None':
+                g['row'] = self.row
+            if self.column != 'None':
+                g['col'] = self.column
             plt.clf()
             sns.set(rc={'figure.figsize':(12,9)})
             
             # Form a facetgrid using columns with a hue
-            if dropdown_row.dropdown.value != 'None' or dropdown_column.dropdown.value != 'None':
-                if dropdown_color.dropdown.value != 'None':
+            if self.row != 'None' or self.column != 'None':
+                if self.color != 'None':
                     grid = sns.FacetGrid(self.df, **g, hue = d['hue'], margin_titles = True, legend_out = True)
                 else: 
                     grid = sns.FacetGrid(self.df, **g, margin_titles = True)
-                grid.map(sns.barplot, dropdown_x.dropdown.value, dropdown_y.dropdown.value)
+                grid.map(sns.barplot, self.x, self.y)
                 grid.add_legend()
                 grid.fig.suptitle(title)
                 #plt.legend(loc = 2, bbox_to_anchor = (1,1))
             else:
-                bar = sns.barplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, **d, data=df).set(title = title)
+                bar = sns.barplot(x=self.x, y=self.y, **d, data=df).set(title = title)
                 plt.legend(loc = 2, bbox_to_anchor = (1,1))
     
-            if dropdown_pattern.dropdown.value != 'False':
-                if dropdown_row.dropdown.value != 'None' or dropdown_column.dropdown.value != 'None':
+            if self.pattern != 'False':
+                if self.row != 'None' or self.column != 'None':
                     for ax in grid.axes_dict.values():
                         bars = [rect for rect in ax.get_children() if isinstance(rect, matplotlib.patches.Rectangle)]
                         hatches = ['-', '+', 'x', '\\', '*', 'o']
