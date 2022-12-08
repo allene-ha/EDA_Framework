@@ -79,12 +79,18 @@ def dataframe_visualization(df):
             def candidate_to_data(cand_x, cand_y, cand_z = None):# 조합 짜는 함수
                 lists = [cand_x, cand_y]
                 result = []
+                coeff = []
                 if cand_z != None:
                     lists.append(cand_z)
                 for element in itertools.product(*lists):
                     if len(element) == len(set(element)):
                         result.append(element)
-                return result
+                        coeff.append(self.df[element].corr())
+                coeff = list(map(abs,coeff))
+
+                sorted_result = [x for _,x in sorted(zip(coeff,result), reverse=True)]
+
+                return sorted_result
             
             if self.x == 'None':
                 x_cand = type_to_x()
