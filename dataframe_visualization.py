@@ -8,6 +8,7 @@ import copy
 import ipywidgets as widgets
 from ipywidgets import Label, HBox, VBox, Button, HTML, FloatText, Text
 from ipywidgets import Layout
+import itertools
 import IPython.display
 from IPython.display import display, clear_output
 
@@ -37,29 +38,29 @@ def dataframe_visualization(df):
             self.column = dropdown_column.dropdown.value
 
         def type_to_property(self):
-            df_numerics_only = df.select_dtypes(include=np.number)
-            col_date = list(df.select_dtypes(include=[np.datetime64]).columns)
+            df_numerics_only = self.df.select_dtypes(include=np.number)
+            col_date = list(self.df.select_dtypes(include=[np.datetime64]).columns)
             col_num = list(df_numerics_only.columns)
-            col_cat = [x for x in df.columns if x not in col_num]
-            col_tot = list(df.columns)
+            col_cat = [x for x in self.df.columns if x not in col_num]
+            col_tot = list(self.df.columns)
             
-            def type_to_x(self): #candidate column의 list
+            def type_to_x(): #candidate column의 list
                 candidate = []
                 if self.type == "Line":
                     if len(col_date)>0:
                         for col in col_date:
-                            if df[col].nunique()>5:
+                            if self.df[col].nunique()>5:
                                 candidate.append(col)
                 elif self.type == "Bar":
                     if len(col_cat) == 1:
                         candidate.append(col_cat[0])
                     elif len(col_cat)>1:
                         for col in col_cat:
-                            if df[col].nunique()<20 and df[col].nunique()>=5:
+                            if self.df[col].nunique()<20 and self.df[col].nunique()>=5:
                                 candidate.append(col)
                         if len(candidate)==0:
                             for col in col_cat:
-                                if df[col].nunique()<20:
+                                if self.df[col].nunique()<20:
                                     candidate.append(col)
                 else:
                     if len(col_num) == 1:
@@ -69,30 +70,82 @@ def dataframe_visualization(df):
                             if df[col].nunique()>=5:
                                 candidate.append(col)
                 return candidate
-            def type_to_y(self):
+            def type_to_y_z():
                 candidate = []
                 for col in col_num:
-                    if df[col].nunique()>3:
+                    if self.df[col].nunique()>3:
                         candidate.append(col)
-                return 
-            def # 조합 짜는 함수
+                return candidate
+            def candidate_to_data(cand_x, cand_y, cand_z = None):# 조합 짜는 함수
+                lists = [cand_x, cand_y]
+                result = []
+                if cand_z != None:
+                    lists.append(cand_z)
+                for element in itertools.product(*lists):
+                    if len(element) == len(set(element)):
+                        result.append(element)
+                return result
+            
+            if self.x == 'None':
+                x_cand = type_to_x()
+            else:
+                x_cand = [self.x]
+            if self.y == 'None':
+                y_cand = type_to_y_z()
+            else:
+                y_cand = [self.y]
 
-                    
+            if self.type =='Surface' or self.type == 'Heatmap':
+                if self.z == 'None':
+                    z_cand = type_to_y_z()
+                else:
+                    z_cand = [self.z]
+                comb = candidate_to_data(x_cand, y_cand, z_cand)
+            else:
+                comb = candidate_to_data(x_cand, y_cand)
+            return comb
 
-
-
-
-
-            # 'Bar':
-            #     self.draw_bar_chart()
-            # elif self.type =='Scatter':
-            #     self.draw_scatter_chart()
-            # elif self.type == 'Line':
-            #     self.draw_line_chart()
-            # elif self.type == 'Heatmap':
-            #     self.draw_heatmap_chart()
-            # elif self.type == 'Surface':
-
+        def recommend_drawing(self):
+            axes_data = self.type_to_property()
+            elements = []
+            #print(len(axes_data))
+            #print(axes_data)
+            for data in axes_data[:6]: # 반복문 하나에 차트 하나
+                out = widgets.Output()
+                with out:
+                    plt.close()
+                    plt.figure(figsize = (3,1.5))
+                    fig = plt.gcf()
+                    if len(data) == 2:
+                        x,y = data
+                        title = "X: " + x + " / Y: "+ y
+                       
+                        if self.type == 'Scatter':
+                            sns.relplot(x=x, y=y, data=self.df, legend = 'full').set(title = title)
+                        elif self.type == 'Line':
+                            sns.relplot(x=x, y=y, ci = None, kind = 'Line', data=self.df).set(title = title)
+                        elif self.type == 'Bar':
+                            sns.barplot(x=x, y=y, data=self.df).set(title = title)
+                    elif len(data) == 3:
+                        x, y, z = data
+                        title = "X: " + x + " / Y: "+ y + " / Z: "+ z
+                        if self.type == "Heatmap":
+                            df_pivot_mean = pd.pivot_table(self.df, index = y, columns = x, values = z, aggfunc = 'mean')
+                            sns.heatmap(df_pivot_mean, cbar_kws={'label': self.z}).set(title = title)
+                        if self.type == 'Surface':
+                            ax = fig.add_subplot(projection='3d')
+                            df_pivot_mean = pd.pivot_table(self.df, index = y, columns = x, values = z, aggfunc = 'mean')
+                            X_ = df_pivot_mean.columns.tolist()
+                            Y_ = df_pivot_mean.index.tolist()
+                            X = [X_ for _ in range(len(Y_))]
+                            Y = [[y_]*len(X_) for y_ in Y_]
+                            Z = df_pivot_mean.values
+                            ax.plot_surface(X,Y,Z, cmap="inferno")
+                            plt.title(title)
+                    fig.tight_layout()
+                    plt.show()
+                elements.append(out)
+            return HBox(elements, layout = Layout(display ='flex', flex_flow ='row wrap', justify_content='space-around'))
         
         def set_property(self):
             self.x = dropdown_x.dropdown.value
@@ -115,18 +168,47 @@ def dataframe_visualization(df):
             self.type = type
         
         def draw(self):
+            self.set_type(dropdown_type.value)
+            self.set_property()
+            #print(self.x, self.y, self.z)
             if self.type == 'Bar':
-                self.draw_bar_chart()
+                if self.x == 'None' or self.y == 'None':
+                    print("Select X, Y")
+                elif self.x == self.y:
+                    print("Select different columns for each axis")
+                else:
+                    self.draw_bar_chart()
             elif self.type =='Scatter':
-                self.draw_scatter_chart()
+                if self.x == 'None' or self.y == 'None':
+                    print("Select X, Y")
+                elif self.x == self.y:
+                    print("Select different columns for each axis")
+                else:
+                    self.draw_scatter_chart()
             elif self.type == 'Line':
-                self.draw_line_chart()
+                if self.x == 'None' or self.y == 'None':
+                    print("Select X, Y")
+                elif self.x == self.y:
+                    print("Select different columns for each axis")
+                else:
+                    self.draw_line_chart()
             elif self.type == 'Heatmap':
-                self.draw_heatmap_chart()
+                if self.x == 'None' or self.y == 'None' or self.z == 'None':
+                    print("Select X, Y, color")
+                elif self.x == self.y or self.x == self.z or self.y == self.z:
+                    print("Select different columns for each axis")
+                else:
+                    self.draw_heatmap_chart()
             elif self.type == 'Surface':
-                self.draw_surface_chart()
+                if self.x == 'None' or self.y == 'None' or self.z == 'None':
+                    print("Select X, Y, Z")
+                elif self.x == self.y or self.x == self.z or self.y == self.z:
+                    print("Select different columns for each axis")
+                else:
+                    self.draw_surface_chart()
 
         def draw_surface_chart(self):
+
             title = self.z + ' by ' + self.y + ' and '+ self.x
             plt.clf()
             fig = plt.figure()
@@ -182,12 +264,12 @@ def dataframe_visualization(df):
 
         def draw_heatmap_chart(self):
             #sns.set(rc={'figure.figsize':(12,12)})
-            title = self.color + ' by ' + self.y + ' and '+ self.x
+            title = self.z + ' by ' + self.y + ' and '+ self.x
             plt.clf()
             #temp = df.pivot("sepal_length", "sepal_width", "petal_width")
-            df_pivot_mean = pd.pivot_table(self.df, index = self.y, columns = self.x, values = self.color, aggfunc = 'mean')
+            df_pivot_mean = pd.pivot_table(self.df, index = self.y, columns = self.x, values = self.z, aggfunc = 'mean')
             #index = y, colunns = x, vlaues = color
-            sns.heatmap(df_pivot_mean, cbar_kws={'label': self.color}).set(title = title)
+            sns.heatmap(df_pivot_mean, cbar_kws={'label': self.z}).set(title = title)
             ax = plt.gca()
             if self.detail is not None:
                 min, max, interval, scale = self.detail['X-axis']
@@ -229,7 +311,7 @@ def dataframe_visualization(df):
             if self.column != 'None':
                 d['col'] = self.column
             plt.clf()
-            sns.set(rc={'figure.figsize':(12,9)})
+            sns.set(rc={'figure.figsize':(15,9)})
             sns.relplot(x=self.x, y=self.y, ci=None, legend = 'full', kind = 'line', **d, data=df).set(title = title)
             
             ax = plt.gca()
@@ -275,7 +357,7 @@ def dataframe_visualization(df):
                 d['col'] = self.column
 
             plt.clf()
-            sns.set(rc={'figure.figsize':(12,9)})
+            sns.set(rc={'figure.figsize':(15,9)})
             sns.relplot(x=self.x, y=self.y, **d, data=self.df, legend = 'full').set(title = title)
 
             ax = plt.gca()
@@ -312,6 +394,7 @@ def dataframe_visualization(df):
             display_df(self.df)
             display_widgets()
             plt.show()
+
     
         def draw_bar_chart(self):
             title = self.y + ' by ' + self.x
@@ -324,7 +407,7 @@ def dataframe_visualization(df):
             if self.column != 'None':
                 g['col'] = self.column
             plt.clf()
-            sns.set(rc={'figure.figsize':(12,9)})
+            sns.set(rc={'figure.figsize':(15,9)})
             
             # Form a facetgrid using columns with a hue
             if self.row != 'None' or self.column != 'None':
@@ -376,7 +459,7 @@ def dataframe_visualization(df):
             display_df(self.df)
             display_widgets()
             plt.show()
-    chart = Chart('line', df)
+   
 
     def display_df(df):
         display(HTML(df.head().to_html()))
@@ -391,42 +474,26 @@ def dataframe_visualization(df):
             self.dropdown = widgets.Dropdown(options=option,value=option[0], layout = Layout(width = '90%'))
             self.d = VBox([self.label, self.dropdown], layout = Layout(width = '100%', align_items='center'))
 
-    #toggle_label = HTML(value="<font size = 2> Recommendation", layout = Layout(margin ='0 30px'))
-    #toggle = widgets.Checkbox(value=True, indent=False)
+    toggle_label = HTML(value="<font size = 2> Recommendation", layout = Layout(margin ='0 30px'))
+    toggle = widgets.Checkbox(value=False, indent=False)
 
 
-    # def toggle_changed(b):
-    #     if b['type'] =='change' and b['name']=='value':
-    #         clear_output(wait=True)
-    #         display(HBox([toggle_label, toggle]))
-
-    #         if b['new'] == True:
-    #             right_box.layout.width = '70%'
-    #             display(widgets.HBox([left_box, right_box]))
-    #         if b['new'] == False:
-    #             right_box.layout.width = '100%'
-    #             display(right_box)
+    def toggle_changed(b):
+        if b['type'] =='change' and b['name']=='value':
+            display_widgets()
 
 
 
-    #toggle.observe(toggle_changed)
 
-    #display(HBox([toggle_label, toggle]))
+    toggle.observe(toggle_changed)
+    display(HBox([toggle_label, toggle]))
 
-    col_layout_l = Layout(display='flex',
-                        flex_flow='column',
+    col_layout = Layout(display='flex',
+                        flex_flow='column wrap',
                         align_items='center',
                         border='1px solid',
-                        width='30%')
-    col_layout_r = Layout(display='flex',
-                        flex_flow='column',
-                        align_items='center',
-                        border='1px solid',
-                        width='70%')
-    col_layout_r2 = Layout(display='flex',
-                        flex_flow='column',
-                        align_items='center',
                         width='100%')
+    
     row_layout = Layout(display='flex',
                         flex_flow='row',
                         align_items='center',
@@ -435,7 +502,7 @@ def dataframe_visualization(df):
                         #border='solid',
                         width='90%')
 
-    left_label = HTML(value="<b><font size = 3> Recommended Chart")
+    rec_label = HTML(value="<b><font size = 3> Recommended Chart")
     right_label = HTML(value="<b><font size = 3> Chart Drawing", layout = Layout(flex = '0 0 auto', align_self='center'))
     type_label = HTML(value="<font size = > Type")
 
@@ -456,25 +523,28 @@ def dataframe_visualization(df):
         elif dropdown_type.value == 'Pie': 
             dropdowns = [dropdown_label.d, dropdown_size.d, dropdown_row.d, dropdown_column.d]
         elif dropdown_type.value == 'Heatmap': 
-            dropdowns = [dropdown_x.d, dropdown_y.d, dropdown_color.d]
+            dropdowns = [dropdown_x.d, dropdown_y.d, dropdown_z.d]
         elif dropdown_type.value == 'Surface': 
             dropdowns = [dropdown_x.d, dropdown_y.d, dropdown_z.d]
         else:
             print("Undefined Type")
         clear_output(wait=True)
-        #display(HBox([toggle_label, toggle]))
+        display(HBox([toggle_label, toggle]))
+        
         right_box2 = compose_box(dropdowns)
         detail, detail_widgets = compose_detail_tab() # dict, widgets
         accordion = widgets.Accordion(children=[detail_widgets], selected_index = None, layout=Layout(margin = '10px',width='90%'))
         accordion.set_title(0, 'Detail')        #VBox ([right_box3,right_box4, accordion], layout = Layout(display='flex', flex_flow='column', align_items='center', width='80%'))#col_layout_r2)# , layout=Layout(width='100%'))
         right_box1 = HBox([VBox([type_label, dropdown_type],layout = Layout(display='flex', flex_flow='column', align_items='center',
                             width='25%')), right_box2], layout = Layout(align_items = 'center',width = '100%')) # 비율이 1:3 정도
-        right_box = VBox([right_label, right_box1, accordion, draw_button], layout = col_layout_r) 
-        display(right_box)
-        # if toggle.value == True:
-        #     display(widgets.HBox([left_box, right_box]))
-        # if toggle.value == False:
-        #     display(right_box)
+        right_box = VBox([right_label, right_box1, accordion, draw_button], layout = col_layout) 
+        if toggle.value == True:
+            recommendation = chart.recommend_drawing()
+            rec_box = VBox([rec_label, recommendation], layout = col_layout)
+            display(widgets.VBox([right_box, rec_box]))
+        if toggle.value == False:
+            display(right_box)
+            
 
     
     def type_changed(d):
@@ -483,7 +553,6 @@ def dataframe_visualization(df):
             chart.set_type(d['new'])
 
     dropdown_type.observe(type_changed)
-
 
 
 
@@ -519,9 +588,9 @@ def dataframe_visualization(df):
     col_cat_none.insert(0,'None')
     col_tot_none.insert(0,'None')
 
-    dropdown_x = dropdown('X-axis',col_tot)
-    dropdown_y = dropdown('Y-axis',col_num)
-    dropdown_z = dropdown('Z-axis',col_num)
+    dropdown_x = dropdown('X-axis',col_tot_none)
+    dropdown_y = dropdown('Y-axis',col_num_none)
+    dropdown_z = dropdown('Z-axis',col_num_none)
 
     dropdown_label = dropdown('Label',col_tot)
     dropdown_size = dropdown('Size',col_tot_none)
@@ -532,10 +601,24 @@ def dataframe_visualization(df):
     dropdown_marker = dropdown('marker',col_cat_none)
     dropdown_row = dropdown('Row',col_cat_none)
     dropdown_column = dropdown('Column',col_cat_none)
+    chart = Chart('line', df)
+
+    
+    def dropdown_changed(d):
+        if d['type'] == 'change' and d['name'] == 'value':
+            if toggle.value == True:
+                chart.set_property()
+                display_widgets()
+
+    dropdown_x.dropdown.observe(dropdown_changed)
+    dropdown_y.dropdown.observe(dropdown_changed)
+    dropdown_z.dropdown.observe(dropdown_changed)
+
+
 
     output = widgets.Output(layout=Layout(width='100%'))
-    left_box = VBox([left_label, output], layout = col_layout_l)
-
+    rec_box = VBox([rec_label, output], layout = col_layout)
+    
     class axis(object):
         def __init__(self, description):
             self.description = description
@@ -610,13 +693,12 @@ def dataframe_visualization(df):
     #VBox ([right_box3,right_box4, accordion], layout = Layout(display='flex', flex_flow='column', align_items='center', width='80%'))#col_layout_r2)# , layout=Layout(width='100%'))
     right_box1 = HBox([VBox([type_label, dropdown_type],layout = Layout(display='flex', flex_flow='column', align_items='center',
                         width='25%')), right_box2], layout = Layout(align_items = 'center',width = '100%')) # 비율이 1:3 정도
-    right_box = VBox([right_label, right_box1, accordion, draw_button], layout = col_layout_r) 
+    right_box = VBox([right_label, right_box1, accordion, draw_button], layout = col_layout) 
 
-    with output: # drawing recommended Chart. only activated when recommendation toggle is on.
-        plt.close()
-        plt.figure(figsize = (4,3))
+    # with output: # drawing recommended Chart. only activated when recommendation toggle is on.
+    #     plt.close()
+    #     plt.figure(figsize = (4,3))
 
-        plt.plot([1,2,3,4,5],[1,3,5,7,9])
-        plt.show() 
+    #     plt.show() 
 
-    display(right_box)
+    display(HBox([right_box]))
