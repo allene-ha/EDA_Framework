@@ -85,12 +85,57 @@ def dataframe_visualization(df):
                 for element in itertools.product(*lists):
                     if len(element) == len(set(element)):
                         result.append(element)
-                        coeff.append(self.df[element].corr())
+                        print(element)# list다.
+                        print(self.df[list(element)])
+                        #print(self.df[element])
+                        #print(self.df[element].corr())
+                        coeff.append(self.df[list(element)].corr())
                 coeff = list(map(abs,coeff))
 
                 sorted_result = [x for _,x in sorted(zip(coeff,result), reverse=True)]
 
                 return sorted_result
+            
+            def type_data_to_option(type, data): # dict를 return{'color':'attr', ...}
+                # 처음 몇개를 순회하면서 각각 데이터를 제외하고 카테고리컬 데이터를 담은 어트리뷰트가 남았는지 검사
+                # 각 어트리뷰터의 card 검사
+                # 1개일 때 => 컬러,하지만 카디날리티 너무 많으면 버려
+                # 2개이면 => line scatter 면 marker 추가, card 더 높은것이 컬러 적은것이 마커
+                # 그 이상인데 나머지 카디날리티가 3 이하일때 row, col에 할당. 먼저 col하고 다음에 row, 
+                result = []
+                for element in data[:10]:
+                    option = {}
+                    cat_cand = [x for x in col_cat if x not in element and self.df[x].nunique()>1] # 데이터를 제외하고 카테고리컬 데이터 컬럼이 남았는지 검사
+                    if len(cat_cand) == 1:
+                        option['hue'] = cat_cand[0]
+                        result.append(element, option) # tuple and dict for options
+                    if len(cat_cand)>1:
+                        nunique = [self.df[x].nunique() for x in cat_cand]
+                        
+                        f = lambda i: nunique[i]
+                        argmax = max(range(len(nunique)), key=f)
+                        option['hue'] = cat_cand[argmax]
+                        cat_cand.remove(argmax)
+                        if len(cat_cand) ==1:
+                            option['marker'] = cat_cand[0]
+                            result.append(element, option)
+                        else: # 총 cat이 3개 이상인 경우
+                            nunique = [self.df[x].nunique() for x in cat_cand] # 두번째 max 찾기
+                            
+                            argmax = max(range(len(nunique)), key=f)
+                            option['marker'] = cat_cand[argmax]
+                            # del cat_cand.remove(argmax) 
+                            # nunique = [self.df[x].nunique() for x in cat_cand] # 세번째 max 찾기
+                            # argmax = max(range(len(nunique)), key=f)
+                            # if 
+                            # option['marker'] = cat_cand[argmax]
+                            # result.append()
+                            # row column 옵션 추가 시 추가로 작성
+                            result.append(element, option)
+                return result # element와 option(dict)의 ordered list
+
+
+
             
             if self.x == 'None':
                 x_cand = type_to_x()
@@ -109,30 +154,31 @@ def dataframe_visualization(df):
                 comb = candidate_to_data(x_cand, y_cand, z_cand)
             else:
                 comb = candidate_to_data(x_cand, y_cand)
-            return comb
+            
+            return type_data_to_option(self.type, comb)
 
         def recommend_drawing(self):
-            axes_data = self.type_to_property()
+            axes_data, d = self.type_to_property()
             elements = []
             #print(len(axes_data))
             #print(axes_data)
-            for data in axes_data[:6]: # 반복문 하나에 차트 하나
+            for data in axes_data[:6]: # 반복문 하나에 차트 하나type_data_to_option(self.type, comb)
                 out = widgets.Output()
                 with out:
                     plt.close()
                     plt.figure(figsize = (3,1.5))
                     fig = plt.gcf()
-                    if len(data) == 2:
+                    if self.type =='Scatter' or self.type == 'Line' or self.type == 'Bar':
                         x,y = data
                         title = "X: " + x + " / Y: "+ y
                        
                         if self.type == 'Scatter':
-                            sns.relplot(x=x, y=y, data=self.df, legend = 'full').set(title = title)
+                            sns.relplot(x=x, y=y, **d, data=self.df, legend = 'full').set(title = title)
                         elif self.type == 'Line':
-                            sns.relplot(x=x, y=y, ci = None, kind = 'Line', data=self.df).set(title = title)
+                            sns.relplot(x=x, y=y, **d, ci = None, kind = 'Line', data=self.df).set(title = title)
                         elif self.type == 'Bar':
-                            sns.barplot(x=x, y=y, data=self.df).set(title = title)
-                    elif len(data) == 3:
+                            sns.barplot(x=x, y=y, **d, data=self.df).set(title = title)
+                    elif self.type == 'Heatmap' or self.type =='Surface':
                         x, y, z = data
                         title = "X: " + x + " / Y: "+ y + " / Z: "+ z
                         if self.type == "Heatmap":
