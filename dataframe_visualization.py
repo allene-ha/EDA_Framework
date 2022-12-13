@@ -11,6 +11,9 @@ from ipywidgets import Layout
 import itertools
 import IPython.display
 from IPython.display import display, clear_output
+import math
+import time
+from matplotlib import rcParams
 
 
 import seaborn as sns
@@ -25,7 +28,11 @@ def dataframe_visualization(df):
             self.detail = None
 
             # axis
-            self.x = dropdown_x.dropdown.value
+            if self.type == 'Bar':
+                self.x = dropdown_x_cat.dropdown.value
+            else:
+                self.x = dropdown_x.dropdown.value
+
             self.y = dropdown_y.dropdown.value
             self.z = dropdown_z.dropdown.value
             
@@ -85,31 +92,40 @@ def dataframe_visualization(df):
                 for element in itertools.product(*lists):
                     if len(element) == len(set(element)):
                         result.append(element)
-                        print(element)# list다.
-                        print(self.df[list(element)])
+                        
                         #print(self.df[element])
                         #print(self.df[element].corr())
-                        coeff.append(self.df[list(element)].corr())
-                coeff = list(map(abs,coeff))
-
-                sorted_result = [x for _,x in sorted(zip(coeff,result), reverse=True)]
-
-                return sorted_result
+                        if self.type == 'Scatter' or  self.type == 'Line':
+                            c = self.df[list(element)].corr().iat[0,1]
+                            coeff.append(c)
+                
+                if self.type == 'Scatter' or  self.type == 'Line':
+                    coeff = list(np.abs(coeff))
             
-            def type_data_to_option(type, data): # dict를 return{'color':'attr', ...}
+
+                    #= [x for _,x in sorted(zip(coeff,result), reverse=True)]
+                    sorted_result = [x for _, x in sorted(zip(coeff, result),reverse=True, key=lambda pair: pair[0])]
+
+                    return sorted_result
+                else:
+                    return result
+            
+            def type_data_to_option(data): # dict를 return{'color':'attr', ...}
                 # 처음 몇개를 순회하면서 각각 데이터를 제외하고 카테고리컬 데이터를 담은 어트리뷰트가 남았는지 검사
                 # 각 어트리뷰터의 card 검사
                 # 1개일 때 => 컬러,하지만 카디날리티 너무 많으면 버려
                 # 2개이면 => line scatter 면 marker 추가, card 더 높은것이 컬러 적은것이 마커
                 # 그 이상인데 나머지 카디날리티가 3 이하일때 row, col에 할당. 먼저 col하고 다음에 row, 
                 result = []
-                for element in data[:10]:
+                for element in data[:4]:
                     option = {}
                     cat_cand = [x for x in col_cat if x not in element and self.df[x].nunique()>1] # 데이터를 제외하고 카테고리컬 데이터 컬럼이 남았는지 검사
-                    if len(cat_cand) == 1:
+                    if len(cat_cand) == 0:
+                        result.append([element, option])
+                    elif len(cat_cand) == 1:
                         option['hue'] = cat_cand[0]
-                        result.append(element, option) # tuple and dict for options
-                    if len(cat_cand)>1:
+                        result.append([element, option]) # tuple and dict for options
+                    elif len(cat_cand)>1:
                         nunique = [self.df[x].nunique() for x in cat_cand]
                         
                         f = lambda i: nunique[i]
@@ -118,7 +134,7 @@ def dataframe_visualization(df):
                         cat_cand.remove(argmax)
                         if len(cat_cand) ==1:
                             option['marker'] = cat_cand[0]
-                            result.append(element, option)
+                            result.append([element, option])
                         else: # 총 cat이 3개 이상인 경우
                             nunique = [self.df[x].nunique() for x in cat_cand] # 두번째 max 찾기
                             
@@ -131,12 +147,12 @@ def dataframe_visualization(df):
                             # option['marker'] = cat_cand[argmax]
                             # result.append()
                             # row column 옵션 추가 시 추가로 작성
-                            result.append(element, option)
+                            result.append([element, option])
+                    
+                #print(result)
                 return result # element와 option(dict)의 ordered list
 
 
-
-            
             if self.x == 'None':
                 x_cand = type_to_x()
             else:
@@ -155,36 +171,38 @@ def dataframe_visualization(df):
             else:
                 comb = candidate_to_data(x_cand, y_cand)
             
-            return type_data_to_option(self.type, comb)
+            return type_data_to_option(comb)
 
         def recommend_drawing(self):
-            axes_data, d = self.type_to_property()
+            data = self.type_to_property()
             elements = []
             #print(len(axes_data))
             #print(axes_data)
-            for data in axes_data[:6]: # 반복문 하나에 차트 하나type_data_to_option(self.type, comb)
-                out = widgets.Output()
+            for axes_data, d in data[:4]: # 반복문 하나에 차트 하나type_data_to_option(self.type, comb)
+                #out = widgets.Output(layout = Layout(width = '45%'))
+                plt.close()
+                out = widgets.Output()#layout = Layout(width = '50%', height='50%'))
                 with out:
-                    plt.close()
-                    plt.figure(figsize = (3,1.5))
-                    fig = plt.gcf()
+                    #plt.close()      
+                    
                     if self.type =='Scatter' or self.type == 'Line' or self.type == 'Bar':
-                        x,y = data
+                        x,y = axes_data
                         title = "X: " + x + " / Y: "+ y
-                       
                         if self.type == 'Scatter':
                             sns.relplot(x=x, y=y, **d, data=self.df, legend = 'full').set(title = title)
+                            #plt.show()
                         elif self.type == 'Line':
-                            sns.relplot(x=x, y=y, **d, ci = None, kind = 'Line', data=self.df).set(title = title)
+                            sns.relplot(x=x, y=y,ci = None, kind = 'line', data=self.df).set(title = title)
                         elif self.type == 'Bar':
                             sns.barplot(x=x, y=y, **d, data=self.df).set(title = title)
                     elif self.type == 'Heatmap' or self.type =='Surface':
-                        x, y, z = data
+                        x, y, z = axes_data
                         title = "X: " + x + " / Y: "+ y + " / Z: "+ z
                         if self.type == "Heatmap":
                             df_pivot_mean = pd.pivot_table(self.df, index = y, columns = x, values = z, aggfunc = 'mean')
                             sns.heatmap(df_pivot_mean, cbar_kws={'label': self.z}).set(title = title)
                         if self.type == 'Surface':
+                            fig = plt.gcf()
                             ax = fig.add_subplot(projection='3d')
                             df_pivot_mean = pd.pivot_table(self.df, index = y, columns = x, values = z, aggfunc = 'mean')
                             X_ = df_pivot_mean.columns.tolist()
@@ -194,13 +212,19 @@ def dataframe_visualization(df):
                             Z = df_pivot_mean.values
                             ax.plot_surface(X,Y,Z, cmap="inferno")
                             plt.title(title)
-                    fig.tight_layout()
+                    plt.gcf().tight_layout()
+                    plt.ioff()
+                    plt.gcf().set_size_inches(5, 3.5)
+
                     plt.show()
                 elements.append(out)
             return HBox(elements, layout = Layout(display ='flex', flex_flow ='row wrap', justify_content='space-around'))
         
         def set_property(self):
-            self.x = dropdown_x.dropdown.value
+            if self.type !='Bar':
+                self.x = dropdown_x.dropdown.value
+            else:
+                self.x = dropdown_x_cat.dropdown.value
             self.y = dropdown_y.dropdown.value
             self.z = dropdown_z.dropdown.value
             
@@ -532,6 +556,7 @@ def dataframe_visualization(df):
 
     def toggle_changed(b):
         if b['type'] =='change' and b['name']=='value':
+            chart.set_type(dropdown_type.value)
             display_widgets()
 
 
@@ -571,7 +596,7 @@ def dataframe_visualization(df):
         if dropdown_type.value =='Line' or dropdown_type.value== 'Scatter':
             dropdowns = [dropdown_x.d, dropdown_color.d, dropdown_row.d, dropdown_y.d, dropdown_marker.d, dropdown_column.d]
         elif dropdown_type.value == 'Bar': 
-            dropdowns = [dropdown_x.d, dropdown_color.d, dropdown_row.d, dropdown_y.d, dropdown_pattern.d, dropdown_column.d]
+            dropdowns = [dropdown_x_cat.d, dropdown_color.d, dropdown_row.d, dropdown_y.d, dropdown_pattern.d, dropdown_column.d]
         elif dropdown_type.value == 'Pie': 
             dropdowns = [dropdown_label.d, dropdown_size.d, dropdown_row.d, dropdown_column.d]
         elif dropdown_type.value == 'Heatmap': 
@@ -601,8 +626,8 @@ def dataframe_visualization(df):
     
     def type_changed(d):
         if d['type'] =='change' and d['name']=='value':
-            display_widgets()
             chart.set_type(d['new'])
+            display_widgets()
 
     dropdown_type.observe(type_changed)
 
@@ -641,6 +666,7 @@ def dataframe_visualization(df):
     col_tot_none.insert(0,'None')
 
     dropdown_x = dropdown('X-axis',col_tot_none)
+    dropdown_x_cat = dropdown('X-axis',col_cat_none)
     dropdown_y = dropdown('Y-axis',col_num_none)
     dropdown_z = dropdown('Z-axis',col_num_none)
 
@@ -653,7 +679,7 @@ def dataframe_visualization(df):
     dropdown_marker = dropdown('marker',col_cat_none)
     dropdown_row = dropdown('Row',col_cat_none)
     dropdown_column = dropdown('Column',col_cat_none)
-    chart = Chart('line', df)
+    chart = Chart('Line', df)
 
     
     def dropdown_changed(d):
