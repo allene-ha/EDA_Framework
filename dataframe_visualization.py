@@ -18,7 +18,7 @@ from matplotlib import rcParams
 
 import seaborn as sns
 
-plt.style.use('seaborn-notebook')
+#plt.style.use('seaborn-notebook')
 
 def dataframe_visualization(df):
     class Chart(object):
@@ -188,7 +188,7 @@ def dataframe_visualization(df):
                 plt.close()
                 out = widgets.Output()#layout = Layout(width = '50%', height='50%'))
                 with out:
-                    #plt.close()      
+                    plt.close()      
                     
                     if self.type =='Scatter' or self.type == 'Line' or self.type == 'Bar':
                         x,y = axes_data
@@ -276,6 +276,7 @@ def dataframe_visualization(df):
                 elif self.x in self.y:
                     print("Select different columns for each axis")
                 else:
+                    print("HERE")
                     self.draw_bar_chart()
             elif self.type =='Scatter':
                 if self.x == 'None' or self.y == ('None'):
@@ -468,6 +469,7 @@ def dataframe_visualization(df):
                 d['col'] = self.column
 
             plt.close()
+        
             sns.set(rc={'figure.figsize':(15,9)})
             #sns.relplot(x=self.x, y=self.y, **d, data=self.df, legend = 'full').set(title = title)
             plots = []
@@ -518,6 +520,9 @@ def dataframe_visualization(df):
 
     
         def draw_bar_chart(self):
+            clear_output(wait=True)
+            display_df(self.df)
+            display_widgets()
             d = {}
             #g = {}
             if self.color != 'None':
@@ -526,7 +531,8 @@ def dataframe_visualization(df):
                 d['row'] = self.row
             if self.column != 'None':
                 d['col'] = self.column
-            plt.close()
+            plt.figure()
+        
             sns.set(rc={'figure.figsize':(15,9)})
             plots = []
             for y in self.y:
@@ -534,6 +540,7 @@ def dataframe_visualization(df):
                 plot = sns.catplot(data = self.df, kind = 'bar', x = self.x, y=y, **d, legend = True, dodge = False, capsize=.15,  errwidth=1.5, facet_kws={"legend_out": True}).set(title=title)
                 #if len(self.y)>1:
                     #plt.figure()
+                plot.add_legend()
                 plots.append(plot)
             
             if self.pattern !='False':
@@ -595,9 +602,8 @@ def dataframe_visualization(df):
                             ax.yaxis.set_ticks(np.arange(min, max, interval))
                         ax.set_yscale(scale)
 
-            clear_output(wait=True)
-            display_df(self.df)
-            display_widgets()
+            
+            
             plt.show()
    
 
@@ -837,6 +843,7 @@ def dataframe_visualization(df):
 
     def draw_on_click_callback(clicked_button: widgets.Button) -> None:
         #chart.set_detail(detail)
+        #display_widgets()
         chart.draw()
  
 
