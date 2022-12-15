@@ -18,14 +18,13 @@ from matplotlib import rcParams
 
 import seaborn as sns
 
-#plt.style.use('seaborn-notebook')
 
 def dataframe_visualization(df):
+
     class Chart(object):
         def __init__(self, type, df):
             self.type = type
             self.df = df
-            self.detail = None
             self.option = {}
 
             # axis
@@ -46,6 +45,11 @@ def dataframe_visualization(df):
             self.row = dropdown_row.dropdown.value
             self.column = dropdown_column.dropdown.value
 
+            # detail
+            self.title = True
+            self.legend = legend.dropdown.value
+            self.grid = grid.dropdown.value
+
         def type_to_property(self):
             df_numerics_only = self.df.select_dtypes(include=np.number)
             col_date = list(self.df.select_dtypes(include=[np.datetime64]).columns)
@@ -60,6 +64,13 @@ def dataframe_visualization(df):
                         for col in col_date:
                             if self.df[col].nunique()>5:
                                 candidate.append(col)
+                    else:
+                        if len(col_num) == 1:
+                            candidate.append(col_num[0])
+                        elif len(col_num) >1:
+                            for col in col_num:
+                                if df[col].nunique()>=5:
+                                    candidate.append(col)
                 elif self.type == "Bar":
                     if len(col_cat) == 1:
                         candidate.append(col_cat[0])
@@ -133,7 +144,8 @@ def dataframe_visualization(df):
                         f = lambda i: nunique[i]
                         argmax = max(range(len(nunique)), key=f)
                         option['hue'] = cat_cand[argmax]
-                        cat_cand.remove(argmax)
+            
+                        cat_cand.remove(cat_cand[argmax])
                         if len(cat_cand) ==1:
                             option['marker'] = cat_cand[0]
                             result.append([element, option])
@@ -142,7 +154,7 @@ def dataframe_visualization(df):
                             
                             argmax = max(range(len(nunique)), key=f)
                             option['marker'] = cat_cand[argmax]
-                            cat_cand.remove(argmax) 
+                            cat_cand.remove(cat_cand[argmax]) 
 
                             nunique = [self.df[x].nunique() for x in cat_cand] # 세번째 max 찾기
                             argmax = max(range(len(nunique)), key=f)
@@ -165,7 +177,7 @@ def dataframe_visualization(df):
             if self.y[0] == 'None':
                 y_cand = type_to_y_z()
             else:
-                y_cand = [self.y[0]] # this can be tuple
+                y_cand = list(self.y) # this can be tuple
 
             if self.type =='Surface' or self.type == 'Heatmap':
                 if self.z == 'None':
@@ -198,10 +210,13 @@ def dataframe_visualization(df):
                             plots = []
                             for y_ in y:
                                 title = "X: " + x + " / Y: "+ y_
+                                sns.set(rc={'figure.figsize':(13,6)})
+                                sns.set_style('ticks')
+                                sns.set_context('talk')
                                 if self.type == 'Scatter':
                                     plot = sns.relplot(x=x, y=y_, legend = 'full', **d, data=self.df).set(title = title)
                                 elif self.type == 'Line':
-                                    plot = sns.relplot(x=x, y=y_, ci=None, legend = 'full', kind = 'line', **d, data=self.df).set(title = title)
+                                    plot = sns.relplot(x=x, y=y_, markers = True, ci=None, legend = 'full', kind = 'line', **d, data=self.df).set(title = title)
                                 elif self.type == 'Bar':
                                     plot = sns.catplot(data = self.df, kind = 'bar', x = x, y=y_, **d, legend = True, dodge = False, capsize=.15,  errwidth=1.5, facet_kws={"legend_out": True}).set(title=title)
                 
@@ -260,8 +275,10 @@ def dataframe_visualization(df):
             self.row = dropdown_row.dropdown.value
             self.column = dropdown_column.dropdown.value
 
-        def set_detail(self, detail):
-            self.detail = detail
+        def set_detail(self):
+            self.title = title_check.value
+            self.legend = legend.dropdown.value
+            self.grid = grid.dropdown.value
         
         def set_type(self, type):
             self.type = type
@@ -269,6 +286,7 @@ def dataframe_visualization(df):
         def draw(self):
             self.set_type(dropdown_type.value)
             self.set_property()
+            self.set_detail()
             #print(self.x, self.y, self.z)
             if self.type == 'Bar':
                 if self.x == 'None' or self.y == ('None'):
@@ -321,45 +339,45 @@ def dataframe_visualization(df):
             X = [X_ for _ in range(len(Y_))]
             Y = [[y_]*len(X_) for y_ in Y_]
             Z = df_pivot_mean.values
-            if self.detail is not None:
-                min, max, interval, scale = self.detail['X-axis']
-                if min == 'None':
-                    min, _ = ax.get_xlim()
-                if max == 'None':
-                    _, max = ax.get_xlim()
-                if interval == 'None':
-                    ax.set_xlim(min, max)
-                else:
-                    ax.xaxis.set_ticks(np.arange(min, max, interval))
-                ax.set_xscale(scale)
+            # if self.detail is not None:
+            #     min, max, interval, scale = self.detail['X-axis']
+            #     if min == 'None':
+            #         min, _ = ax.get_xlim()
+            #     if max == 'None':
+            #         _, max = ax.get_xlim()
+            #     if interval == 'None':
+            #         ax.set_xlim(min, max)
+            #     else:
+            #         ax.xaxis.set_ticks(np.arange(min, max, interval))
+            #     ax.set_xscale(scale)
 
-                min, max, interval, scale = self.detail['Y-axis']
-                if min == 'None':
-                    min, _ = ax.get_ylim()
-                if max == 'None':
-                    _, max = ax.get_ylim()
-                if interval == 'None':
-                    ax.set_ylim(min, max)
-                else:
-                    ax.yaxis.set_ticks(np.arange(min, max, interval))
-                ax.set_yscale(scale)
+            #     min, max, interval, scale = self.detail['Y-axis']
+            #     if min == 'None':
+            #         min, _ = ax.get_ylim()
+            #     if max == 'None':
+            #         _, max = ax.get_ylim()
+            #     if interval == 'None':
+            #         ax.set_ylim(min, max)
+            #     else:
+            #         ax.yaxis.set_ticks(np.arange(min, max, interval))
+            #     ax.set_yscale(scale)
    
-                min, max, interval, scale = self.detail['Z-axis']
-                if min == 'None':
-                    min, _ = ax.get_zlim()
-                if max == 'None':
-                    _, max = ax.get_zlim()
-                if interval == 'None':
-                    ax.set_zlim(min, max)
-                else:
-                    ax.zaxis.set_ticks(np.arange(min, max, interval))
-                ax.set_zscale(scale)
+            #     min, max, interval, scale = self.detail['Z-axis']
+            #     if min == 'None':
+            #         min, _ = ax.get_zlim()
+            #     if max == 'None':
+            #         _, max = ax.get_zlim()
+            #     if interval == 'None':
+            #         ax.set_zlim(min, max)
+            #     else:
+            #         ax.zaxis.set_ticks(np.arange(min, max, interval))
+            #     ax.set_zscale(scale)
             ax.plot_surface(X,Y,Z, cmap="inferno")
             plt.title(title)
 
             clear_output(wait=True)
             display_df(self.df)
-            display_widgets()
+            display_widgets(False)
             plt.show()
 
         def draw_heatmap_chart(self):
@@ -371,36 +389,37 @@ def dataframe_visualization(df):
             #index = y, colunns = x, vlaues = color
             sns.heatmap(df_pivot_mean, cbar_kws={'label': self.z}).set(title = title)
             ax = plt.gca()
-            if self.detail is not None:
-                min, max, interval, scale = self.detail['X-axis']
-                if min == 'None':
-                    min, _ = ax.get_xlim()
-                if max == 'None':
-                    _, max = ax.get_xlim()
-                if interval == 'None':
-                    ax.set_xlim(min, max)
-                else:
-                    ax.xaxis.set_ticks(np.arange(min, max, interval))
-                ax.set_xscale(scale)
+            # if self.detail is not None:
+            #     min, max, interval, scale = self.detail['X-axis']
+            #     if min == 'None':
+            #         min, _ = ax.get_xlim()
+            #     if max == 'None':
+            #         _, max = ax.get_xlim()
+            #     if interval == 'None':
+            #         ax.set_xlim(min, max)
+            #     else:
+            #         ax.xaxis.set_ticks(np.arange(min, max, interval))
+            #     ax.set_xscale(scale)
 
-                min, max, interval, scale = self.detail['Y-axis']
-                if min == 'None':
-                    min, _ = ax.get_ylim()
-                if max == 'None':
-                    _, max = ax.get_ylim()
-                if interval == 'None':
-                    ax.set_ylim(min, max)
-                else:
-                    ax.yaxis.set_ticks(np.arange(min, max, interval))
-                ax.set_yscale(scale)
+            #     min, max, interval, scale = self.detail['Y-axis']
+            #     if min == 'None':
+            #         min, _ = ax.get_ylim()
+            #     if max == 'None':
+            #         _, max = ax.get_ylim()
+            #     if interval == 'None':
+            #         ax.set_ylim(min, max)
+            #     else:
+            #         ax.yaxis.set_ticks(np.arange(min, max, interval))
+            #     ax.set_yscale(scale)
    
             clear_output(wait=True)
             display_df(self.df)
-            display_widgets()
+            display_widgets(False)
             plt.show()
 
         def draw_line_chart(self):
             #title = self.y + ' by ' + self.x
+            
             d = {}
             if self.color != 'None':
                 d['hue'] = self.color
@@ -411,49 +430,77 @@ def dataframe_visualization(df):
             if self.column != 'None':
                 d['col'] = self.column
             plt.close()
-            sns.set(rc={'figure.figsize':(15,9)})
-
+            sns.set(rc={'figure.figsize':(13,6)})
+            sns.set_style('ticks')
+            sns.set_context('talk')
             plots = []
             for y in self.y:
                 title = y +  ' by ' + self.x
-                plot = sns.relplot(x=self.x, y=y, ci=None, legend = 'full', kind = 'line', **d, data=self.df).set(title = title)
-                #if len(self.y)>1:
-                    #plt.figure()
+                      
+                if self.legend =='ax-wise':
+                    plot = sns.relplot(x=self.x, y=y, ci=None, dashes=False, markers=True, legend = 'full', kind = 'line', **d, facet_kws={"margin_titles": True}, data=self.df)
+                    plot.tight_layout(rect=[0, 0.03, 1, 0.95])
+                else:
+                    plot = sns.relplot(x=self.x, y=y, ci=None, dashes=False, markers=True, legend = 'full', kind = 'line', **d, facet_kws={"margin_titles": True}, data=self.df)
+                    plot.tight_layout(rect=[0, 0.03, 0.8, 0.95])
+                
+                [plt.setp(ax.texts, text="") for ax in plot.axes.flat] # remove the original texts
+                plot.set_titles(row_template = '{row_name}', col_template = '{col_name}')
+                #plot.legend.remove()
+
+
+                for ax in plot.axes.ravel():
+                    ax.grid(axis=self.grid, linestyle = 'dashed')
+                    # if self.legend == 'ax-wise':
+                    #     if self.color != 'None':
+                    #         ax.legend(list(self.df[self.color].unique()), bbox_to_anchor =(0.65, 1.25))
+                    #     elif self.marker != 'None':
+                    #         d['style'] = self.marker
+                    #     ax.legend(bbox_to_anchor =(0.65, 1.25))
+                       
+                if self.title:
+                    plt.suptitle(t = title, size = 'large', y = '0.99')
+                
                 plots.append(plot)
 
 
 
             #sns.relplot(x=self.x, y=self.y, ci=None, legend = 'full', kind = 'line', **d, data=df).set(title = title)
-            if self.detail is not None:
-                for plot in plots:
-                    for ax in plot.axes.flat:
-                        
-                        min, max, interval, scale = self.detail['X-axis']
-                        if min == 'None':
-                            min, _ = ax.get_xlim()
-                        if max == 'None':
-                            _, max = ax.get_xlim()
-                        if interval == 'None':
-                            ax.set_xlim(min, max)
-                        else:
-                            ax.xaxis.set_ticks(np.arange(min, max, interval))
-                        ax.set_xscale(scale)
+            
+            for plot in plots:
+                for ax in plot.axes.flat:
+                    
+                    
+                    if self.grid != None:
+                        ax.grid(axis=self.grid,linestyle = 'dashed')
+                        ax.set_axisbelow(True)
 
-                        min, max, interval, scale = self.detail['Y-axis']
-                        if min == 'None':
-                            min, _ = ax.get_ylim()
-                        if max == 'None':
-                            _, max = ax.get_ylim()
-                        if interval == 'None':
-                            ax.set_ylim(min, max)
-                        else:
-                            ax.yaxis.set_ticks(np.arange(min, max, interval))
-                        ax.set_yscale(scale)
+                        # min, max, interval, scale = self.detail['X-axis']
+                        # if min == 'None':
+                        #     min, _ = ax.get_xlim()
+                        # if max == 'None':
+                        #     _, max = ax.get_xlim()
+                        # if interval == 'None':
+                        #     ax.set_xlim(min, max)
+                        # else:
+                        #     ax.xaxis.set_ticks(np.arange(min, max, interval))
+                        # ax.set_xscale(scale)
+
+                        # min, max, interval, scale = self.detail['Y-axis']
+                        # if min == 'None':
+                        #     min, _ = ax.get_ylim()
+                        # if max == 'None':
+                        #     _, max = ax.get_ylim()
+                        # if interval == 'None':
+                        #     ax.set_ylim(min, max)
+                        # else:
+                        #     ax.yaxis.set_ticks(np.arange(min, max, interval))
+                        # ax.set_yscale(scale)
               
             
             clear_output(wait=True)
             display_df(self.df)
-            display_widgets()
+            display_widgets(False)
             plt.show()
 
         def draw_scatter_chart(self):
@@ -471,7 +518,6 @@ def dataframe_visualization(df):
             plt.close()
         
             sns.set(rc={'figure.figsize':(15,9)})
-            #sns.relplot(x=self.x, y=self.y, **d, data=self.df, legend = 'full').set(title = title)
             plots = []
             for y in self.y:
                 title = y +  ' by ' + self.x
@@ -481,48 +527,43 @@ def dataframe_visualization(df):
                 plots.append(plot)
 
 
-            if self.detail is not None:
-                for plot in plots:
-                    for ax in plot.axes.flat:
+            # if self.detail is not None:
+            #     for plot in plots:
+            #         for ax in plot.axes.flat:
                         
-                        min, max, interval, scale = self.detail['X-axis']
-                        if min == 'None':
-                            min, _ = ax.get_xlim()
-                        if max == 'None':
-                            _, max = ax.get_xlim()
-                        if interval == 'None':
-                            ax.set_xlim(min, max)
-                        else:
-                            ax.xaxis.set_ticks(np.arange(min, max, interval))
-                        ax.set_xscale(scale)
+            #             min, max, interval, scale = self.detail['X-axis']
+            #             if min == 'None':
+            #                 min, _ = ax.get_xlim()
+            #             if max == 'None':
+            #                 _, max = ax.get_xlim()
+            #             if interval == 'None':
+            #                 ax.set_xlim(min, max)
+            #             else:
+            #                 ax.xaxis.set_ticks(np.arange(min, max, interval))
+            #             ax.set_xscale(scale)
 
-                        min, max, interval, scale = self.detail['Y-axis']
-                        if min == 'None':
-                            min, _ = ax.get_ylim()
-                        if max == 'None':
-                            _, max = ax.get_ylim()
-                        if interval == 'None':
-                            ax.set_ylim(min, max)
-                        else:
-                            ax.yaxis.set_ticks(np.arange(min, max, interval))
-                        ax.set_yscale(scale)
+            #             min, max, interval, scale = self.detail['Y-axis']
+            #             if min == 'None':
+            #                 min, _ = ax.get_ylim()
+            #             if max == 'None':
+            #                 _, max = ax.get_ylim()
+            #             if interval == 'None':
+            #                 ax.set_ylim(min, max)
+            #             else:
+            #                 ax.yaxis.set_ticks(np.arange(min, max, interval))
+            #             ax.set_yscale(scale)
 
-            # if dropdown_marker.dropdown.value == True and dropdown_color.dropdown.value != 'None':
-            #     m = ['o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X']
-            #     m = m[0:df.nunique(dropna=True)]
-            #     sns.lmplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, fit_reg = False, markers = m, **d, data=df)
-            # else:
-            #     sns.lmplot(x=dropdown_x.dropdown.value, y=dropdown_y.dropdown.value, fit_reg = False, **d, data=df)
+            
             clear_output(wait=True)
             display_df(self.df)
-            display_widgets()
+            display_widgets(False)
             plt.show()
 
     
         def draw_bar_chart(self):
             clear_output(wait=True)
             display_df(self.df)
-            display_widgets()
+            display_widgets(False)
             d = {}
             #g = {}
             if self.color != 'None':
@@ -555,52 +596,19 @@ def dataframe_visualization(df):
                         ax.grid(axis='y',linestyle = 'dashed')
                         ax.set_axisbelow(True)
 
-
-            # # Form a facetgrid using columns with a hue
-            # if self.row != 'None' or self.column != 'None':
-            #     if self.color != 'None':
-            #         grid = sns.FacetGrid(self.df, **g, hue = d['hue'], margin_titles = True, legend_out = True)
-            #     else: 
-            #         grid = sns.FacetGrid(self.df, **g, margin_titles = True)
-            #     grid.map(sns.barplot, self.x, self.y)
-            #     grid.add_legend()
-            #     grid.fig.suptitle(title)
-            #     #plt.legend(loc = 2, bbox_to_anchor = (1,1))
-            # else:
-            #     bar = sns.barplot(x=self.x, y=self.y, **d, data=df).set(title = title)
-            #     plt.legend(loc = 2, bbox_to_anchor = (1,1))
-    
-            # # if self.pattern != 'False':
-            # #     if self.row != 'None' or self.column != 'None':
-            # #         for ax in grid.axes_dict.values():
-            # #             bars = [rect for rect in ax.get_children() if isinstance(rect, matplotlib.patches.Rectangle)]
-            # #             hatches = ['-', '+', 'x', '\\', '*', 'o']
-            # #             for i,thisbar in enumerate(bars):
-            # #                 # Set a different hatch for each bar
-            # #                 thisbar.set_hatch(hatches[i%len(hatches)])
-                        
-            # #     else:
-            # #         # Define some hatches
-            # #         hatches = ['-', '+', 'x', '\\', '*', 'o']
-
-            # #         # Loop over the bars
-            # #         for i,thisbar in enumerate(bar.patches):
-            # #             # Set a different hatch for each bar
-            # #             thisbar.set_hatch(hatches[i%len(hatches)])
-
-            if self.detail is not None:
-                for plot in plots:
-                    for ax in plot.axes.flat:
-                        min, max, interval, scale = self.detail['Y-axis']
-                        if min == 'None':
-                            min, _ = ax.get_ylim()
-                        if max == 'None':
-                            _, max = ax.get_ylim()
-                        if interval == 'None':
-                            ax.set_ylim(min, max)
-                        else:
-                            ax.yaxis.set_ticks(np.arange(min, max, interval))
-                        ax.set_yscale(scale)
+            # if self.detail is not None:
+            #     for plot in plots:
+            #         for ax in plot.axes.flat:
+            #             min, max, interval, scale = self.detail['Y-axis']
+            #             if min == 'None':
+            #                 min, _ = ax.get_ylim()
+            #             if max == 'None':
+            #                 _, max = ax.get_ylim()
+            #             if interval == 'None':
+            #                 ax.set_ylim(min, max)
+            #             else:
+            #                 ax.yaxis.set_ticks(np.arange(min, max, interval))
+            #             ax.set_yscale(scale)
 
             
             
@@ -680,9 +688,8 @@ def dataframe_visualization(df):
                         disabled=False,
                         layout=Layout(width='90%'))
 
-    
 
-    def display_widgets():
+    def display_widgets(refresh = True):
         if dropdown_type.value =='Line' or dropdown_type.value== 'Scatter':
             dropdowns = [dropdown_x.d, dropdown_color.d, dropdown_row.d, dropdown_y.d, dropdown_marker.d, dropdown_column.d]
         elif dropdown_type.value == 'Bar': 
@@ -699,8 +706,11 @@ def dataframe_visualization(df):
         display(HBox([toggle_label, toggle]))
         
         right_box2 = compose_box(dropdowns)
-        detail, detail_widgets = compose_detail_tab() # dict, widgets
-        accordion = widgets.Accordion(children=[detail_widgets], selected_index = None, layout=Layout(margin = '10px',width='90%'))
+        # if refresh:
+        #     detail_new, detail_widgets_new = compose_detail_tab() # dict, widgets
+        #     accordion = widgets.Accordion(children=[detail_widgets_new], selected_index = None, layout=Layout(margin = '10px',width='90%'))
+        # else:
+        accordion = widgets.Accordion(children=[detail_box], selected_index = None, layout=Layout(margin = '10px',width='90%'))
         accordion.set_title(0, 'Detail')        #VBox ([right_box3,right_box4, accordion], layout = Layout(display='flex', flex_flow='column', align_items='center', width='80%'))#col_layout_r2)# , layout=Layout(width='100%'))
         right_box1 = HBox([VBox([type_label, dropdown_type],layout = Layout(display='flex', flex_flow='column', align_items='center',
                             width='25%')), right_box2], layout = Layout(align_items = 'center',width = '100%')) # 비율이 1:3 정도
@@ -764,11 +774,27 @@ def dataframe_visualization(df):
     dropdown_size = dropdown('Size',col_tot_none)
 
 
-    dropdown_color = dropdown('Color',col_tot_none)
+    dropdown_color = dropdown('Color',col_cat_none)
     dropdown_pattern = dropdown('Pattern',['True', 'False'])
     dropdown_marker = dropdown('marker',col_cat_none)
     dropdown_row = dropdown('Row',col_cat_none)
     dropdown_column = dropdown('Column',col_cat_none)
+
+
+    title_value = widgets.Text(value='auto', disabled=False)
+    title_label = HTML('Title')
+    title_check = widgets.Checkbox(value = True)
+
+    legend = dropdown('Legend', ['ax-wise', 'figure-wise'])
+    legend.dropdown.value = 'figure-wise'
+    grid = dropdown('Grid',['None','y','x', 'both'])
+    grid.dropdown.value = 'y'
+
+
+
+
+
+
     chart = Chart('Line', df)
 
     
@@ -808,36 +834,58 @@ def dataframe_visualization(df):
             return self.description, [self.min, self.max, self.interval, self.scale]
 
     ## Accordian Box # chart drawing 함수들이 여기서 얻은 정보들을 갖고실행될 수 있도록
-    def compose_detail_tab():
-                #print(dropdown_type.value)
-        results = {}
-        boxes = []
-        if dropdown_type.value == 'Line' or dropdown_type.value == 'Scatter' or dropdown_type.value == 'Heatmap'or dropdown_type.value == 'Surface': # xticks
-            x_tick = axis('X-axis')
-            x_tick.get_info()
-            result = x_tick.get_info()
-            results[result[0]] = result[1]
-            boxes.append(x_tick.box)
-        
-        y_tick = axis('Y-axis')
-        result = y_tick.get_info()
-        results[result[0]] = result[1]
-        boxes.append(y_tick.box)
-        
-        if dropdown_type.value == 'Surface':
-            z_tick = axis('Z-axis')
-            result = z_tick.get_info()
-            results[result[0]] = result[1]
-            boxes.append(z_tick.box)
-        
-        return results, VBox(boxes)
+    detail_box = VBox([HBox([title_label, title_check]), legend.d, grid.d])
 
-    detail, detail_widgets = compose_detail_tab() # dict, widgets
-    detail_button = Button(description = "Apply")
-    def detail_on_click_callback(clicked_button: widgets.Button) -> None:
-        chart.set_detail(detail)
-    detail_button.on_click(detail_on_click_callback)
-    accordion = widgets.Accordion(children=[detail_widgets], selected_index = None, layout=Layout(margin = '10px',width='90%'))
+    
+
+
+
+    # def compose_detail_tab():
+    #             #print(dropdown_type.value)
+    #     results = {}
+    #     boxes = []
+    #     title_value = widgets.Text(value='auto', disabled=False)
+    #     title_label = HTML('Title')
+    #     title_check = widgets.Checkbox(value = True)
+        
+
+    #     results['Title'] = title_check.value
+    #     results['Title value'] = title_value.value
+    #     boxes.append(HBox([title_label,title_check]))
+
+
+    #     legend = dropdown('Legend', ['auto', 'ax-wise', 'figure-wise'])
+    #     results['Legend'] = legend.dropdown.value
+    #     grid = dropdown('Grid',['None','y','x', 'both'])
+    #     grid.dropdown.value = 'y'
+    #     results['Grid'] = grid.dropdown.value
+    #     boxes.append(legend.d)
+    #     boxes.append(grid.d)
+
+
+
+    #     if dropdown_type.value == 'Line' or dropdown_type.value == 'Scatter' or dropdown_type.value == 'Heatmap'or dropdown_type.value == 'Surface': # xticks
+    #         x_tick = axis('X-axis')
+    #         x_tick.get_info()
+    #         result = x_tick.get_info()
+    #         results[result[0]] = result[1]
+    #         boxes.append(x_tick.box)
+        
+    #     y_tick = axis('Y-axis')
+    #     result = y_tick.get_info()
+    #     results[result[0]] = result[1]
+    #     boxes.append(y_tick.box)
+        
+    #     if dropdown_type.value == 'Surface':
+    #         z_tick = axis('Z-axis')
+    #         result = z_tick.get_info()
+    #         results[result[0]] = result[1]
+    #         boxes.append(z_tick.box)
+
+
+    #detail, detail_widgets, detail_button = compose_detail_tab() # dict, widgets
+
+    accordion = widgets.Accordion(children=[detail_box], selected_index = None, layout=Layout(margin = '10px',width='90%'))
     accordion.set_title(0, 'Detail')
   
 
