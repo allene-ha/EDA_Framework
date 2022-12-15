@@ -690,8 +690,10 @@ def dataframe_visualization(df):
 
 
     def display_widgets(refresh = True):
-        if dropdown_type.value =='Line' or dropdown_type.value== 'Scatter':
+        if dropdown_type.value== 'Scatter':
             dropdowns = [dropdown_x.d, dropdown_color.d, dropdown_row.d, dropdown_y.d, dropdown_marker.d, dropdown_column.d]
+        elif dropdown_type.value =='Line':
+            dropdowns = [dropdown_x.d, dropdown_y.d, dropdown_row.d,  dropdown_column.d, dropdown_color.d, dropdown_marker.d, dropdown_style.d]
         elif dropdown_type.value == 'Bar': 
             dropdowns = [dropdown_x_cat.d, dropdown_color.d, dropdown_row.d, dropdown_y.d, dropdown_pattern.d, dropdown_column.d]
         elif dropdown_type.value == 'Pie': 
@@ -745,6 +747,12 @@ def dataframe_visualization(df):
         elif len(dropdowns)==4:
             row1 = HBox(dropdowns[0:2], layout=row_layout)
             row2 = HBox(dropdowns[2:], layout = row_layout)
+        elif len(dropdowns)==7:
+            row1 = HBox(dropdowns[0:2], layout=row_layout)
+            row2 = HBox(dropdowns[2:4], layout = row_layout)
+            row3 = HBox(dropdowns[4:], layout = row_layout)
+            return VBox([row1,row2, row3], layout = Layout(display='flex', flex_flow='column', align_items='center',
+                        width='80%'))
         else:
             row1 = HBox(dropdowns[0:3], layout=row_layout)
             row2 = HBox(dropdowns[3:], layout = row_layout)
@@ -766,6 +774,7 @@ def dataframe_visualization(df):
     col_tot_none.insert(0,'None')
 
     dropdown_x = dropdown('X-axis',col_tot_none)
+
     dropdown_x_cat = dropdown('X-axis',col_cat_none)
     dropdown_y = dropdown('Y-axis',col_num_none, True)
     dropdown_z = dropdown('Z-axis',col_num_none)
@@ -773,7 +782,7 @@ def dataframe_visualization(df):
     dropdown_label = dropdown('Label',col_tot)
     dropdown_size = dropdown('Size',col_tot_none)
 
-
+    dropdown_style = dropdown('Style',col_cat_none)
     dropdown_color = dropdown('Color',col_cat_none)
     dropdown_pattern = dropdown('Pattern',['True', 'False'])
     dropdown_marker = dropdown('marker',col_cat_none)
@@ -905,7 +914,7 @@ def dataframe_visualization(df):
 
 
 
-    dropdowns = [dropdown_x.d, dropdown_color.d, dropdown_row.d,dropdown_y.d, dropdown_marker.d, dropdown_column.d]
+    dropdowns = [dropdown_x.d, dropdown_y.d, dropdown_row.d,  dropdown_column.d, dropdown_color.d, dropdown_marker.d, dropdown_style.d]
     right_box2 = compose_box(dropdowns)
     #VBox ([right_box3,right_box4, accordion], layout = Layout(display='flex', flex_flow='column', align_items='center', width='80%'))#col_layout_r2)# , layout=Layout(width='100%'))
     right_box1 = HBox([VBox([type_label, dropdown_type],layout = Layout(display='flex', flex_flow='column', align_items='center',
