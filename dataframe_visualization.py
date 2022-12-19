@@ -33,7 +33,16 @@ def dataframe_visualization(df):
             else:
                 self.x = dropdown_x.dropdown.value
 
-            self.y = dropdown_y.dropdown.value # tuple
+            if self.type == 'Heatmap' or self.type == 'Surface':
+                self.y = tuple(dropdown_y.dropdown.value,)
+                
+                print(len(self.y))
+                print(type(self.y))
+                print(self.y)
+                assert len(self.y) <= 1
+            else:
+                self.y = dropdown_y_mul.dropdown.value # tuple
+
             self.z = dropdown_z.dropdown.value
             
             # other properties
@@ -263,8 +272,12 @@ def dataframe_visualization(df):
                 self.x = dropdown_x.dropdown.value
             else:
                 self.x = dropdown_x_cat.dropdown.value
-            self.y = dropdown_y.dropdown.value
-            self.z = dropdown_z.dropdown.value
+            if self.type == 'Heatmap' or self.type == 'Surface':
+                self.y = (dropdown_y.dropdown.value,)
+                assert len(self.y) <= 1
+            else:
+                self.y = dropdown_y_mul.dropdown.value # tuple
+            self.z = dropdown_z.dropdown.value # tuple
             
             # other properties
             self.color = dropdown_color.dropdown.value
@@ -327,53 +340,55 @@ def dataframe_visualization(df):
 
         def draw_surface_chart(self):
 
-            title = self.z + ' by ' + self.y[0] + ' and '+ self.x
+            title = self.z #+ ' by ' + self.y[0] + ' and '+ self.x
             plt.clf()
-            fig = plt.figure()
-            ax = fig.add_subplot(projection='3d')
-            df_pivot_mean = pd.pivot_table(self.df, index = self.y[0], columns = self.x, values = self.z, aggfunc = 'mean')
-            # #index = y, colunns = x, vlaues = color
+            for z in self.z:
 
-            X_ = df_pivot_mean.columns.tolist()
-            Y_ = df_pivot_mean.index.tolist()
-            X = [X_ for _ in range(len(Y_))]
-            Y = [[y_]*len(X_) for y_ in Y_]
-            Z = df_pivot_mean.values
-            # if self.detail is not None:
-            #     min, max, interval, scale = self.detail['X-axis']
-            #     if min == 'None':
-            #         min, _ = ax.get_xlim()
-            #     if max == 'None':
-            #         _, max = ax.get_xlim()
-            #     if interval == 'None':
-            #         ax.set_xlim(min, max)
-            #     else:
-            #         ax.xaxis.set_ticks(np.arange(min, max, interval))
-            #     ax.set_xscale(scale)
+                fig = plt.figure()
+                ax = fig.add_subplot(projection='3d')
+                df_pivot_mean = pd.pivot_table(self.df, index = self.y[0], columns = self.x, values = z, aggfunc = 'mean')
+                # #index = y, colunns = x, vlaues = color
 
-            #     min, max, interval, scale = self.detail['Y-axis']
-            #     if min == 'None':
-            #         min, _ = ax.get_ylim()
-            #     if max == 'None':
-            #         _, max = ax.get_ylim()
-            #     if interval == 'None':
-            #         ax.set_ylim(min, max)
-            #     else:
-            #         ax.yaxis.set_ticks(np.arange(min, max, interval))
-            #     ax.set_yscale(scale)
-   
-            #     min, max, interval, scale = self.detail['Z-axis']
-            #     if min == 'None':
-            #         min, _ = ax.get_zlim()
-            #     if max == 'None':
-            #         _, max = ax.get_zlim()
-            #     if interval == 'None':
-            #         ax.set_zlim(min, max)
-            #     else:
-            #         ax.zaxis.set_ticks(np.arange(min, max, interval))
-            #     ax.set_zscale(scale)
-            ax.plot_surface(X,Y,Z, cmap="inferno")
-            plt.title(title)
+                X_ = df_pivot_mean.columns.tolist()
+                Y_ = df_pivot_mean.index.tolist()
+                X = [X_ for _ in range(len(Y_))]
+                Y = [[y_]*len(X_) for y_ in Y_]
+                Z = df_pivot_mean.values
+                # if self.detail is not None:
+                #     min, max, interval, scale = self.detail['X-axis']
+                #     if min == 'None':
+                #         min, _ = ax.get_xlim()
+                #     if max == 'None':
+                #         _, max = ax.get_xlim()
+                #     if interval == 'None':
+                #         ax.set_xlim(min, max)
+                #     else:
+                #         ax.xaxis.set_ticks(np.arange(min, max, interval))
+                #     ax.set_xscale(scale)
+
+                #     min, max, interval, scale = self.detail['Y-axis']
+                #     if min == 'None':
+                #         min, _ = ax.get_ylim()
+                #     if max == 'None':
+                #         _, max = ax.get_ylim()
+                #     if interval == 'None':
+                #         ax.set_ylim(min, max)
+                #     else:
+                #         ax.yaxis.set_ticks(np.arange(min, max, interval))
+                #     ax.set_yscale(scale)
+    
+                #     min, max, interval, scale = self.detail['Z-axis']
+                #     if min == 'None':
+                #         min, _ = ax.get_zlim()
+                #     if max == 'None':
+                #         _, max = ax.get_zlim()
+                #     if interval == 'None':
+                #         ax.set_zlim(min, max)
+                #     else:
+                #         ax.zaxis.set_ticks(np.arange(min, max, interval))
+                #     ax.set_zscale(scale)
+                ax.plot_surface(X,Y,Z, cmap="RdBu_r")
+                plt.title(title)
 
             clear_output(wait=True)
             display_df(self.df)
@@ -382,13 +397,22 @@ def dataframe_visualization(df):
 
         def draw_heatmap_chart(self):
             #sns.set(rc={'figure.figsize':(12,12)})
-            title = self.z + ' by ' + self.y[0] + ' and '+ self.x
-            plt.clf()
+            title = self.z #+ ' by ' + self.y[0] + ' and '+ self.x
+            #plt.clf()
+            sns.set(rc={'figure.figsize':(13,9)})
+            sns.set_style('ticks')
+            sns.set_context('talk')
+            for z in self.z:
             #temp = df.pivot("sepal_length", "sepal_width", "petal_width")
-            df_pivot_mean = pd.pivot_table(self.df, index = self.y[0], columns = self.x, values = self.z, aggfunc = 'mean')
-            #index = y, colunns = x, vlaues = color
-            sns.heatmap(df_pivot_mean, cbar_kws={'label': self.z}).set(title = title)
-            ax = plt.gca()
+                plt.clf()
+                df_pivot_mean = pd.pivot_table(self.df, index = self.y[0], columns = self.x, values = z, aggfunc = 'mean')
+
+                #index = y, colunns = x, vlaues = color
+                sns.heatmap(df_pivot_mean, cmap = "RdBu_r").set(title = title)#, cbar_kws={'label': self.z}).set(title = title)
+                plt.gca().invert_yaxis()
+                plt.gcf().tight_layout()
+                    
+
             # if self.detail is not None:
             #     min, max, interval, scale = self.detail['X-axis']
             #     if min == 'None':
@@ -691,11 +715,11 @@ def dataframe_visualization(df):
 
     def display_widgets(refresh = True):
         if dropdown_type.value== 'Scatter':
-            dropdowns = [dropdown_x.d, dropdown_color.d, dropdown_row.d, dropdown_y.d, dropdown_marker.d, dropdown_column.d]
+            dropdowns = [dropdown_x.d, dropdown_color.d, dropdown_row.d, dropdown_y_mul.d, dropdown_marker.d, dropdown_column.d]
         elif dropdown_type.value =='Line':
-            dropdowns = [dropdown_x.d, dropdown_y.d, dropdown_row.d,  dropdown_column.d, dropdown_color.d, dropdown_marker.d, dropdown_style.d]
+            dropdowns = [dropdown_x.d, dropdown_y_mul.d, dropdown_row.d,  dropdown_column.d, dropdown_color.d, dropdown_marker.d, dropdown_style.d]
         elif dropdown_type.value == 'Bar': 
-            dropdowns = [dropdown_x_cat.d, dropdown_color.d, dropdown_row.d, dropdown_y.d, dropdown_pattern.d, dropdown_column.d]
+            dropdowns = [dropdown_x_cat.d, dropdown_color.d, dropdown_row.d, dropdown_y_mul.d, dropdown_pattern.d, dropdown_column.d]
         elif dropdown_type.value == 'Pie': 
             dropdowns = [dropdown_label.d, dropdown_size.d, dropdown_row.d, dropdown_column.d]
         elif dropdown_type.value == 'Heatmap': 
@@ -776,8 +800,9 @@ def dataframe_visualization(df):
     dropdown_x = dropdown('X-axis',col_tot_none)
 
     dropdown_x_cat = dropdown('X-axis',col_cat_none)
-    dropdown_y = dropdown('Y-axis',col_num_none, True)
-    dropdown_z = dropdown('Z-axis',col_num_none)
+    dropdown_y_mul = dropdown('Y-axis',col_num_none, True)
+    dropdown_y = dropdown('Y-axis',col_num_none)
+    dropdown_z = dropdown('Z-axis',col_num_none, True)
 
     dropdown_label = dropdown('Label',col_tot)
     dropdown_size = dropdown('Size',col_tot_none)
@@ -814,6 +839,7 @@ def dataframe_visualization(df):
                 display_widgets()
 
     dropdown_x.dropdown.observe(dropdown_changed)
+    dropdown_y_mul.dropdown.observe(dropdown_changed)
     dropdown_y.dropdown.observe(dropdown_changed)
     dropdown_z.dropdown.observe(dropdown_changed)
 
@@ -914,7 +940,7 @@ def dataframe_visualization(df):
 
 
 
-    dropdowns = [dropdown_x.d, dropdown_y.d, dropdown_row.d,  dropdown_column.d, dropdown_color.d, dropdown_marker.d, dropdown_style.d]
+    dropdowns = [dropdown_x.d, dropdown_y_mul.d, dropdown_row.d,  dropdown_column.d, dropdown_color.d, dropdown_marker.d, dropdown_style.d]
     right_box2 = compose_box(dropdowns)
     #VBox ([right_box3,right_box4, accordion], layout = Layout(display='flex', flex_flow='column', align_items='center', width='80%'))#col_layout_r2)# , layout=Layout(width='100%'))
     right_box1 = HBox([VBox([type_label, dropdown_type],layout = Layout(display='flex', flex_flow='column', align_items='center',
