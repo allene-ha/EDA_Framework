@@ -80,6 +80,12 @@ def visualize(df = None, user_query = ""):
         visualize_metrics()
 
     b21.on_click(b21_on_click_callback)
+
+
+    def b22_on_click_callback(clicked_button: widgets.Button) -> None:
+        query_visualizer()
+
+    b22.on_click(b22_on_click_callback)
     
     def b23_on_click_callback(clicked_button: widgets.Button) -> None:
         wait_visualizer()

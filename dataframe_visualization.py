@@ -364,88 +364,38 @@ def dataframe_visualization(df):
             clear_output(wait=True)
             display_df(self.df)
             display_widgets(False, False)
-            output = widgets.Output(layout=Layout(width='100%'))
-
-            with output:
-
-                title = self.z #+ ' by ' + self.y[0] + ' and '+ self.x
-                plt.clf()
-                for z in self.z:
-
-                    fig = plt.figure()
-                    ax = fig.add_subplot(projection='3d')
-                    df_pivot_mean = pd.pivot_table(self.df, index = self.y[0], columns = self.x, values = z, aggfunc = 'mean')
-                    # #index = y, colunns = x, vlaues = color
-
-                    X_ = df_pivot_mean.columns.tolist()
-                    Y_ = df_pivot_mean.index.tolist()
-                    X = [X_ for _ in range(len(Y_))]
-                    Y = [[y_]*len(X_) for y_ in Y_]
-                    Z = df_pivot_mean.values
-                    # if self.detail is not None:
-                    #     min, max, interval, scale = self.detail['X-axis']
-                    #     if min == 'None':
-                    #         min, _ = ax.get_xlim()
-                    #     if max == 'None':
-                    #         _, max = ax.get_xlim()
-                    #     if interval == 'None':
-                    #         ax.set_xlim(min, max)
-                    #     else:
-                    #         ax.xaxis.set_ticks(np.arange(min, max, interval))
-                    #     ax.set_xscale(scale)
-
-                    #     min, max, interval, scale = self.detail['Y-axis']
-                    #     if min == 'None':
-                    #         min, _ = ax.get_ylim()
-                    #     if max == 'None':
-                    #         _, max = ax.get_ylim()
-                    #     if interval == 'None':
-                    #         ax.set_ylim(min, max)
-                    #     else:
-                    #         ax.yaxis.set_ticks(np.arange(min, max, interval))
-                    #     ax.set_yscale(scale)
+            box = []
+            for i in list(range(len(self.z))):
+                box.append(widgets.Output(layout=Layout(width='100%')))
+            plt.close()
         
-                    #     min, max, interval, scale = self.detail['Z-axis']
-                    #     if min == 'None':
-                    #         min, _ = ax.get_zlim()
-                    #     if max == 'None':
-                    #         _, max = ax.get_zlim()
-                    #     if interval == 'None':
-                    #         ax.set_zlim(min, max)
-                    #     else:
-                    #         ax.zaxis.set_ticks(np.arange(min, max, interval))
-                    #     ax.set_zscale(scale)
-                    ax.plot_surface(X,Y,Z, cmap="RdBu_r")
-                    plt.title(title)
+            sns.set_style('ticks')
+            sns.set_context('notebook')
+            
+            for num, z in enumerate(self.z):
+                #plt.Figure()
+                title = z #+ ' by ' + self.y[0] + ' and '+ self.x
 
-                
-                plt.show()
-            display(output)
+                fig = plt.figure(figsize = (10,6))
+                ax = fig.add_subplot(projection='3d')
+                df_pivot_mean = pd.pivot_table(self.df, index = self.y[0], columns = self.x, values = z, aggfunc = 'mean')
+                # #index = y, colunns = x, vlaues = color
 
-        def draw_heatmap_chart(self):
-            clear_output(wait=True)
-            display_df(self.df)
-            display_widgets(False, False)
-            output = widgets.Output(layout=Layout(width='100%'))
-            with output:
+                X_ = df_pivot_mean.columns.tolist()
+                Y_ = df_pivot_mean.index.tolist()
+                X = [X_ for _ in range(len(Y_))]
+                Y = [[y_]*len(X_) for y_ in Y_]
+                Z = df_pivot_mean.values
+                surf = ax.plot_surface(X,Y,Z, linewidth = 0, cmap="RdBu_r")
+                ax.set_xlabel(self.x)
+                ax.set_ylabel(self.y[0])
+                ax.set_zlabel(z)
 
-                #sns.set(rc={'figure.figsize':(12,12)})
-                title = self.z #+ ' by ' + self.y[0] + ' and '+ self.x
-                #plt.clf()
-                sns.set(rc={'figure.figsize':(13,9)})
-                sns.set_style('ticks')
-                sns.set_context('talk')
-                for z in self.z:
-                #temp = df.pivot("sepal_length", "sepal_width", "petal_width")
-                    plt.clf()
-                    df_pivot_mean = pd.pivot_table(self.df, index = self.y[0], columns = self.x, values = z, aggfunc = 'mean')
-
-                    #index = y, colunns = x, vlaues = color
-                    sns.heatmap(df_pivot_mean, cmap = "RdBu_r").set(title = title)#, cbar_kws={'label': self.z}).set(title = title)
-                    plt.gca().invert_yaxis()
-                    plt.gcf().tight_layout()
-                        
-
+                fig.colorbar(surf, aspect = 10)
+                plt.title(title)
+                plt.tight_layout()
+                with box[num]:
+                    plt.show()
                 # if self.detail is not None:
                 #     min, max, interval, scale = self.detail['X-axis']
                 #     if min == 'None':
@@ -469,9 +419,73 @@ def dataframe_visualization(df):
                 #         ax.yaxis.set_ticks(np.arange(min, max, interval))
                 #     ax.set_yscale(scale)
     
+                #     min, max, interval, scale = self.detail['Z-axis']
+                #     if min == 'None':
+                #         min, _ = ax.get_zlim()
+                #     if max == 'None':
+                #         _, max = ax.get_zlim()
+                #     if interval == 'None':
+                #         ax.set_zlim(min, max)
+                #     else:
+                #         ax.zaxis.set_ticks(np.arange(min, max, interval))
+                #     ax.set_zscale(scale)
+                    
+                   
+
+            display(VBox(box))
+
+        def draw_heatmap_chart(self):
+            clear_output(wait=True)
+            display_df(self.df)
+            display_widgets(False, False)
+            
+            box = []
+            for i in list(range(len(self.z))):
+                box.append(widgets.Output(layout=Layout(width='100%')))
+            plt.close()
+
+            #sns.set(rc={'figure.figsize':(10,6)})
+            sns.set_style('ticks')
+            sns.set_context('talk')
+
+            for num, z in enumerate(self.z):
+                #plt.clf()
+                title = z 
+                df_pivot_mean = pd.pivot_table(self.df, index = self.y[0], columns = self.x, values = z, aggfunc = 'mean')
+                fig = plt.figure(figsize = (8,6))
+                #index = y, colunns = x, vlaues = color
+                sns.heatmap(df_pivot_mean, cmap = "RdBu_r").set(title = title)#, cbar_kws={'label': self.z}).set(title = title)
+                plt.gca().invert_yaxis()
+                fig.tight_layout()
                 
-                plt.show()
-            display(output)
+                with box[num]:
+                    plt.show()
+
+                # if self.detail is not None:
+                #     min, max, interval, scale = self.detail['X-axis']
+                #     if min == 'None':
+                #         min, _ = ax.get_xlim()
+                #     if max == 'None':
+                #         _, max = ax.get_xlim()
+                #     if interval == 'None':
+                #         ax.set_xlim(min, max)
+                #     else:
+                #         ax.xaxis.set_ticks(np.arange(min, max, interval))
+                #     ax.set_xscale(scale)
+
+                #     min, max, interval, scale = self.detail['Y-axis']
+                #     if min == 'None':
+                #         min, _ = ax.get_ylim()
+                #     if max == 'None':
+                #         _, max = ax.get_ylim()
+                #     if interval == 'None':
+                #         ax.set_ylim(min, max)
+                #     else:
+                #         ax.yaxis.set_ticks(np.arange(min, max, interval))
+                #     ax.set_yscale(scale)
+
+                
+            display(VBox(box))
 
         def draw_line_chart(self):
             #title = self.y + ' by ' + self.x
@@ -556,7 +570,7 @@ def dataframe_visualization(df):
                 
                 
 
-        def draw_scatter_chart(self):
+        def draw_scatter_chart(self): ##수정해야함
             #title = self.y + ' by ' + self.x
             clear_output(wait=True)
             display_df(self.df)

@@ -517,7 +517,6 @@ def visualize_multiple_chart_type(category, num, time_range, chart_type, m_agg='
     plt.clf()
     for query in dic:
         if dic[query].query_id in top_qid:
-            print(dic[query])
 
             if category == 'CPU':
                 y = np.array(dic[query].cpu_usage, dtype=np.float64)

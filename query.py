@@ -33,11 +33,12 @@ warnings.filterwarnings('ignore')
 
 def query_and_visualize(query):
     df = q(query)
-    v_button = Button(description='Visualize')
-    def v_button_on_click_callback():
-        dataframe_visualization(df)
-    v_button.on_click(v_button_on_click_callback)
-    display(v_button)
+    dataframe_visualization(df)
+    # v_button = Button(description='Visualize')
+    # def v_button_on_click_callback(clicked_button: widgets.Button):
+    #     dataframe_visualization(df)
+    # v_button.on_click(v_button_on_click_callback)
+    # display(v_button)
 
 def q(query):
     config = connect_config()
