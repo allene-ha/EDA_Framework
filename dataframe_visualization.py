@@ -26,7 +26,7 @@ def dataframe_visualization(df):
             self.type = type
             self.df = df
             self.option = {}
-
+            
             # axis
             if self.type == 'Bar':
                 self.x = dropdown_x_cat.dropdown.value
@@ -35,10 +35,6 @@ def dataframe_visualization(df):
 
             if self.type == 'Heatmap' or self.type == 'Surface':
                 self.y = tuple(dropdown_y.dropdown.value,)
-                
-                print(len(self.y))
-                print(type(self.y))
-                print(self.y)
                 assert len(self.y) <= 1
             else:
                 self.y = dropdown_y_mul.dropdown.value # tuple
@@ -140,7 +136,8 @@ def dataframe_visualization(df):
                 # 그 이상인데 나머지 카디날리티가 3 이하일때 row, col에 할당. 먼저 col하고 다음에 row, 
                 result = []
                 for element in data[:4]:
-                    option = self.option
+                    option = copy.deepcopy(self.option)
+                    
                     cat_cand = [x for x in col_cat if x not in element and self.df[x].nunique()>1] # 데이터를 제외하고 카테고리컬 데이터 컬럼이 남았는지 검사
                     if len(cat_cand) == 0:
                         result.append([element, option])
@@ -156,26 +153,31 @@ def dataframe_visualization(df):
             
                         cat_cand.remove(cat_cand[argmax])
                         if len(cat_cand) ==1:
-                            option['marker'] = cat_cand[0]
-                            result.append([element, option])
+                            # if self.type != 'Bar':
+                            #     option['style'] = cat_cand[0]
+                            #     result.append([element, option])
+                            # else: 
+                            if 'col' not in option.keys():
+                                option['col'] = cat_cand[0]
+                                result.append([element, option])
+                            elif 'row' not in option.keys():
+                                option['row'] = cat_cand[0]
+                                result.append([element, option])
                         else: # 총 cat이 3개 이상인 경우
                             nunique = [self.df[x].nunique() for x in cat_cand] # 두번째 max 찾기
                             
                             argmax = max(range(len(nunique)), key=f)
-                            option['marker'] = cat_cand[argmax]
-                            cat_cand.remove(cat_cand[argmax]) 
+                            # if self.type != 'Bar':
+                            #     option['style'] = cat_cand[argmax]
+                            # else:
+                            if 'col' not in option.keys():
+                                option['col'] = cat_cand[argmax]
+                                result.append([element, option])
+                            elif 'row' not in option.keys():
+                                option['row'] = cat_cand[argmax]
+                                result.append([element, option])
 
-                            nunique = [self.df[x].nunique() for x in cat_cand] # 세번째 max 찾기
-                            argmax = max(range(len(nunique)), key=f)
-                            if nunique[argmax] == 2 or nunique[argmax] == 3:
-                                if 'col' not in option.keys():
-                                    option['col'] = cat_cand[argmax]
-                                    result.append([element, option])
-                                elif 'row' not in option.keys():
-                                    option['row'] = cat_cand[argmax]
-                                    result.append([element, option])
                             
-                #print(result)
                 return result # element와 option(dict)의 ordered list
 
 
@@ -204,47 +206,64 @@ def dataframe_visualization(df):
             elements = []
             #print(len(axes_data))
             #print(axes_data)
-            for axes_data, d in data[:4]: # 반복문 하나에 차트 하나type_data_to_option(self.type, comb)
+            for axes_data, d in data[:2]: # 반복문 하나에 차트 하나type_data_to_option(self.type, comb)
                 #out = widgets.Output(layout = Layout(width = '45%'))
-                plt.close()
+                #plt.close()
                 out = widgets.Output()#layout = Layout(width = '50%', height='50%'))
                 with out:
-                    plt.close()      
-                    
+                    plt.close()                          
                     if self.type =='Scatter' or self.type == 'Line' or self.type == 'Bar':
                         x,y = axes_data
-                        
-                        if type(y) == tuple:
+                        d['height'] = 5
+                        if 'col' in d.keys():
+                            d['aspect'] = 1.5/self.df[d['col']].nunique()
+                        else:
+                            d['aspect'] = 1
 
+                        if type(y) == tuple:
+                            
                             plots = []
                             for y_ in y:
                                 title = "X: " + x + " / Y: "+ y_
-                                sns.set(rc={'figure.figsize':(13,6)})
                                 sns.set_style('ticks')
-                                sns.set_context('talk')
                                 if self.type == 'Scatter':
                                     plot = sns.relplot(x=x, y=y_, legend = 'full', **d, data=self.df).set(title = title)
                                 elif self.type == 'Line':
-                                    plot = sns.relplot(x=x, y=y_, markers = True, ci=None, legend = 'full', kind = 'line', **d, data=self.df).set(title = title)
+                                    plot = sns.relplot(x=x, y=y_, dashes=False, markers = True, ci=None, legend = 'full', kind = 'line', **d, data=self.df).set(title = title)
+                                    #sns.move_legend(plot, "upper left", bbox_to_anchor=(1, 1))
+
                                 elif self.type == 'Bar':
-                                    plot = sns.catplot(data = self.df, kind = 'bar', x = x, y=y_, **d, legend = True, dodge = False, capsize=.15,  errwidth=1.5, facet_kws={"legend_out": True}).set(title=title)
+                                    plot = sns.catplot(data = self.df, kind = 'bar', x = x, y=y_, **d,  dodge = False, capsize=.15,  errwidth=1.5, legend_out= True).set(title=title)
                 
                                     #if len(self.y)>1:
                                         #plt.figure()
+                                plot.tight_layout(rect=[0, 0.03, 0.8, 0.95])
                                 plots.append(plot)
                         else:
-                                
                             title = "X: " + x + " / Y: "+ y
+                            sns.set_style('ticks')
+                            plt.rcParams['figure.autolayout'] = True
+
                             if self.type == 'Scatter':
-                                sns.relplot(x=x, y=y, **d, data=self.df, legend = 'full').set(title = title)
+                                plot = sns.relplot(x=x, y=y, **d, data=self.df, legend = 'full').set(title = title)
                                 #plt.show()
                             elif self.type == 'Line':
-                                sns.relplot(x=x, y=y,ci = None, kind = 'line', data=self.df).set(title = title)
+                              
+                                plot = sns.relplot(x=x, y=y, dashes=False, markers = True,ci = None, kind = 'line', **d, data=self.df).set(title = title)
+                                #sns.move_legend(plt.gcf(), "upper left", bbox_to_anchor=(1, 1))
                             elif self.type == 'Bar':
-                                sns.barplot(x=x, y=y, **d, data=self.df).set(title = title)
+                                plot = sns.catplot(data = self.df, kind = 'bar', x = x, y=y, **d, dodge = False, capsize=.15,  legend = False, errwidth=1.5).set(title=title)
+                                ax = plt.gca()
+                                ax.set_xticklabels(ax.get_xticklabels(), rotation=40, ha="right")  #it will rotate text on x axis
+
+                            [plt.setp(ax.texts, text="") for ax in plot.axes.flat] # remove the original texts
+                            plot.set_titles(row_template = '{row_name}', col_template = '{col_name}')
+                            plot.tight_layout(rect=[0, 0.03, 0.8, 0.95])
                     elif self.type == 'Heatmap' or self.type =='Surface':
                         x, y, z = axes_data
                         title = "X: " + x + " / Y: "+ y + " / Z: "+ z
+                        sns.set(rc={'figure.figsize':(15,6)})
+                        sns.set_style('ticks')
                         if self.type == "Heatmap":
                             df_pivot_mean = pd.pivot_table(self.df, index = y, columns = x, values = z, aggfunc = 'mean')
                             sns.heatmap(df_pivot_mean, cbar_kws={'label': self.z}).set(title = title)
@@ -259,9 +278,12 @@ def dataframe_visualization(df):
                             Z = df_pivot_mean.values
                             ax.plot_surface(X,Y,Z, cmap="inferno")
                             plt.title(title)
+                    
+                    plt.legend(loc='center left', bbox_to_anchor=(1.5, 0.5), borderaxespad=0)
+
                     plt.gcf().tight_layout()
+                    
                     plt.ioff()
-                    plt.gcf().set_size_inches(5, 3.5)
 
                     plt.show()
                 elements.append(out)
@@ -339,21 +361,91 @@ def dataframe_visualization(df):
                 self.draw_surface_chart()
 
         def draw_surface_chart(self):
+            clear_output(wait=True)
+            display_df(self.df)
+            display_widgets(False, False)
+            output = widgets.Output(layout=Layout(width='100%'))
 
-            title = self.z #+ ' by ' + self.y[0] + ' and '+ self.x
-            plt.clf()
-            for z in self.z:
+            with output:
 
-                fig = plt.figure()
-                ax = fig.add_subplot(projection='3d')
-                df_pivot_mean = pd.pivot_table(self.df, index = self.y[0], columns = self.x, values = z, aggfunc = 'mean')
-                # #index = y, colunns = x, vlaues = color
+                title = self.z #+ ' by ' + self.y[0] + ' and '+ self.x
+                plt.clf()
+                for z in self.z:
 
-                X_ = df_pivot_mean.columns.tolist()
-                Y_ = df_pivot_mean.index.tolist()
-                X = [X_ for _ in range(len(Y_))]
-                Y = [[y_]*len(X_) for y_ in Y_]
-                Z = df_pivot_mean.values
+                    fig = plt.figure()
+                    ax = fig.add_subplot(projection='3d')
+                    df_pivot_mean = pd.pivot_table(self.df, index = self.y[0], columns = self.x, values = z, aggfunc = 'mean')
+                    # #index = y, colunns = x, vlaues = color
+
+                    X_ = df_pivot_mean.columns.tolist()
+                    Y_ = df_pivot_mean.index.tolist()
+                    X = [X_ for _ in range(len(Y_))]
+                    Y = [[y_]*len(X_) for y_ in Y_]
+                    Z = df_pivot_mean.values
+                    # if self.detail is not None:
+                    #     min, max, interval, scale = self.detail['X-axis']
+                    #     if min == 'None':
+                    #         min, _ = ax.get_xlim()
+                    #     if max == 'None':
+                    #         _, max = ax.get_xlim()
+                    #     if interval == 'None':
+                    #         ax.set_xlim(min, max)
+                    #     else:
+                    #         ax.xaxis.set_ticks(np.arange(min, max, interval))
+                    #     ax.set_xscale(scale)
+
+                    #     min, max, interval, scale = self.detail['Y-axis']
+                    #     if min == 'None':
+                    #         min, _ = ax.get_ylim()
+                    #     if max == 'None':
+                    #         _, max = ax.get_ylim()
+                    #     if interval == 'None':
+                    #         ax.set_ylim(min, max)
+                    #     else:
+                    #         ax.yaxis.set_ticks(np.arange(min, max, interval))
+                    #     ax.set_yscale(scale)
+        
+                    #     min, max, interval, scale = self.detail['Z-axis']
+                    #     if min == 'None':
+                    #         min, _ = ax.get_zlim()
+                    #     if max == 'None':
+                    #         _, max = ax.get_zlim()
+                    #     if interval == 'None':
+                    #         ax.set_zlim(min, max)
+                    #     else:
+                    #         ax.zaxis.set_ticks(np.arange(min, max, interval))
+                    #     ax.set_zscale(scale)
+                    ax.plot_surface(X,Y,Z, cmap="RdBu_r")
+                    plt.title(title)
+
+                
+                plt.show()
+            display(output)
+
+        def draw_heatmap_chart(self):
+            clear_output(wait=True)
+            display_df(self.df)
+            display_widgets(False, False)
+            output = widgets.Output(layout=Layout(width='100%'))
+            with output:
+
+                #sns.set(rc={'figure.figsize':(12,12)})
+                title = self.z #+ ' by ' + self.y[0] + ' and '+ self.x
+                #plt.clf()
+                sns.set(rc={'figure.figsize':(13,9)})
+                sns.set_style('ticks')
+                sns.set_context('talk')
+                for z in self.z:
+                #temp = df.pivot("sepal_length", "sepal_width", "petal_width")
+                    plt.clf()
+                    df_pivot_mean = pd.pivot_table(self.df, index = self.y[0], columns = self.x, values = z, aggfunc = 'mean')
+
+                    #index = y, colunns = x, vlaues = color
+                    sns.heatmap(df_pivot_mean, cmap = "RdBu_r").set(title = title)#, cbar_kws={'label': self.z}).set(title = title)
+                    plt.gca().invert_yaxis()
+                    plt.gcf().tight_layout()
+                        
+
                 # if self.detail is not None:
                 #     min, max, interval, scale = self.detail['X-axis']
                 #     if min == 'None':
@@ -377,74 +469,22 @@ def dataframe_visualization(df):
                 #         ax.yaxis.set_ticks(np.arange(min, max, interval))
                 #     ax.set_yscale(scale)
     
-                #     min, max, interval, scale = self.detail['Z-axis']
-                #     if min == 'None':
-                #         min, _ = ax.get_zlim()
-                #     if max == 'None':
-                #         _, max = ax.get_zlim()
-                #     if interval == 'None':
-                #         ax.set_zlim(min, max)
-                #     else:
-                #         ax.zaxis.set_ticks(np.arange(min, max, interval))
-                #     ax.set_zscale(scale)
-                ax.plot_surface(X,Y,Z, cmap="RdBu_r")
-                plt.title(title)
-
-            clear_output(wait=True)
-            display_df(self.df)
-            display_widgets(False)
-            plt.show()
-
-        def draw_heatmap_chart(self):
-            #sns.set(rc={'figure.figsize':(12,12)})
-            title = self.z #+ ' by ' + self.y[0] + ' and '+ self.x
-            #plt.clf()
-            sns.set(rc={'figure.figsize':(13,9)})
-            sns.set_style('ticks')
-            sns.set_context('talk')
-            for z in self.z:
-            #temp = df.pivot("sepal_length", "sepal_width", "petal_width")
-                plt.clf()
-                df_pivot_mean = pd.pivot_table(self.df, index = self.y[0], columns = self.x, values = z, aggfunc = 'mean')
-
-                #index = y, colunns = x, vlaues = color
-                sns.heatmap(df_pivot_mean, cmap = "RdBu_r").set(title = title)#, cbar_kws={'label': self.z}).set(title = title)
-                plt.gca().invert_yaxis()
-                plt.gcf().tight_layout()
-                    
-
-            # if self.detail is not None:
-            #     min, max, interval, scale = self.detail['X-axis']
-            #     if min == 'None':
-            #         min, _ = ax.get_xlim()
-            #     if max == 'None':
-            #         _, max = ax.get_xlim()
-            #     if interval == 'None':
-            #         ax.set_xlim(min, max)
-            #     else:
-            #         ax.xaxis.set_ticks(np.arange(min, max, interval))
-            #     ax.set_xscale(scale)
-
-            #     min, max, interval, scale = self.detail['Y-axis']
-            #     if min == 'None':
-            #         min, _ = ax.get_ylim()
-            #     if max == 'None':
-            #         _, max = ax.get_ylim()
-            #     if interval == 'None':
-            #         ax.set_ylim(min, max)
-            #     else:
-            #         ax.yaxis.set_ticks(np.arange(min, max, interval))
-            #     ax.set_yscale(scale)
-   
-            clear_output(wait=True)
-            display_df(self.df)
-            display_widgets(False)
-            plt.show()
+                
+                plt.show()
+            display(output)
 
         def draw_line_chart(self):
             #title = self.y + ' by ' + self.x
-            
+            clear_output(wait=True)
+            display_df(self.df)
+            display_widgets(False, False)
+            box = []
+            for i in list(range(len(self.y))):
+                box.append(widgets.Output(layout=Layout(width='100%')))
+    
             d = {}
+            d['aspect'] = 1.5
+            d['height'] = 5
             if self.color != 'None':
                 d['hue'] = self.color
             if self.marker != 'None':
@@ -453,20 +493,23 @@ def dataframe_visualization(df):
                 d['row'] = self.row
             if self.column != 'None':
                 d['col'] = self.column
+                d['aspect'] = 1.5/df[d['col']].nunique()
             plt.close()
-            sns.set(rc={'figure.figsize':(13,6)})
+                
             sns.set_style('ticks')
             sns.set_context('talk')
-            plots = []
-            for y in self.y:
+            for num, y in enumerate(self.y):
                 title = y +  ' by ' + self.x
-                      
+                #sns.set(rc={'figure.figsize':(18,6)})
                 if self.legend =='ax-wise':
-                    plot = sns.relplot(x=self.x, y=y, ci=None, dashes=False, markers=True, legend = 'full', kind = 'line', **d, facet_kws={"margin_titles": True}, data=self.df)
+                    plot = sns.relplot(x=self.x, y=y, ci=None, dashes=False, markers=True, legend = 'full', kind = 'line', **d,  facet_kws={"margin_titles": True}, data=self.df)
                     plot.tight_layout(rect=[0, 0.03, 1, 0.95])
                 else:
-                    plot = sns.relplot(x=self.x, y=y, ci=None, dashes=False, markers=True, legend = 'full', kind = 'line', **d, facet_kws={"margin_titles": True}, data=self.df)
-                    plot.tight_layout(rect=[0, 0.03, 0.8, 0.95])
+                    plot = sns.relplot(x=self.x, y=y, ci=None, dashes=False, markers=True, legend = 'full', kind = 'line', **d,  facet_kws={"margin_titles": True}, data=self.df)
+                    if self.color == None and self.marker == None:
+                        plot.tight_layout(rect=[0, 0.03, 1, 0.95])
+                    else:
+                        plot.tight_layout(rect=[0, 0.03, 0.75, 0.95])
                 
                 [plt.setp(ax.texts, text="") for ax in plot.axes.flat] # remove the original texts
                 plot.set_titles(row_template = '{row_name}', col_template = '{col_name}')
@@ -475,168 +518,168 @@ def dataframe_visualization(df):
 
                 for ax in plot.axes.ravel():
                     ax.grid(axis=self.grid, linestyle = 'dashed')
-                    # if self.legend == 'ax-wise':
-                    #     if self.color != 'None':
-                    #         ax.legend(list(self.df[self.color].unique()), bbox_to_anchor =(0.65, 1.25))
-                    #     elif self.marker != 'None':
-                    #         d['style'] = self.marker
-                    #     ax.legend(bbox_to_anchor =(0.65, 1.25))
-                       
+                    ax.set_axisbelow(True)
+                    
                 if self.title:
                     plt.suptitle(t = title, size = 'large', y = '0.99')
                 
-                plots.append(plot)
-
-
-
-            #sns.relplot(x=self.x, y=self.y, ci=None, legend = 'full', kind = 'line', **d, data=df).set(title = title)
-            
-            for plot in plots:
-                for ax in plot.axes.flat:
+                with box[num]:
+                    plt.show()
                     
-                    
-                    if self.grid != None:
-                        ax.grid(axis=self.grid,linestyle = 'dashed')
-                        ax.set_axisbelow(True)
+            display(VBox(box))
 
-                        # min, max, interval, scale = self.detail['X-axis']
-                        # if min == 'None':
-                        #     min, _ = ax.get_xlim()
-                        # if max == 'None':
-                        #     _, max = ax.get_xlim()
-                        # if interval == 'None':
-                        #     ax.set_xlim(min, max)
-                        # else:
-                        #     ax.xaxis.set_ticks(np.arange(min, max, interval))
-                        # ax.set_xscale(scale)
+                #         if self.grid != None:
+                #             ax.grid(axis=self.grid,linestyle = 'dashed')
+                #             ax.set_axisbelow(True)
 
-                        # min, max, interval, scale = self.detail['Y-axis']
-                        # if min == 'None':
-                        #     min, _ = ax.get_ylim()
-                        # if max == 'None':
-                        #     _, max = ax.get_ylim()
-                        # if interval == 'None':
-                        #     ax.set_ylim(min, max)
-                        # else:
-                        #     ax.yaxis.set_ticks(np.arange(min, max, interval))
-                        # ax.set_yscale(scale)
-              
-            
-            clear_output(wait=True)
-            display_df(self.df)
-            display_widgets(False)
-            plt.show()
+                            # min, max, interval, scale = self.detail['X-axis']
+                            # if min == 'None':
+                            #     min, _ = ax.get_xlim()
+                            # if max == 'None':
+                            #     _, max = ax.get_xlim()
+                            # if interval == 'None':
+                            #     ax.set_xlim(min, max)
+                            # else:
+                            #     ax.xaxis.set_ticks(np.arange(min, max, interval))
+                            # ax.set_xscale(scale)
+
+                            # min, max, interval, scale = self.detail['Y-axis']
+                            # if min == 'None':
+                            #     min, _ = ax.get_ylim()
+                            # if max == 'None':
+                            #     _, max = ax.get_ylim()
+                            # if interval == 'None':
+                            #     ax.set_ylim(min, max)
+                            # else:
+                            #     ax.yaxis.set_ticks(np.arange(min, max, interval))
+                            # ax.set_yscale(scale)
+                
+                
 
         def draw_scatter_chart(self):
             #title = self.y + ' by ' + self.x
-            d = {}
-            if self.color != 'None':
-                d['hue'] = self.color
-            if self.marker != 'None':
-                d['style'] = self.marker
-            if self.row != 'None':
-                d['row'] = self.row
-            if self.column != 'None':
-                d['col'] = self.column
-
-            plt.close()
-        
-            sns.set(rc={'figure.figsize':(15,9)})
-            plots = []
-            for y in self.y:
-                title = y +  ' by ' + self.x
-                plot = sns.relplot(x=self.x, y=y, legend = 'full', **d, data=self.df).set(title = title)
-                #if len(self.y)>1:
-                    #plt.figure()
-                plots.append(plot)
-
-
-            # if self.detail is not None:
-            #     for plot in plots:
-            #         for ax in plot.axes.flat:
-                        
-            #             min, max, interval, scale = self.detail['X-axis']
-            #             if min == 'None':
-            #                 min, _ = ax.get_xlim()
-            #             if max == 'None':
-            #                 _, max = ax.get_xlim()
-            #             if interval == 'None':
-            #                 ax.set_xlim(min, max)
-            #             else:
-            #                 ax.xaxis.set_ticks(np.arange(min, max, interval))
-            #             ax.set_xscale(scale)
-
-            #             min, max, interval, scale = self.detail['Y-axis']
-            #             if min == 'None':
-            #                 min, _ = ax.get_ylim()
-            #             if max == 'None':
-            #                 _, max = ax.get_ylim()
-            #             if interval == 'None':
-            #                 ax.set_ylim(min, max)
-            #             else:
-            #                 ax.yaxis.set_ticks(np.arange(min, max, interval))
-            #             ax.set_yscale(scale)
-
-            
             clear_output(wait=True)
             display_df(self.df)
-            display_widgets(False)
-            plt.show()
+            display_widgets(False, False)
+            output = widgets.Output(layout=Layout(width='100%'))
+            with output:
+                d = {}
+                d['aspect'] = 1.5
+                if self.color != 'None':
+                    d['hue'] = self.color
+                if self.marker != 'None':
+                    d['style'] = self.marker
+                if self.row != 'None':
+                    d['row'] = self.row
+                if self.column != 'None':
+                    d['col'] = self.column
+                    d['aspect'] = 1.5/self.df[d['col']].nunique()
+
+                plt.close()
+            
+                sns.set(rc={'figure.figsize':(15,9)})
+                plots = []
+                for y in self.y:
+                    title = y +  ' by ' + self.x
+                    plot = sns.relplot(x=self.x, y=y, legend = 'full', **d, data=self.df).set(title = title)
+                    #if len(self.y)>1:
+                        #plt.figure()
+                    
+                    [plt.setp(ax.texts, text="") for ax in plot.axes.flat] # remove the original texts
+                    plot.set_titles(row_template = '{row_name}', col_template = '{col_name}')
+                    for ax in plot.axes.ravel():
+                        ax.grid(axis=self.grid, linestyle = 'dashed')
+                        ax.set_axisbelow(True)
+                        # if self.legend == 'ax-wise':
+                        #     if self.color != 'None':
+                        #         ax.legend(list(self.df[self.color].unique()), bbox_to_anchor =(0.65, 1.25))
+                        #     elif self.marker != 'None':
+                        #         d['style'] = self.marker
+                        #     ax.legend(bbox_to_anchor =(0.65, 1.25))
+                        
+                    if self.title:
+                        plt.suptitle(t = title, size = 'large', y = '0.99')
+
+                    plots.append(plot)
+                plt.show()
+            display(output)
 
     
         def draw_bar_chart(self):
             clear_output(wait=True)
             display_df(self.df)
-            display_widgets(False)
+            display_widgets(False, False)
+            box = []
+            for i in list(range(len(self.y))):
+                box.append(widgets.Output(layout=Layout(width='100%')))
             d = {}
-            #g = {}
+            d['aspect'] = 1.5
+            d['height'] = 6
+
             if self.color != 'None':
                 d['hue'] = self.color
             if self.row != 'None':
                 d['row'] = self.row
             if self.column != 'None':
                 d['col'] = self.column
-            plt.figure()
+                d['aspect'] = 1.8/df[d['col']].nunique()
+                
+            plt.close()
         
-            sns.set(rc={'figure.figsize':(15,9)})
-            plots = []
-            for y in self.y:
+            sns.set_style('ticks')
+            sns.set_context('talk')
+            for num, y in enumerate(self.y):
+
                 title = y +  ' by ' + self.x
-                plot = sns.catplot(data = self.df, kind = 'bar', x = self.x, y=y, **d, legend = True, dodge = False, capsize=.15,  errwidth=1.5, facet_kws={"legend_out": True}).set(title=title)
+                plot = sns.catplot(data = self.df, kind = 'bar', x = self.x, y=y, **d, legend = True, dodge = False, capsize=.15,  errwidth=1.5, facet_kws={"margin_titles": True, "legend_out": True}).set(title=title)
                 #if len(self.y)>1:
                     #plt.figure()
                 plot.add_legend()
-                plots.append(plot)
-            
-            if self.pattern !='False':
-                for plot in plots:
-                    for ax in plot.axes.flat:
+                [plt.setp(ax.texts, text="") for ax in plot.axes.flat] # remove the original texts
+                plot.set_titles(row_template = '{row_name}', col_template = '{col_name}')
+                if self.color == None :
+                    plot.tight_layout(rect=[0, 0.03, 1, 0.95])
+                else:
+                    plot.tight_layout(rect=[0, 0.03, 0.8, 0.95])
+                
+                if self.title:
+                    plt.suptitle(t = title, size = 'large', y = '0.99')
+                
+                for ax in plot.axes.ravel():
+                    if self.pattern !='False':
                         bars = [rect for rect in ax.get_children() if isinstance(rect, matplotlib.patches.Rectangle)]
                         hatches = ['//', '.','+', 'o', 'x','\\']
                         bars = [rect for rect in bars if not math.isnan(rect.get_height())]
                         for i,thisbar in enumerate(bars):
                             # Set a different hatch for each bar
                             thisbar.set_hatch(hatches[i%len(hatches)])
-                        ax.grid(axis='y',linestyle = 'dashed')
-                        ax.set_axisbelow(True)
+                    ax.grid(axis='y',linestyle = 'dashed')
+                    ax.set_axisbelow(True)
+                    ax.set_xticklabels(ax.get_xticklabels(), rotation=40, ha="right")  #it will rotate text on x axis
+                #plots.append(plot)
+                with box[num]:
+                    plt.show()
 
-            # if self.detail is not None:
-            #     for plot in plots:
-            #         for ax in plot.axes.flat:
-            #             min, max, interval, scale = self.detail['Y-axis']
-            #             if min == 'None':
-            #                 min, _ = ax.get_ylim()
-            #             if max == 'None':
-            #                 _, max = ax.get_ylim()
-            #             if interval == 'None':
-            #                 ax.set_ylim(min, max)
-            #             else:
-            #                 ax.yaxis.set_ticks(np.arange(min, max, interval))
-            #             ax.set_yscale(scale)
+               
 
-            
-            
-            plt.show()
+                # if self.detail is not None:
+                #     for plot in plots:
+                #         for ax in plot.axes.flat:
+                #             min, max, interval, scale = self.detail['Y-axis']
+                #             if min == 'None':
+                #                 min, _ = ax.get_ylim()
+                #             if max == 'None':
+                #                 _, max = ax.get_ylim()
+                #             if interval == 'None':
+                #                 ax.set_ylim(min, max)
+                #             else:
+                #                 ax.yaxis.set_ticks(np.arange(min, max, interval))
+                #             ax.set_yscale(scale)
+
+                
+                
+                
+            display(VBox(box))
    
 
     def display_df(df):
@@ -713,7 +756,7 @@ def dataframe_visualization(df):
                         layout=Layout(width='90%'))
 
 
-    def display_widgets(refresh = True):
+    def display_widgets(refresh = True, clear = True):
         if dropdown_type.value== 'Scatter':
             dropdowns = [dropdown_x.d, dropdown_color.d, dropdown_row.d, dropdown_y_mul.d, dropdown_marker.d, dropdown_column.d]
         elif dropdown_type.value =='Line':
@@ -728,7 +771,8 @@ def dataframe_visualization(df):
             dropdowns = [dropdown_x.d, dropdown_y.d, dropdown_z.d]
         else:
             print("Undefined Type")
-        clear_output(wait=True)
+        if clear:
+            clear_output(wait=True)
         display(HBox([toggle_label, toggle]))
         
         right_box2 = compose_box(dropdowns)
