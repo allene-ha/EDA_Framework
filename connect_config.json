@@ -1,8 +1,13 @@
 {
-    "db_type":"mysql",
-    "mysql_host":"localhost",
-    "mysql_port":"3306",
-    "mysql_user":"root",
-    "mysql_password":"",
-    "mysql_database":""
+    "db_type":"postgres",
+    "db_host":"localhost",
+    "db_port":"5432",
+    "db_user":"postgres",
+    "db_password":"postgres",
+    "mysql_database":"",
+    "monitor_interval":"10",
+    "table_level_monitor_interval":"5000",
+    "db_provider": "on_premise",
+    "db_key": "test_key",
+    "organization_id": "test_organization"
 }

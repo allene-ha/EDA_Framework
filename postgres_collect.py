@@ -1,9 +1,9 @@
 import json
 
 from typing import Dict, Any, Union
-import mysql.connector
+#import mysql.connector
 
-from driver.collector.collector_factory import get_mysql_version, connect_mysql
+from driver.collector.collector_factory import get_collector
 from driver.database import (
     collect_db_level_data_from_database,
     collect_table_level_data_from_database,
@@ -15,35 +15,6 @@ from driver.collector.mysql_collector import MysqlCollector
 
 # pylint: disable=missing-function-docstring
 
-def _get_driver_conf(
-    db_type: str,
-    mysql_user: str,
-    mysql_password: str,
-    mysql_host: str,
-    mysql_port: str,
-    mysql_database: str,
-    num_table_to_collect_stats: int,
-    num_index_to_collect_stats: int,
-    monitor_interval: int,
-    table_level_monitor_interval: int
-) -> Dict[str, Union[int, str]]:
-    # pylint: disable=too-many-arguments
-    conf = {
-        "db_user": mysql_user,
-        "db_password": mysql_password,
-        "db_host": mysql_host,
-        "db_port": mysql_port,
-        "db_name": mysql_database,
-        "db_type": db_type,
-        "db_provider": "on_premise",
-        "db_key": "test_key",
-        "organization_id": "test_organization",
-        "num_table_to_collect_stats": num_table_to_collect_stats,
-        "num_index_to_collect_stats": num_index_to_collect_stats,
-        "monitor_interval": monitor_interval,
-        "table_level_monitor_interval": table_level_monitor_interval,
-    }
-    return conf
 
 """
 The main entrypoint for the driver. The driver will poll for new configurations and schedule
@@ -97,35 +68,8 @@ def get_config(args):
 
 def connect_config():
     with open('connect_config.json') as json_file:
-        data = json.load(json_file)
+        driver_config = json.load(json_file)
 
-    db_type=data["db_type"]
-    mysql_host=data["mysql_host"]
-    mysql_port=data["mysql_port"]
-    mysql_user=data["mysql_user"]
-    mysql_password=data["mysql_password"]
-    mysql_database=data["mysql_database"]   
-    monitor_interval=10
-    table_level_monitor_interval=5000
-
-
-    config = _get_driver_conf(
-            db_type, 
-            mysql_user, 
-            mysql_password, 
-            mysql_host, 
-            mysql_port, 
-            mysql_database, 
-            10, 
-            100, 
-            monitor_interval,
-            table_level_monitor_interval,
-        )
-    loglevel = 'INFO'
-    numeric_level = getattr(logging, loglevel.upper(), None)
-    if not isinstance(numeric_level, int):
-        raise ValueError(f"Invalid log level: {loglevel}")
-    logging.basicConfig(level=numeric_level)
     return config
 
 def run() -> None:
@@ -133,13 +77,13 @@ def run() -> None:
     The main entrypoint for the driver
     """
 
-    config = connect_config()
-
+    with open('connect_config.json') as json_file:
+        driver_config = json.load(json_file)
 
     end_time = str(0) # initialize
     with open('end_time', 'w') as outfile:
         outfile.write(end_time)
-    schedule_db_level_monitor_job(config)
+    schedule_db_level_monitor_job(driver_config)
     #if not config.disable_table_level_stats or not config.disable_index_stats:
     #    schedule_table_level_monitor_job(config)
     scheduler.start()
@@ -147,4 +91,3 @@ def run() -> None:
 
 if __name__ == "__main__":
     run()
-
