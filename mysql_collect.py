@@ -100,21 +100,22 @@ def connect_config():
         data = json.load(json_file)
 
     db_type=data["db_type"]
-    mysql_host=data["mysql_host"]
-    mysql_port=data["mysql_port"]
-    mysql_user=data["mysql_user"]
-    mysql_password=data["mysql_password"]
-    mysql_database=data["mysql_database"]   
+    host=data["host"]
+    port=data["port"]
+    user=data["user"]
+    password=data["password"]
+    if db_type =='mysql':
+        mysql_database=data["mysql_database"]   
     monitor_interval=10
     table_level_monitor_interval=5000
 
 
     config = _get_driver_conf(
             db_type, 
-            mysql_user, 
-            mysql_password, 
-            mysql_host, 
-            mysql_port, 
+            user, 
+            password, 
+            host, 
+            port, 
             mysql_database, 
             10, 
             100, 
@@ -133,8 +134,8 @@ def run() -> None:
     The main entrypoint for the driver
     """
 
-    config = connect_config()
-
+    with open('connect_config.json') as json_file:
+        config = json.load(json_file)
 
     end_time = str(0) # initialize
     with open('end_time', 'w') as outfile:

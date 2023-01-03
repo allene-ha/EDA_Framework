@@ -66,12 +66,6 @@ def get_config(args):
 
     return config
 
-def connect_config():
-    with open('connect_config.json') as json_file:
-        driver_config = json.load(json_file)
-
-    return config
-
 def run() -> None:
     """
     The main entrypoint for the driver
