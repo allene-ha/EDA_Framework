@@ -331,8 +331,8 @@ class MysqlCollector(BaseDbCollector):  # pylint: disable=too-many-instance-attr
         return result
 
     def collect_waits(self):
-        self._cmd_wo_fetch("truncate table performance_schema.events_waits_summary_global_by_event_name;")
         temp = dict(self._cmd(self.WAIT_SUMMARY_SQL)[0])
+        self._cmd_wo_fetch("truncate table performance_schema.events_waits_summary_global_by_event_name;")
         #print(temp)
         #temp= list(map(list, zip(*temp)))     
         return temp

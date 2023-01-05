@@ -207,6 +207,17 @@ class PostgresCollector(BaseDbCollector):
                 "calls, mean_time as avg_time_ms "
                 "FROM pg_stat_statements;"
             )
+        self.PG_STAT_STATEMENTS_EDA_SQL = (
+            "SELECT queryid, query,  calls, total_exec_time as time_ms, blk_read_time+blk_write_time as io FROM pg_stat_statements order by calls desc limit 10;"
+            )
+
+    def _cmd_wo_fetch(self, sql: str):  # type: ignore
+        try:
+            cursor = self._conn.cursor()
+            cursor.execute(sql)
+        except Exception as ex:  # pylint: disable=broad-except
+            msg = f"Failed to execute sql {sql}"
+            raise PostgresCollectorException(msg, ex) from ex
 
     def _cmd(self, sql: str):  # type: ignore
         """Run the command line (sql query), and fetch the returned results
@@ -676,6 +687,12 @@ class PostgresCollector(BaseDbCollector):
                             val = val.isoformat()
                         elif isinstance(val, Decimal):
                             val = float(val)
+                        elif isinstance(val, str):
+                            
+                            val = val.replace("\t", '')
+                            val = val.replace('\n', '')
+                            val = " ".join(val.split())
+                            #print(val)
                         row[col[idx]] = val
                 metrics.append(row)
         return metrics
@@ -711,11 +728,13 @@ class PostgresCollector(BaseDbCollector):
         success = self._load_stat_statements()
         if success:
             try:
-                res = self._get_metrics(self.PG_STAT_STATEMENTS_SQL)
+                res = self._get_metrics(self.PG_STAT_STATEMENTS_EDA_SQL)
+                #res = self._get_metrics(self.PG_STAT_STATEMENTS_SQL)
             except PostgresCollectorException as ex:
                 logging.error(
                     "Failed to load pg_stat_statements module, you need to add "
                     "pg_stat_statements in parameter shared_preload_libraries: %s",
                     ex,
                 )
+        self._cmd_wo_fetch("select pg_stat_statements_reset();")
         return res

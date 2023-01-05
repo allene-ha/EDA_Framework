@@ -36,7 +36,7 @@ def get_path():
     f.close()
     return path
 
-def get_column() -> dict:
+def get_column_mysql() -> dict: #metric 종류를 담은 dict을 return
 
     path = get_path()
     file_list = os.listdir(path)
@@ -72,7 +72,7 @@ def get_column() -> dict:
     column['wait'] = wait_metrics
     return column
 
-def create_dataframe(col):
+def create_dataframe_mysql(col):
     metrics = {}
     metrics['metrics'] = pd.DataFrame(columns = col['metrics'])
     metrics['innodb_metrics'] = pd.DataFrame(columns = col['innodb_metrics'])
@@ -83,7 +83,7 @@ def create_dataframe(col):
     
     return metrics
 
-def import_metrics(metrics, text, timestamp,col):
+def import_metrics_mysql(metrics, text, timestamp,col):
     metrics_data = text['metrics_data']['global']['global']
     new_row = {}
     for m in col['metrics']:
@@ -117,7 +117,7 @@ def import_metrics(metrics, text, timestamp,col):
     return metrics
 
 class digest_query:
-    def __init__(self, query_id, digest, digest_text, time_ms, cpu_usage, io, count, timestamp):
+    def __init__(self, query_id, digest, digest_text, time_ms, cpu_usage=0, io=0, count=0, timestamp=0):
         self.query_id = query_id
         self.digest = digest
         self.digest_text = digest_text
@@ -131,7 +131,7 @@ class digest_query:
     def add_time(self, time_ms):
         self.value[-1][1]+=time_ms
     
-    def add_timestamp(self, time_ms, cpu_usage, io, count, timestamp):
+    def add_timestamp(self, time_ms, cpu_usage=0, io=0, count=0, timestamp=0):
         self.value.append([timestamp, time_ms, cpu_usage, io, count])
     
     def print_digest_query(self):
@@ -140,6 +140,8 @@ class digest_query:
         print(f'digest_text={self.digest_text}')
         print(f'time_ms={self.time_ms}')
         print(f'cpu_usage={self.cpu_usage}')
+        print(f'io={self.io}')
+        print(f'count={self.count}')
     
     def sort_timestamp(self):
         self.value = list(map(lambda x: [x[0], float(x[1]), float(x[2]), int(x[3]), int(x[4])], self.value))
@@ -185,7 +187,7 @@ class digest_query:
         self.count += other_query.count
         self.timestamp += other_query.timestamp
         
-def update_data(dic, metrics,all_timestamp, last_import_timestamp, query_num, col):
+def update_data_mysql(dic, metrics,all_timestamp, last_import_timestamp, query_num, col):
     new_dic = {}
     new_timestamp =[]
     path = get_path()
@@ -208,7 +210,7 @@ def update_data(dic, metrics,all_timestamp, last_import_timestamp, query_num, co
             # 같은 파일 내를 탐색
             new_timestamp.append(file_datetime)
             text = json.load(f)
-            metrics = import_metrics(metrics, text, file_datetime, col)
+            metrics = import_metrics_mysql(metrics, text, file_datetime, col)
             #io = text['metrics_data']["global"]["engine"]["innodb_status_io"]
             performance_schema = text['metrics_data']['global']['performance_schema']
 
@@ -281,11 +283,91 @@ def update_data(dic, metrics,all_timestamp, last_import_timestamp, query_num, co
         #print(len(dic[query].time_ms))
     print("MINDT : ",min_datetime)
     return dic, metrics, all_timestamp, query_num
-                            
+
+def update_data_pg(dic, metrics,all_timestamp, last_import_timestamp, query_num, col):
+    new_dic = {}
+    new_timestamp =[]
+    path = get_path()
+    file_list = os.listdir(path)
+    
+    min_datetime = dt.datetime.now()
+
+    count = 0
+    for filename in file_list:
+        file_datetime = dt.datetime.strptime(filename,'%Y%m%d_%H%M%S') 
+        if file_datetime <=last_import_timestamp:
+            continue
+        else:
+            count+=1
+            if count%10 ==0:
+                print(file_datetime)
+            if min_datetime > file_datetime:
+                min_datetime = file_datetime
+        with open(os.path.join(path, filename), 'r') as f:
+            # 같은 파일 내를 탐색
+            new_timestamp.append(file_datetime)
+            text = json.load(f)
+            #metrics = import_metrics(metrics, text, file_datetime, col)
+            #io = text['metrics_data']["global"]["engine"]["innodb_status_io"]
+            statements = json.loads(text["metrics_data"]['global']['pg_stat_statements']['statements'])
+
+            #cpu_usage = statements['cpu_usage'] # thread_os_id : cpu_usage
+            # io = statements['io'] 
+            # events_statements_history = statements['events_statements_history'] # list of dic
+            digest_list = []
+            for event in statements:
+                digest = event['queryid']
+                if digest is None:
+                    continue
+                #print(category(digest))
+                #thread_id = event['thread_id']
+                digest_text = event['query']
+                count = event['calls']
+                time = event['time_ms']
+                io = event['io']
+                
+                if digest in digest_list: # 같은 쿼리가 같은 시간대에 이미 존재할 경우? time만 합친다.
+                    new_dic[digest].add_time(time)
+                elif digest in new_dic.keys():
+                    new_dic[digest].add_timestamp(time, 0, io, count, file_datetime)
+                elif digest not in new_dic.keys():
+                    new_dic[digest] = digest_query(query_num, digest, digest_text, time, 0, io, count, file_datetime)
+                    #dic[digest] = temp
+                    query_num+=1
+                digest_list.append(digest)                
+    new_timestamp.sort()
+    for query in new_dic:
+        query_id = new_dic[query].query_id
+        new_dic[query].sort_timestamp()
+    #print(len(digest_list))
+    
+    add_digest_list = copy.deepcopy(digest_list)
+    
+    for new_query in digest_list: # 새로 추가된 digest = 즉, dict의 key, merge 할때마다 list에서 제거할것
+        if new_query in dic.keys():
+            dic[new_query].merge(new_dic[new_query])
+            add_digest_list.remove(new_query)
+    
+    #print(len(digest_list))
+    for new_digest in add_digest_list:
+        dic[new_digest] = new_dic[new_digest]
+    #print("all_timestamp before add",len(all_timestamp))
+    all_timestamp+=new_timestamp
+    #print("all_timestamp aft add",len(all_timestamp))
+    for query in dic:
+        dic[query].add_missing_value(all_timestamp)
+        #print(len(dic[query].time_ms))
+    print("MINDT : ",min_datetime)
+    return dic, metrics, all_timestamp, query_num
+    
+
+
+
 def Average(lst):
         return sum(lst) / len(lst)    
 
-def import_data(time_range=dt.timedelta(hours=1)):
+
+def import_data_pg(time_range=dt.timedelta(hours=4)):
     realtime = True # for debugging
     dic = {}
     path = get_path()
@@ -294,8 +376,10 @@ def import_data(time_range=dt.timedelta(hours=1)):
     file_list = os.listdir(path)#[:10] # for debug
     max_datetime = dt.datetime.min
     
-    col = get_column()
-    metrics = create_dataframe(col)
+    col = []
+    # col = get_column()
+    # metrics = create_dataframe(col)
+    metrics = {}
     count = 0
     #print(col)
     
@@ -318,7 +402,71 @@ def import_data(time_range=dt.timedelta(hours=1)):
             # 같은 파일 내를 탐색
             all_timestamp.append(file_datetime)
             text = json.load(f)
-            metrics = import_metrics(metrics, text, file_datetime, col)
+        statements = json.loads(text["metrics_data"]['global']['pg_stat_statements']['statements'])
+        digest_list = []
+        for event in statements:
+            digest = event['queryid']
+            if digest is None:
+                continue
+            #thread_id = event['thread_id']
+            digest_text = event['query']
+            count = event['calls']
+            time = event['time_ms']
+            io = event['io']
+            
+            if digest in digest_list: # 같은 쿼리가 같은 시간대에 이미 존재할 경우? time만 합친다.
+                dic[digest].add_time(time)
+            elif digest in dic.keys():
+                dic[digest].add_timestamp(time, 0, io, count, file_datetime)
+            elif digest not in dic.keys():
+                dic[digest] = digest_query(query_num, digest, digest_text, time, 0, io, count, file_datetime)
+                #dic[digest] = temp
+                query_num+=1
+            digest_list.append(digest)
+    all_timestamp.sort()
+    print("MAXDT : ",max_datetime)
+    
+    for query in dic:
+        query_id = dic[query].query_id
+        dic[query].sort_timestamp()
+        dic[query].add_missing_value(all_timestamp)
+    return dic, metrics, all_timestamp, query_num, col
+
+
+def import_data_mysql(time_range=dt.timedelta(hours=1)):
+    realtime = True # for debugging
+    dic = {}
+    path = get_path()
+    query_num = 0
+    all_timestamp =[]
+    file_list = os.listdir(path)#[:10] # for debug
+    max_datetime = dt.datetime.min
+    
+    col = get_column_mysql()
+    metrics = create_dataframe_mysql(col)
+    count = 0
+    #print(col)
+    
+    for filename in file_list:
+        file_datetime = dt.datetime.strptime(filename,'%Y%m%d_%H%M%S') 
+        if realtime == True and file_datetime <= dt.datetime.now() - time_range:
+            print(file_datetime)
+            if max_datetime < file_datetime:
+                max_datetime = file_datetime
+            continue
+        else:
+            print("imported")
+            count+=1
+            if count%10 ==0:
+                print(file_datetime)
+            print(file_datetime)
+            if max_datetime < file_datetime:
+                max_datetime = file_datetime
+        with open(os.path.join(path, filename), 'r') as f:
+            # 같은 파일 내를 탐색
+            all_timestamp.append(file_datetime)
+            text = json.load(f)
+            metrics = import_metrics_mysql(metrics, text, file_datetime, col)
             #print(metrics)
             #io = text['metrics_data']["global"]["engine"]["innodb_status_io"]
             performance_schema = text['metrics_data']['global']['performance_schema']
@@ -406,6 +554,9 @@ def rank(dic, category, num, time_range):
 
 
 def import_and_update_data():
+    with open('connect_config.json') as json_file:
+        driver_config = json.load(json_file)
+    db_type = driver_config['db_type']
     import warnings
     warnings.simplefilter(action='ignore', category=FutureWarning)
     realtime = True
@@ -418,7 +569,15 @@ def import_and_update_data():
         with open('data.pickle','rb') as fr:
             dic, metrics, all_timestamp, query_num, col, last_import_time = pickle.load(fr)
         print("Loaded Data from Pickle")
-        dic, metrics, all_timestamp, query_num = update_data(dic, metrics,all_timestamp,last_import_time, query_num, col)
+        if db_type =='postgres':
+            dic, metrics, all_timestamp, query_num = update_data_pg(dic, metrics,all_timestamp,last_import_time, query_num, col)
+        
+        elif db_type =='mysql':
+            dic, metrics, all_timestamp, query_num = update_data_mysql(dic, metrics,all_timestamp,last_import_time, query_num, col)
+        
+        else:
+            NotImplementedError
+
         last_import_time = dt.datetime.now()
         print(last_import_time)
         pickle_list = [dic, metrics, all_timestamp, query_num, col, last_import_time]
@@ -427,7 +586,11 @@ def import_and_update_data():
         print("Data Update Complete!")
         #return dic, metrics, all_timestamp, query_num, last_import_time
     else:
-        dic, metrics, all_timestamp, query_num, col = import_data()
+        if db_type == 'postgres':
+            dic, metrics, all_timestamp, query_num, col = import_data_pg()
+        elif db_type == 'mysql':
+            dic, metrics, all_timestamp, query_num, col = import_data_mysql()
+        
         last_import_time = dt.datetime.now()
         print(last_import_time)
         print("Data Loading from json Complete!")
@@ -758,7 +921,7 @@ from matplotlib.dates import DateFormatter
 def visualize_metrics():
     global metrics, all_timestamp, col
     if len(col) ==0:
-        col = get_column()
+        col = get_column_mysql()
 
     def visualize(category, selected_metrics):
         window_size = 30
