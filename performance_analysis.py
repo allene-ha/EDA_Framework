@@ -72,14 +72,64 @@ def get_column_mysql() -> dict: #metric 종류를 담은 dict을 return
     column['wait'] = wait_metrics
     return column
 
-def create_dataframe_mysql(col):
-    metrics = {}
-    metrics['metrics'] = pd.DataFrame(columns = col['metrics'])
-    metrics['innodb_metrics'] = pd.DataFrame(columns = col['innodb_metrics'])
-    metrics['derived_metrics'] = pd.DataFrame(columns = col['derived_metrics'])
-    metrics['resource_metrics'] = pd.DataFrame(columns = col['resource_metrics'])
-    metrics['wait'] = pd.DataFrame(columns = col['wait'])
+def get_column_pg() -> dict: #metric 종류를 담은 dict을 return
+
+    path = get_path()
+    file_list = os.listdir(path)
+    filename = file_list[0]
+    file_datetime = dt.datetime.strptime(filename,'%Y%m%d_%H%M%S') 
+    #print(os.path.join(path, filename))
+    with open(os.path.join(path, filename), 'r') as f:
+        # 파일 내를 탐색
+        text = json.load(f)
+
     
+    archiver_metrics = list(text['metrics_data']['global']['pg_stat_archiver'].keys())
+    remove_list = []
+    for me in archiver_metrics:
+        if text['metrics_data']['global']['pg_stat_archiver'][me].isdigit():
+            pass
+        else:
+            remove_list.append(me)
+    archiver_metrics = [x for x in archiver_metrics if x not in remove_list]
+    bgwriter_metrics = list(text['metrics_data']['global']['pg_stat_bgwriter'].keys())
+    remove_list = []
+    for me in bgwriter_metrics:
+        if text['metrics_data']['global']['pg_stat_bgwriter'][me].isdigit():
+            pass
+        else:
+            remove_list.append(me)
+    bgwriter_metrics = [x for x in bgwriter_metrics if x not in remove_list]
+
+    agg_database_metrics = list(text['metrics_data']['local']['database']['pg_stat_database']['aggregated'].keys())
+    agg_conflicts_metrics = list(text['metrics_data']['local']['database']['pg_stat_database_conflicts']['aggregated'].keys())
+    
+    agg_user_tables_metrics = list(text['metrics_data']['local']['table']['pg_stat_user_tables']['aggregated'].keys())
+    agg_user_tables_io_metrics = list(text['metrics_data']['local']['table']['pg_statio_user_tables']['aggregated'].keys())
+
+    agg_user_indexes_metrics = list(text['metrics_data']['local']['index']['pg_stat_user_indexes']['aggregated'].keys())
+    agg_user_indexes_io_metrics = list(text['metrics_data']['local']['index']['pg_statio_user_indexes']['aggregated'].keys())
+
+
+
+    column = {}
+    column['archiver_metrics'] = archiver_metrics
+    column['bgwriter_metrics'] = bgwriter_metrics
+    column['agg_database_metrics'] = agg_database_metrics
+    column['agg_conflicts_metrics'] = agg_conflicts_metrics
+    column['agg_user_tables_metrics'] = agg_user_tables_metrics
+    column['agg_user_tables_io_metrics'] = agg_user_tables_io_metrics
+    column['agg_user_indexes_metrics'] = agg_user_indexes_metrics
+    column['agg_user_indexes_io_metrics'] = agg_user_indexes_io_metrics
+
+    #column['wait'] = wait_metrics
+    return column
+
+
+def create_dataframe(col):
+    metrics = {}
+    for me in col.keys():
+        metrics[me] = pd.DataFrame(columns = col[me])   
     
     return metrics
 
@@ -377,8 +427,8 @@ def import_data_pg(time_range=dt.timedelta(hours=4)):
     max_datetime = dt.datetime.min
     
     col = []
-    # col = get_column()
-    # metrics = create_dataframe(col)
+    col = get_column_pg()
+    metrics = create_dataframe(col)
     metrics = {}
     count = 0
     #print(col)
@@ -443,7 +493,7 @@ def import_data_mysql(time_range=dt.timedelta(hours=1)):
     max_datetime = dt.datetime.min
     
     col = get_column_mysql()
-    metrics = create_dataframe_mysql(col)
+    metrics = create_dataframe(col)
     count = 0
     #print(col)
     
