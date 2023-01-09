@@ -418,7 +418,7 @@ def Average(lst):
 
 
 def import_data_pg(time_range=dt.timedelta(hours=4)):
-    realtime = True # for debugging
+    realtime = False # for debugging
     dic = {}
     path = get_path()
     query_num = 0
@@ -484,7 +484,7 @@ def import_data_pg(time_range=dt.timedelta(hours=4)):
 
 
 def import_data_mysql(time_range=dt.timedelta(hours=1)):
-    realtime = True # for debugging
+    realtime = False # for debugging
     dic = {}
     path = get_path()
     query_num = 0
@@ -609,7 +609,7 @@ def import_and_update_data():
     db_type = driver_config['db_type']
     import warnings
     warnings.simplefilter(action='ignore', category=FutureWarning)
-    realtime = True
+    realtime = False
     global dic, metrics, all_timestamp, query_num, col, last_import_time
     all_timestamp =[]
     dic={}
@@ -619,14 +619,14 @@ def import_and_update_data():
         with open('data.pickle','rb') as fr:
             dic, metrics, all_timestamp, query_num, col, last_import_time = pickle.load(fr)
         print("Loaded Data from Pickle")
-        if db_type =='postgres':
-            dic, metrics, all_timestamp, query_num = update_data_pg(dic, metrics,all_timestamp,last_import_time, query_num, col)
-        
-        elif db_type =='mysql':
-            dic, metrics, all_timestamp, query_num = update_data_mysql(dic, metrics,all_timestamp,last_import_time, query_num, col)
-        
-        else:
-            NotImplementedError
+        if realtime:
+            if db_type =='postgres':
+                dic, metrics, all_timestamp, query_num = update_data_pg(dic, metrics,all_timestamp,last_import_time, query_num, col)
+            
+            elif db_type =='mysql':
+                dic, metrics, all_timestamp, query_num = update_data_mysql(dic, metrics,all_timestamp,last_import_time, query_num, col)
+            else:
+                NotImplementedError
 
         last_import_time = dt.datetime.now()
         print(last_import_time)
@@ -683,6 +683,7 @@ def x_pad(x, window_size):
             x.append(dt.datetime.now())
     return x
 
+
 def visualize_multiple_chart_type(category, num, time_range, chart_type, m_agg='avg', col = []):
     global dic, all_timestamp, last_import_time, query_num, metrics
     #print(dic)
@@ -701,10 +702,20 @@ def visualize_multiple_chart_type(category, num, time_range, chart_type, m_agg='
             handle.update_from(orig)
             x,y = handle.get_data()
             handle.set_data([np.mean(x)]*2, [0, 2*y[0]])
-    realtime =True # for debugging        
+    realtime =False # for debugging        
     if realtime:
         if dt.datetime.now()-last_import_time > dt.timedelta(minutes=10):
-            dic, metrics, all_timestamp, query_num = update_data(dic, metrics,all_timestamp,last_import_time, query_num, col)
+            with open('connect_config.json') as json_file:
+                driver_config = json.load(json_file)
+            db_type = driver_config['db_type']
+            if db_type =='postgres':
+                dic, metrics, all_timestamp, query_num = update_data_pg(dic, metrics,all_timestamp,last_import_time, query_num, col)
+        
+            elif db_type =='mysql':
+                dic, metrics, all_timestamp, query_num = update_data_mysql(dic, metrics,all_timestamp,last_import_time, query_num, col)
+            
+            else:
+                NotImplementedError
             last_import_time = dt.datetime.now()
             print(last_import_time)
             pickle_list = [dic, metrics, all_timestamp, query_num, col, last_import_time]
@@ -797,6 +808,96 @@ def visualize_multiple_chart_type(category, num, time_range, chart_type, m_agg='
 
 from matplotlib.widgets import MultiCursor
 
+
+def print_raw_data_category(category, time_range = dt.timedelta(hours = 1), num = 5):
+    global dic, all_timestamp
+    top_qid = rank(dic, category, num, time_range)
+    data = []
+    for query in dic:
+        qid = dic[query].query_id
+        i=0
+        for i, t in enumerate(dic[query].timestamp):
+            if t > dic[query].timestamp[-1] - time_range:
+                break
+    
+        if qid in top_qid:
+            item = [qid, dic[query].digest_text]
+            if category == 'CPU':
+                item.append(Average(dic[query].cpu_usage[i:]))
+            elif category == 'Duration':
+                item.append(Average(dic[query].time_ms[i:]))
+            elif category == 'Disk IO':
+                item.append(Average(dic[query].io[i:]))
+            elif category == 'Execution Count':
+                item.append(Average(dic[query].count[i:]))
+            data.append(item)
+            #data.append([qid, dic[query].digest_text, Average(dic[query].cpu_usage[i:]),Average(dic[query].io[i:]),Average(dic[query].time_ms[i:]),Average(dic[query].count[i:])])
+
+    columns = ['QID', 'Digest Text', category]      
+    df = pd.DataFrame(data, columns = columns)
+    df = df.set_index('QID')
+    df = df.sort_values(by = [category], ascending = False)
+    display(df)
+    #display(HTML(df.to_html()))
+
+    button = Button(description="Visualize", layout = Layout(width = '80%'))
+    def print_query_detail(clicked_button):
+        dropdown = widgets.Select(
+                            options=df.index,
+                            description='Select QID',
+                            disabled=False,
+                            layout={'height':'100px', 'width':'40%'})
+        def filter_dataframe(widget):
+            global filtered_df
+            selection = widget['new'] 
+            
+            with out:
+                clear_output() 
+                for digest in dic:
+                    if dic[digest].query_id == selection:
+                        q = dic[digest]
+                        break
+                x = q.timestamp
+                
+                plt.close()
+                fig, axes = plt.subplots(nrows=4, sharex = True)
+                axes[0].plot(x,q.cpu_usage, label = "cpu usage")
+
+                axes[1].plot(x,q.io, label = 'disk io')
+                width = np.min(np.diff(mdates.date2num(x)))
+                    
+                axes[2].bar(x,q.count, width = width, ec='k',label = 'execution count')
+                axes[3].bar(x,q.time_ms,width = width, ec='k', label = 'execution time')
+                axes[0].set_title("cpu usage")
+                axes[0].set_ylim(min(q.cpu_usage)*0.9, max(q.cpu_usage)*1.1)
+                axes[1].set_title("disk io")
+                axes[1].set_ylim(min(q.io)*0.9, max(q.io)*1.1)
+                axes[2].set_ylim(0, max(q.count)*1.1)
+                axes[3].set_ylim(0, max(q.time_ms)*1.1)
+
+                axes[2].set_title('execution count')
+                axes[3].set_title('execution time')
+                # fig.legend(title = "Query ID + Text", loc=6, bbox_to_anchor=(1, 0.5))
+                fig.suptitle(f"Details of query ID {selection}", size=20, fontweight="bold")
+                plt.gca().xaxis_date()
+                plt.xlim(x[-1]-time_range,x[-1])
+                plt.gcf().autofmt_xdate()
+                plt.grid(True, axis='y')
+                plt.tight_layout()
+                multi = MultiCursor(fig.canvas, [axes[0],axes[1],axes[2]], color='r', lw=1)
+                cursor = mplcursors.cursor(plt.gcf(), hover = True)
+                plt.draw()
+                
+
+        out = widgets.Output()
+        dropdown.observe(filter_dataframe, names='value')
+        display(dropdown)
+        display(out)
+
+    button.on_click(print_query_detail)
+    display(button)
+   
+    
 def print_raw_data(dic, category, time_range,top_qid):
     # category: 어떤 것에 대한 top query들인지
     #df = pd.DataFrame(columns=['QID','Digest Text','CPU usage','Disk IO','Duration(ms)','Execution Count'])
@@ -813,6 +914,7 @@ def print_raw_data(dic, category, time_range,top_qid):
                 
     df = pd.DataFrame(data, columns = ['QID', 'Digest Text','CPU usage','Disk IO','Duration(ms)','Execution Count'])
     df = df.set_index('QID')
+    #df = df.sort_values(by = [category], ascending = False)
     
     from IPython.display import display, HTML
 
