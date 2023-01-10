@@ -6,14 +6,11 @@ from matplotlib import pyplot as plt
 from matplotlib.container import BarContainer
 import pickle
 import numpy as np
-import math
+import time
 import pandas as pd
-import textwrap
-
 import ipywidgets as widgets
 from ipywidgets import Label, HBox, VBox, Button, HTML
 from ipywidgets import interact, interact_manual, Layout
-import IPython.display
 from IPython.display import display, clear_output
 import mplcursors
 from matplotlib.legend_handler import HandlerLine2D
@@ -23,8 +20,6 @@ import matplotlib.dates as mdates
 import copy
 from matplotlib.dates import DateFormatter
 plt.style.use('seaborn-notebook')
-
-
 from query import * 
 from dataframe_visualization import *
 #import plotly.graph_objects as go
@@ -808,6 +803,7 @@ def visualize_multiple_chart_type(category, num, time_range, chart_type, m_agg='
 
 from matplotlib.widgets import MultiCursor
 
+line = HTML('<hr>')
 
 def print_raw_data_category(category, time_range = dt.timedelta(hours = 1), num = 5):
     global dic, all_timestamp
@@ -839,8 +835,11 @@ def print_raw_data_category(category, time_range = dt.timedelta(hours = 1), num 
     df = df.sort_values(by = [category], ascending = False)
     display(df)
     #display(HTML(df.to_html()))
-
-    button = Button(description="Visualize", layout = Layout(width = '80%'))
+    button_layout = Layout(width = '200px', height = '50px')
+    button = Button(description="Visualize", layout = button_layout,
+                    style = dict(button_color= 'BlanchedAlmond', font_weight = 'bold'))
+    button2 = Button(description="Show Query Plan", layout = button_layout,
+                style = dict(button_color= 'BlanchedAlmond', font_weight = 'bold'))
     def print_query_detail(clicked_button):
         dropdown = widgets.Select(
                             options=df.index,
@@ -886,18 +885,59 @@ def print_raw_data_category(category, time_range = dt.timedelta(hours = 1), num 
                 plt.tight_layout()
                 multi = MultiCursor(fig.canvas, [axes[0],axes[1],axes[2]], color='r', lw=1)
                 cursor = mplcursors.cursor(plt.gcf(), hover = True)
-                plt.draw()
+                display(line)
+                plt.show()
+                def query_plan(clicked_button: widgets.Button) -> None:
+                    style = """<style>
+                    .lbl_bg{
+                        width : 80%;
+                        border : 1px solid black;
+                        height : ;
+                    }
+                    </style>"""
+                    display(HTML(style))
+                    head = HTML(value="<b><font size = 3> Full Query of Query ID {}".format(selection))
+                    q.digest_text = q.digest_text.replace("FROM", " FROM")                    
+                    head2 = HTML(value="<b><font size = 3> Query Plan of Query ID {}".format(selection))
+                    res = q_('Explain '+q.digest_text+';')
+                    qp = widgets.HTML('<p style ="margin:10px 20px;"><pre>'+'\n'.join(res))
+                    qp.add_class('lbl_bg')
+
+                    display(line, head)
+                    display(HTML('<p style ="margin:10px 20px;">'+q.digest_text).add_class('lbl_bg'))
+                    display(head2, qp)
+
+                    print("... visualize the explained query plan ...")
+                    print("... need to integrate typescript code ...")
+                    button_layout2 = Layout(width = '400px', height = '50px')
+                    button3 = Button(description="""If Query Plan is Not the Problem,
+                    
+                                                    Database Monitoring""", layout = button_layout2,
+                    style = dict(button_color= 'BlanchedAlmond', font_weight = 'bold'))
+                    from scenario import db_monitoring
+                    button3.on_click(db_monitoring)
+                    display(button3)
+                    
+
                 
+            button2.on_click(query_plan)
+            display(button2)
+
+                
+               
 
         out = widgets.Output()
         dropdown.observe(filter_dataframe, names='value')
         display(dropdown)
         display(out)
-
+        #display(button2)
+        
     button.on_click(print_query_detail)
     display(button)
-   
     
+
+
+
 def print_raw_data(dic, category, time_range,top_qid):
     # category: 어떤 것에 대한 top query들인지
     #df = pd.DataFrame(columns=['QID','Digest Text','CPU usage','Disk IO','Duration(ms)','Execution Count'])
@@ -970,6 +1010,7 @@ def print_raw_data(dic, category, time_range,top_qid):
     dropdown.observe(filter_dataframe, names='value')
     display(dropdown)
     display(out)
+    
 
 def query_visualizer():
     style = {'description_width': 'initial'}

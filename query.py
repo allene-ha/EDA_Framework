@@ -1,8 +1,6 @@
-import os
 import matplotlib.pyplot as plt
 
 from matplotlib import pyplot as plt
-from matplotlib.container import BarContainer
 plt.style.use('seaborn-notebook')
 import numpy as np
 import pandas as pd
@@ -10,8 +8,7 @@ from IPython.display import display, clear_output
 import ipywidgets as widgets
 from ipywidgets import HBox, VBox, Button
 from ipywidgets import interact, interact_manual, Layout
-import mplcursors
-
+import json
 from mysql_collect import connect_config
 from driver.collector.collector_factory import get_collector
 from driver.collector.mysql_collector import MysqlCollector
@@ -50,6 +47,18 @@ def q(query):
         
     return df
 
+def q_(query):
+    
+    with open('connect_config.json') as json_file:
+        driver_config = json.load(json_file)
+
+    with get_collector(driver_config) as collector:
+       # print(collector._cmd(query))  # 0 data 1 meta
+       res, meta = collector._cmd(query)
+       #print(type(res))
+       res = [i[0] for i in res]
+       
+    return res
 
 #     col_list = list(df.columns)
 #     if len(df) == 0:
