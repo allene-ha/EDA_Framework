@@ -82,7 +82,7 @@ def get_column_pg() -> dict: #metric 종류를 담은 dict을 return
     archiver_metrics = list(text['metrics_data']['global']['pg_stat_archiver'].keys())
     remove_list = []
     for me in archiver_metrics:
-        if text['metrics_data']['global']['pg_stat_archiver'][me].isdigit():
+        if isinstance(text['metrics_data']['global']['pg_stat_archiver'][me], (int, float)) or text['metrics_data']['global']['pg_stat_archiver'][me].isdigit():
             pass
         else:
             remove_list.append(me)
@@ -90,7 +90,7 @@ def get_column_pg() -> dict: #metric 종류를 담은 dict을 return
     bgwriter_metrics = list(text['metrics_data']['global']['pg_stat_bgwriter'].keys())
     remove_list = []
     for me in bgwriter_metrics:
-        if text['metrics_data']['global']['pg_stat_bgwriter'][me].isdigit():
+        if isinstance(text['metrics_data']['global']['pg_stat_bgwriter'][me], (int, float)) or text['metrics_data']['global']['pg_stat_bgwriter'][me].isdigit():
             pass
         else:
             remove_list.append(me)
@@ -160,6 +160,62 @@ def import_metrics_mysql(metrics, text, timestamp,col):
     
     
     return metrics
+
+def import_metrics_pg(metrics, text, timestamp,col):
+    metrics_data = text['metrics_data']
+
+    archiver_metrics_data = metrics_data['global']['pg_stat_archiver']
+    new_row = {}
+    for m in col['archiver_metrics']:
+        new_row[m] = archiver_metrics_data[m]
+    metrics['archiver_metrics'] = metrics['archiver_metrics'].append(new_row,ignore_index=True)
+   
+    bgwriter_metrics_data = metrics_data['global']['pg_stat_bgwriter']
+    new_row = {}
+    for m in col['bgwriter_metrics']:
+        new_row[m] = bgwriter_metrics_data[m]
+    metrics['bgwriter_metrics'] = metrics['bgwriter_metrics'].append(new_row,ignore_index=True)
+    
+    agg_database_metrics_data = metrics_data['local']['database']['pg_stat_database']['aggregated']
+    new_row = {}
+    for m in col['agg_database_metrics']:
+        new_row[m] = agg_database_metrics_data[m]
+    metrics['agg_database_metrics'] = metrics['agg_database_metrics'].append(new_row,ignore_index=True)
+
+    agg_conflicts_metrics_data = metrics_data['local']['database']['pg_stat_database_conflicts']['aggregated']
+    new_row = {}
+    for m in col['agg_conflicts_metrics']:
+        new_row[m] = agg_conflicts_metrics_data[m]
+    metrics['agg_conflicts_metrics'] = metrics['agg_conflicts_metrics'].append(new_row,ignore_index=True)
+
+    agg_user_tables_metrics_data = metrics_data['local']['table']['pg_stat_user_tables']['aggregated']
+    new_row = {}
+    for m in col['agg_user_tables_metrics']:
+        new_row[m] = agg_user_tables_metrics_data[m]
+    metrics['agg_user_tables_metrics'] = metrics['agg_user_tables_metrics'].append(new_row,ignore_index=True)
+
+    agg_user_tables_io_metrics_data = metrics_data['local']['table']['pg_statio_user_tables']['aggregated']
+    new_row = {}
+    for m in col['agg_user_tables_io_metrics']:
+        new_row[m] = agg_user_tables_io_metrics_data[m]
+    metrics['agg_user_tables_io_metrics'] = metrics['agg_user_tables_io_metrics'].append(new_row,ignore_index=True)
+
+    agg_user_indexes_metrics_data = metrics_data['local']['index']['pg_stat_user_indexes']['aggregated']
+    new_row = {}
+    for m in col['agg_user_indexes_metrics']:
+        new_row[m] = agg_user_indexes_metrics_data[m]
+    metrics['agg_user_indexes_metrics'] = metrics['agg_user_indexes_metrics'].append(new_row,ignore_index=True)
+
+    agg_user_indexes_io_metrics_data = metrics_data['local']['index']['pg_statio_user_indexes']['aggregated']
+    new_row = {}
+    for m in col['agg_user_indexes_io_metrics']:
+        new_row[m] = agg_user_indexes_io_metrics_data[m]
+    metrics['agg_user_indexes_io_metrics'] = metrics['agg_user_indexes_io_metrics'].append(new_row,ignore_index=True)
+
+    
+    
+    return metrics
+
 
 class digest_query:
     def __init__(self, query_id, digest, digest_text, time_ms, cpu_usage=0, io=0, count=0, timestamp=0):
@@ -352,13 +408,9 @@ def update_data_pg(dic, metrics,all_timestamp, last_import_timestamp, query_num,
             # 같은 파일 내를 탐색
             new_timestamp.append(file_datetime)
             text = json.load(f)
-            #metrics = import_metrics(metrics, text, file_datetime, col)
-            #io = text['metrics_data']["global"]["engine"]["innodb_status_io"]
+            metrics = import_metrics_pg(metrics, text, file_datetime, col)
             statements = json.loads(text["metrics_data"]['global']['pg_stat_statements']['statements'])
 
-            #cpu_usage = statements['cpu_usage'] # thread_os_id : cpu_usage
-            # io = statements['io'] 
-            # events_statements_history = statements['events_statements_history'] # list of dic
             digest_list = []
             for event in statements:
                 digest = event['queryid']
@@ -421,10 +473,11 @@ def import_data_pg(time_range=dt.timedelta(hours=4)):
     file_list = os.listdir(path)#[:10] # for debug
     max_datetime = dt.datetime.min
     
-    col = []
+    #col = []
     col = get_column_pg()
+    print(col)
     metrics = create_dataframe(col)
-    metrics = {}
+    #metrics = {}
     count = 0
     #print(col)
     
@@ -447,6 +500,7 @@ def import_data_pg(time_range=dt.timedelta(hours=4)):
             # 같은 파일 내를 탐색
             all_timestamp.append(file_datetime)
             text = json.load(f)
+        metrics = import_metrics_pg(metrics, text, file_datetime, col)
         statements = json.loads(text["metrics_data"]['global']['pg_stat_statements']['statements'])
         digest_list = []
         for event in statements:
@@ -511,56 +565,56 @@ def import_data_mysql(time_range=dt.timedelta(hours=1)):
             # 같은 파일 내를 탐색
             all_timestamp.append(file_datetime)
             text = json.load(f)
-            metrics = import_metrics_mysql(metrics, text, file_datetime, col)
-            #print(metrics)
-            #io = text['metrics_data']["global"]["engine"]["innodb_status_io"]
-            performance_schema = text['metrics_data']['global']['performance_schema']
-            threads = performance_schema['threads']       
-            tid_dic = {i[0]['thread_id']:i[0]['thread_os_id'] for i in threads}
-            cpu_usage = performance_schema['cpu_usage'] # thread_os_id : cpu_usage
-            io = performance_schema['io'] 
-            events_statements_history = performance_schema['events_statements_history'] # list of dic
-            digest_list = []
-            for event in events_statements_history:
-                digest = event['digest']
-                if digest is None:
-                    continue
-                thread_id = event['thread_id']
-                digest_text = event['digest_text']
-                count = event['count']
-                time = event['time_ms']
-                if thread_id not in tid_dic:
-                    print(f'{thread_id} is not in tid_dic')
-                    continue
-                if digest in digest_list: # 같은 쿼리가 같은 시간대에 이미 존재할 경우? time만 합친다.
-                    dic[digest].add_time(time)
-                elif digest in dic.keys():
-                    if str(tid_dic[thread_id]) in io.keys():
-                        #io key에는 있는데 cpu key에는 없을때 ??????? 없을 수도 있음 그러면 0으로 때리자
-                        if str(tid_dic[thread_id])  not in cpu_usage.keys():
-                            dic[digest].add_timestamp(time, 0, io[str(tid_dic[thread_id])], count, file_datetime)
-                        else:
-                            dic[digest].add_timestamp(time, cpu_usage[str(tid_dic[thread_id])], io[str(tid_dic[thread_id])], count, file_datetime)
+        metrics = import_metrics_mysql(metrics, text, file_datetime, col)
+        #print(metrics)
+        #io = text['metrics_data']["global"]["engine"]["innodb_status_io"]
+        performance_schema = text['metrics_data']['global']['performance_schema']
+        threads = performance_schema['threads']       
+        tid_dic = {i[0]['thread_id']:i[0]['thread_os_id'] for i in threads}
+        cpu_usage = performance_schema['cpu_usage'] # thread_os_id : cpu_usage
+        io = performance_schema['io'] 
+        events_statements_history = performance_schema['events_statements_history'] # list of dic
+        digest_list = []
+        for event in events_statements_history:
+            digest = event['digest']
+            if digest is None:
+                continue
+            thread_id = event['thread_id']
+            digest_text = event['digest_text']
+            count = event['count']
+            time = event['time_ms']
+            if thread_id not in tid_dic:
+                print(f'{thread_id} is not in tid_dic')
+                continue
+            if digest in digest_list: # 같은 쿼리가 같은 시간대에 이미 존재할 경우? time만 합친다.
+                dic[digest].add_time(time)
+            elif digest in dic.keys():
+                if str(tid_dic[thread_id]) in io.keys():
+                    #io key에는 있는데 cpu key에는 없을때 ??????? 없을 수도 있음 그러면 0으로 때리자
+                    if str(tid_dic[thread_id])  not in cpu_usage.keys():
+                        dic[digest].add_timestamp(time, 0, io[str(tid_dic[thread_id])], count, file_datetime)
                     else:
-                        if str(tid_dic[thread_id])  not in cpu_usage.keys():
-                            dic[digest].add_timestamp(time, 0, 0, count, file_datetime)
-                        else:
-                            dic[digest].add_timestamp(time, cpu_usage[str(tid_dic[thread_id])], 0, count, file_datetime)
+                        dic[digest].add_timestamp(time, cpu_usage[str(tid_dic[thread_id])], io[str(tid_dic[thread_id])], count, file_datetime)
                 else:
-                    if str(tid_dic[thread_id]) in io.keys():
-                        if str(tid_dic[thread_id]) not in cpu_usage:
-                            temp = digest_query(query_num, digest, digest_text, time, 0, io[str(tid_dic[thread_id])], count, file_datetime)
-                        else:
-                            temp = digest_query(query_num, digest, digest_text, time, cpu_usage[str(tid_dic[thread_id])], io[str(tid_dic[thread_id])], count, file_datetime)
+                    if str(tid_dic[thread_id])  not in cpu_usage.keys():
+                        dic[digest].add_timestamp(time, 0, 0, count, file_datetime)
                     else:
-                        if str(tid_dic[thread_id]) not in cpu_usage:
-                            temp = digest_query(query_num, digest, digest_text, time, 0, 0, count, file_datetime)
-                        else:
-                            temp = digest_query(query_num, digest, digest_text, time, cpu_usage[str(tid_dic[thread_id])], 0, count, file_datetime)
-                    #key error 발생
-                    dic[digest] = temp
-                    query_num+=1
-                digest_list.append(digest)
+                        dic[digest].add_timestamp(time, cpu_usage[str(tid_dic[thread_id])], 0, count, file_datetime)
+            else:
+                if str(tid_dic[thread_id]) in io.keys():
+                    if str(tid_dic[thread_id]) not in cpu_usage:
+                        temp = digest_query(query_num, digest, digest_text, time, 0, io[str(tid_dic[thread_id])], count, file_datetime)
+                    else:
+                        temp = digest_query(query_num, digest, digest_text, time, cpu_usage[str(tid_dic[thread_id])], io[str(tid_dic[thread_id])], count, file_datetime)
+                else:
+                    if str(tid_dic[thread_id]) not in cpu_usage:
+                        temp = digest_query(query_num, digest, digest_text, time, 0, 0, count, file_datetime)
+                    else:
+                        temp = digest_query(query_num, digest, digest_text, time, cpu_usage[str(tid_dic[thread_id])], 0, count, file_datetime)
+                #key error 발생
+                dic[digest] = temp
+                query_num+=1
+            digest_list.append(digest)
     all_timestamp.sort()
     
     print("MAXDT : ",max_datetime)
@@ -1295,4 +1349,10 @@ def wait_visualizer():
         display(HBox([w1,w2,w3, button]))
     button.on_click(on_click_callback)
     display(HBox([w1,w2,w3, button]))
-    
+
+
+def read_performance_metric_viz(element):
+    global metrics
+    if element == 'index':
+        metrics['agg_user_tables_metrics'][['seq_scan', 'idx_scan']].plot()
+        plt.show()

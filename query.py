@@ -38,12 +38,12 @@ def query_and_visualize(query):
     # display(v_button)
 
 def q(query):
-    config = connect_config()
+    with open('connect_config.json') as json_file:
+        driver_config = json.load(json_file)
 
-    with get_collector(config) as collector:
+    with get_collector(driver_config) as collector:
        # print(collector._cmd(query))  # 0 data 1 meta
-       
-        df = pd.read_sql(query, con=collector.get_conn())
+        df = pd.read_sql(query, collector._conn)
         
     return df
 

@@ -4,7 +4,7 @@
     "db_port":"5432",
     "db_user":"postgres",
     "db_password":"postgres",
-    "mysql_database":"",
+    "db_name":"sbt",
     "monitor_interval":"10",
     "table_level_monitor_interval":"5000",
     "db_provider": "on_premise",
