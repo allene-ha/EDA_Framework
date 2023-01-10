@@ -56,7 +56,6 @@ def q_(query):
        # print(collector._cmd(query))  # 0 data 1 meta
        res, meta = collector._cmd(query)
        #print(type(res))
-       res = [i[0] for i in res]
        
     return res
 

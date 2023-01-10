@@ -23,6 +23,12 @@ plt.style.use('seaborn-notebook')
 from query import * 
 from dataframe_visualization import *
 #import plotly.graph_objects as go
+def is_digit(str):
+    try:
+        tmp = float(str)
+        return True
+    except ValueError:
+        return False
 
 def get_path():
     f = open('path.txt', mode = 'r')
@@ -47,7 +53,7 @@ def get_column_mysql() -> dict: #metric 종류를 담은 dict을 return
     metrics = list(text['metrics_data']['global']['global'].keys())
     # 이상한 metric들 제거
     for me in metrics:
-        if metrics_data[me].isdigit():
+        if is_digit(metrics_data[me]):
             pass
         else:
             remove_list.append(me)
@@ -82,7 +88,7 @@ def get_column_pg() -> dict: #metric 종류를 담은 dict을 return
     archiver_metrics = list(text['metrics_data']['global']['pg_stat_archiver'].keys())
     remove_list = []
     for me in archiver_metrics:
-        if isinstance(text['metrics_data']['global']['pg_stat_archiver'][me], (int, float)) or text['metrics_data']['global']['pg_stat_archiver'][me].isdigit():
+        if isinstance(text['metrics_data']['global']['pg_stat_archiver'][me], (int, float)) or is_digit(text['metrics_data']['global']['pg_stat_archiver'][me]):
             pass
         else:
             remove_list.append(me)
@@ -90,7 +96,7 @@ def get_column_pg() -> dict: #metric 종류를 담은 dict을 return
     bgwriter_metrics = list(text['metrics_data']['global']['pg_stat_bgwriter'].keys())
     remove_list = []
     for me in bgwriter_metrics:
-        if isinstance(text['metrics_data']['global']['pg_stat_bgwriter'][me], (int, float)) or text['metrics_data']['global']['pg_stat_bgwriter'][me].isdigit():
+        if isinstance(text['metrics_data']['global']['pg_stat_bgwriter'][me], (int, float)) or is_digit(text['metrics_data']['global']['pg_stat_bgwriter'][me]):
             pass
         else:
             remove_list.append(me)
@@ -954,6 +960,7 @@ def print_raw_data_category(category, time_range = dt.timedelta(hours = 1), num 
                     q.digest_text = q.digest_text.replace("FROM", " FROM")                    
                     head2 = HTML(value="<b><font size = 3> Query Plan of Query ID {}".format(selection))
                     res = q_('Explain '+q.digest_text+';')
+                    res = [i[0] for i in res]
                     qp = widgets.HTML('<p style ="margin:10px 20px;"><pre>'+'\n'.join(res))
                     qp.add_class('lbl_bg')
 
