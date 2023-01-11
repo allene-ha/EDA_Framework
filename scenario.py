@@ -24,7 +24,7 @@ plt.style.use('seaborn-notebook')
 from query import * 
 from dataframe_visualization import *
 
-from performance_analysis import import_and_update_data, print_raw_data_category, read_performance_metric_viz
+from performance_analysis import resource_utilization_viz,import_and_update_data, print_raw_data_category, read_performance_metric_viz, write_performance_metric_viz
 
 button_layout = Layout(width = '300px', height = '50px')
 
@@ -68,17 +68,26 @@ def db_monitoring(clicked_button: widgets.Button) -> None:
     b3 = Button(description="Replication and reliability", layout = button_layout)
     b4 = Button(description="Resource utilization", layout = button_layout)
     b1.on_click(read_performance)
-    b2.on_click(read_performance)
+    b2.on_click(write_performance)
     b3.on_click(read_performance)
-    b4.on_click(read_performance)
+    b4.on_click(resource_utilization)
     display(VBox([b1,b2,b3,b4]))
+
+
+def resource_utilization(clicked_button: widgets.Button) -> None:
+    head = HTML(value="<b><font size = 3>Resource Utilization" )
+    display(line, head)
+    resource_utilization_viz()
 
 def read_performance(clicked_button: widgets.Button) -> None:
     head = HTML(value="<b><font size = 3>Read query throughput and performance" )
     display(line, head)
-    read_performance_metric_viz('index')
+    read_performance_metric_viz()
 
-    
+def write_performance(clicked_button: widgets.Button) -> None:
+    head = HTML(value="<b><font size = 3>Write query throughput and performance" )
+    display(line, head)
+    write_performance_metric_viz()    
 
 def long_running_query(clicked_button: widgets.Button) -> None:
     head = HTML(value="<b><font size = 3> Longest Running Queries" )

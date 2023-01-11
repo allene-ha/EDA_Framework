@@ -949,7 +949,7 @@ def print_raw_data_category(category, time_range = dt.timedelta(hours = 1), num 
                 plt.show()
                 def query_plan(clicked_button: widgets.Button) -> None:
                     style = """<style>
-                    .lbl_bg{
+                    .box{
                         width : 80%;
                         border : 1px solid black;
                         height : ;
@@ -962,10 +962,10 @@ def print_raw_data_category(category, time_range = dt.timedelta(hours = 1), num 
                     res = q_('Explain '+q.digest_text+';')
                     res = [i[0] for i in res]
                     qp = widgets.HTML('<p style ="margin:10px 20px;"><pre>'+'\n'.join(res))
-                    qp.add_class('lbl_bg')
+                    qp.add_class('box')
 
                     display(line, head)
-                    display(HTML('<p style ="margin:10px 20px;">'+q.digest_text).add_class('lbl_bg'))
+                    display(HTML('<p style ="margin:10px 20px;">'+q.digest_text).add_class('box'))
                     display(head2, qp)
 
                     print("... visualize the explained query plan ...")
@@ -1357,9 +1357,178 @@ def wait_visualizer():
     button.on_click(on_click_callback)
     display(HBox([w1,w2,w3, button]))
 
+from knob_exploration import *
 
-def read_performance_metric_viz(element):
+def change_knob(knob_name):
+    knobs = get_knobs()
+    knob = knobs[knob_name]
+    w_layout = widgets.Layout(
+                    align_items='center',
+                    width= '80%')
+
+    if knob[3] == 'integer':
+        w = widgets.BoundedIntText(
+                            value=knob[0],
+                            min = knob[1],
+                            max = knob[2],
+                            disabled=False,
+                            layout = w_layout)
+    elif knob[3] == 'real':
+        w = widgets.BoundedFloatText(
+                            value=knob[0],
+                            min = knob[1],
+                            max = knob[2],
+                            disabled=False,
+                            layout = w_layout)
+    button = Button(description='Set')
+    def change(clicked_button):
+        q_wo_fetch(f"ALTER SYSTEM SET {knob_name} = {w.value};")
+        print(f"set [{knob_name}] to [{w.value}]")
+    button.on_click(change)
+    display(HBox([VBox([HTML(knob_name), w],layout = Layout(align_items='center')),button], layout = Layout (align_items = 'center')))
+    
+def read_performance_metric_viz():
+    style = """<style>
+        .box{
+            width : 80%;
+            border : 1px solid black;
+            height : ;
+        }
+        </style>"""
+    display(HTML(style))
+
+    out1 = widgets.Output()
+    out2 = widgets.Output()
+    tab = widgets.Tab(children = [out1, out2])
+    tab.set_title(0, 'Index scan')
+    tab.set_title(1, 'Fetched row')
+    #knobs = get_knobs()
+    
+    
     global metrics
-    if element == 'index':
-        metrics['agg_user_tables_metrics'][['seq_scan', 'idx_scan']].plot()
-        plt.show()
+    with out1:
+        title = 'Sequential scans vs. index scans'
+        visualize_selected_metrics(metrics['agg_user_tables_metrics'][['seq_scan', 'idx_scan']], title)
+        display(HTML("""If you believe that the query planner is mistakenly preferring sequential scans over index scans, 
+                    you can try tweaking the random_page_cost setting (the estimated cost of randomly accessing a page from disk).
+                    lowering this value in proportion to seq_page_cost will encourage the planner to prefer index scans over sequential scans.""").add_class('box'))
+        change_knob('random_page_cost')
+        change_knob('seq_page_cost')
+    with out2:
+        title = 'Rows fetched vs. rows returned by queries to the database'
+        visualize_selected_metrics(metrics['agg_database_metrics'][['tup_fetched', 'tup_returned']], title)
+        display(HTML("""Ideally, the number of rows fetched should be close to the number of rows returned (read/scanned) on the database.
+                        This indicates that the database is completing read queries efficiently—it is not scanning through many more rows than it needs to in order to satisfy read queries.
+                        If PostgreSQL is scanning through more rows than it is fetching, it indicates that the data may not be properly indexed.
+                        Creating indexes on frequently accessed columns can help improve this ratio. """).add_class('box'))
+    
+    display(tab)
+    
+def visualize_selected_metrics(df, title = '', scale = 'linear'):
+    global all_timestamp
+    df.index = all_timestamp
+    df.plot()
+    myFmt = DateFormatter("%Y-%m-%d %H:%M:%S")
+    plt.gca().xaxis.set_major_formatter(myFmt)
+    plt.yscale(scale)
+    plt.title(title)
+    plt.show()
+
+def write_performance_metric_viz():
+    style = """<style>
+        .box{
+            width : 80%;
+            border : 1px solid black;
+            height : ;
+        }
+        </style>"""
+    display(HTML(style))
+
+    out1 = widgets.Output()
+    out2 = widgets.Output()
+    out3 = widgets.Output()
+
+    tab = widgets.Tab(children = [out1, out2, out3])
+    tab.set_title(0, '# of Rows Written')
+    tab.set_title(1, 'HOT update')
+    tab.set_title(2, '# of Transactions')
+
+    #knobs = get_knobs()
+    
+    
+    global metrics
+    with out1:
+        title = 'Rows inserted/updated/deleted per DB'
+        visualize_selected_metrics(metrics['agg_database_metrics'][['tup_inserted', 'tup_updated','tup_deleted']], title, 'log')
+        display(HTML("""If you see a high rate of updated and deleted rows, 
+                        you should also keep a close eye on the number of dead rows, 
+                        since an increase in dead rows indicates a problem with VACUUM processes, 
+                        which can slow down your queries. 
+                        A sudden drop in throughput is concerning and could be due to issues like locks on tables and/or rows that need to be accessed in order to make updates""").add_class('box'))
+        
+        print("...to add lock-related monitoring...")
+        # out1_nest = widgets.Output()
+        # accordion = widgets.Accordion(children=[out1_nest])
+        # with out1_nest:
+        #     title = 'Rows inserted/updated/deleted per DB'
+        #     visualize_selected_metrics(metrics['agg_database_metrics'][['tup_inserted', 'tup_updated','tup_deleted']], title, 'log')
+        #     display(HTML("""If you see a high rate of updated and deleted rows, 
+        #                     you should also keep a close eye on the number of dead rows, 
+        #                     since an increase in dead rows indicates a problem with VACUUM processes, 
+        #                     which can slow down your queries. 
+        #                     A sudden drop in throughput is concerning and could be due to issues like locks on tables and/or rows that need to be accessed in order to make updates""").add_class('box'))
+        #     print("...to add lock-related monitoring...")
+            
+
+
+
+    with out2:
+        title = 'Heap Only Tuple update'
+        visualize_selected_metrics(metrics['agg_user_tables_metrics'][['n_tup_hot_upd', 'n_tup_upd']], title)
+        display(HTML("""PostgreSQL optimizes update through a Heap-Only Tuple (HOT) update. 
+                    A HOT update is possible when the transaction does not change any columns that are currently indexed.
+                    In comparison with normal updates, a HOT update introduces less I/O load on the database, 
+                    since it can update the row without having to update its associated index. """).add_class('box'))
+    
+    with out3:
+        title = 'Total number of transactions executed'
+        metrics['agg_database_metrics']['total_transaction'] = metrics['agg_database_metrics']['xact_commit'] + metrics['agg_database_metrics']['xact_rollback']
+        visualize_selected_metrics(metrics['agg_database_metrics'][['xact_commit', 'xact_rollback','total_transaction']], title)
+        
+    display(tab)
+
+def resource_utilization_viz():
+    global metrics
+
+    style = """<style>
+        .box{
+            width : 80%;
+            border : 1px solid black;
+            height : ;
+        }
+        </style>"""
+    display(HTML(style))
+
+    tab1 = widgets.Tab()
+    tab2 = widgets.Tab()
+    tab3 = widgets.Tab()
+    
+    accordion = widgets.Accordion(children=[tab1,tab2,tab3])
+    accordion.set_title(0, 'Connection')
+    accordion.set_title(1, 'Shared buffer usage')
+    accordion.set_title(2, 'Disk and index usage')
+
+    out = [[widgets.Output() for _ in range(3)] for _ in range(3)]
+
+    tab1.children = [out[0][0], out[0][1]]
+    tab1.set_title(0, '# of active connections')
+    tab1.set_title(1, '% connections in use')
+    
+    with out[0][0]:
+        title = '# of active connections'
+        visualize_selected_metrics(metrics['agg_database_metrics'][['numbackends']], title)
+        
+    
+    #with out[0][1]:
+        
+    display(accordion)
