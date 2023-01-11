@@ -1,5 +1,6 @@
 data/
 data.pickle
+sysbench-tpcc/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

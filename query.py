@@ -59,6 +59,16 @@ def q_(query):
        
     return res
 
+def q_wo_fetch(query):
+    
+    with open('connect_config.json') as json_file:
+        driver_config = json.load(json_file)
+
+    with get_collector(driver_config) as collector:
+       # print(collector._cmd(query))  # 0 data 1 meta
+        collector._cmd_wo_fetch(query)
+       #print(type(res))
+       
 #     col_list = list(df.columns)
 #     if len(df) == 0:
 #         print("EMPTY DF")
