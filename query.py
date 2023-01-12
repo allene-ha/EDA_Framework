@@ -68,7 +68,22 @@ def q_wo_fetch(query):
        # print(collector._cmd(query))  # 0 data 1 meta
         collector._cmd_wo_fetch(query)
        #print(type(res))
-       
+
+def q_prepared(query):
+    import re
+    num_param = max([int(i.replace('$','')) for i in re.findall(r'\$[0-9]',query)])
+    with open('connect_config.json') as json_file:
+        driver_config = json.load(json_file)
+
+    with get_collector(driver_config) as collector:
+       # print(collector._cmd(query))  # 0 data 1 meta
+        collector._cmd_wo_fetch(f"""PREPARE stmt(unknown) AS {query};""")
+        res, meta = collector._cmd_wo_fetch(f"""EXECUTE stmt({','.join(['NULL']*num_param)});""")
+        collector._cmd_wo_fetch(f"""DEALLOCATE stmt;""")
+
+        
+    res = [i[0] for i in res]
+    return res
 #     col_list = list(df.columns)
 #     if len(df) == 0:
 #         print("EMPTY DF")

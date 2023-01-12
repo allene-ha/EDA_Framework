@@ -1,20 +1,18 @@
 import json
 import os
+import re
 import pprint
 import datetime as dt
 from matplotlib import pyplot as plt
 from matplotlib.container import BarContainer
 import pickle
 import numpy as np
-import time
 import pandas as pd
 import ipywidgets as widgets
-from ipywidgets import Label, HBox, VBox, Button, HTML
-from ipywidgets import interact, interact_manual, Layout
+from ipywidgets import Label, HBox, VBox, Button, HTML, Layout
 from IPython.display import display, clear_output
 import mplcursors
 from matplotlib.legend_handler import HandlerLine2D
-from collections import Counter
 from matplotlib.animation import FuncAnimation
 import matplotlib.dates as mdates 
 import copy
@@ -893,6 +891,8 @@ def print_raw_data_category(category, time_range = dt.timedelta(hours = 1), num 
     df = pd.DataFrame(data, columns = columns)
     df = df.set_index('QID')
     df = df.sort_values(by = [category], ascending = False)
+    pd.set_option('max_colwidth', None)
+
     display(df)
     #display(HTML(df.to_html()))
     button_layout = Layout(width = '200px', height = '50px')
@@ -928,12 +928,7 @@ def print_raw_data_category(category, time_range = dt.timedelta(hours = 1), num 
                 axes[2].bar(x,q.count, width = width, ec='k',label = 'execution count')
                 axes[3].bar(x,q.time_ms,width = width, ec='k', label = 'execution time')
                 axes[0].set_title("cpu usage")
-                axes[0].set_ylim(min(q.cpu_usage)*0.9, max(q.cpu_usage)*1.1)
                 axes[1].set_title("disk io")
-                axes[1].set_ylim(min(q.io)*0.9, max(q.io)*1.1)
-                axes[2].set_ylim(0, max(q.count)*1.1)
-                axes[3].set_ylim(0, max(q.time_ms)*1.1)
-
                 axes[2].set_title('execution count')
                 axes[3].set_title('execution time')
                 # fig.legend(title = "Query ID + Text", loc=6, bbox_to_anchor=(1, 0.5))
@@ -959,8 +954,17 @@ def print_raw_data_category(category, time_range = dt.timedelta(hours = 1), num 
                     head = HTML(value="<b><font size = 3> Full Query of Query ID {}".format(selection))
                     q.digest_text = q.digest_text.replace("FROM", " FROM")                    
                     head2 = HTML(value="<b><font size = 3> Query Plan of Query ID {}".format(selection))
-                    res = q_('Explain '+q.digest_text+';')
-                    res = [i[0] for i in res]
+                    print(q.digest_text)
+                    # num_param = max([int(i.replace('$','')) for i in re.findall(r'\$[0-9]',q.digest_text)])
+                    # # #res = q_('Explain '+q.digest_text+';')
+                    # #q_wo_fetch(f"""PREPARE stmt(unknown) AS {q.digest_text};""")
+                    # #q_wo_fetch("""SET plan_cache_mode = force_generic_plan;""")
+                    # res = q_(f"""PREPARE stmt(unknown) AS {q.digest_text};
+                    #             EXECUTE stmt({','.join(['NULL']*num_param)});
+                    #             DEALLOCATE stmt;""")
+                    # #q_wo_fetch("""""")
+                    # res = [i[0] for i in res]
+                    res = q_prepared(q.digest_text)
                     qp = widgets.HTML('<p style ="margin:10px 20px;"><pre>'+'\n'.join(res))
                     qp.add_class('box')
 
