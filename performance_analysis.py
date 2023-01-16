@@ -21,6 +21,9 @@ plt.style.use('seaborn-notebook')
 from query import * 
 from dataframe_visualization import *
 #import plotly.graph_objects as go
+import altair as alt
+
+
 def is_digit(str):
     try:
         tmp = float(str)
@@ -1301,6 +1304,101 @@ def visualize_metrics():
     out = widgets.Output()
     dropdown.observe(filter_dataframe, names='value')
     display(dropdown)
+
+def get_metrics_info():
+    global col
+    result = []
+    for m in list(col.keys()):
+        result += list(col[m])
+    return result
+
+def get_metric_fig():
+    global metrics, all_timestamp, col
+
+def visualize_metrics_panel(selected_metrics, agg, type, timerange):
+    global metrics, all_timestamp, col
+    ts = all_timestamp #[i.strftime("%Y-%m-%d %H:%M:%S") for i in all_timestamp] 
+    #window_size = 30
+    #plt.close()
+    #plt.rcParams['figure.figsize'] = [11, 6]
+    #myFmt = DateFormatter("%Y-%m-%d %H:%M:%S")
+    #x = all_timestamp
+    #x = x[::window_size]
+    
+    #fig, ax1 = plt.subplots()
+    df = pd.DataFrame(index = ts)
+    #lines = []
+    for metric in selected_metrics:
+        for c in col.keys():
+            if metric in col[c]:
+                category = c
+                
+        metrics[category].index = ts
+        df[metric] = metrics[category][metric]
+        
+        # y = np.array(metrics[category][metric], dtype=np.float32)
+        # y = resample(y, window_size)
+    #print(df)
+    df = df.loc[timerange[0]:timerange[1]] # slicing
+    print(df)
+    
+    df_summary = pd.DataFrame()
+    for c in df.columns:
+        if agg == 'sum':
+            df_summary[c] = df[c].resample('10T').sum()
+        elif agg == 'average':
+            df_summary[c] = df[c].resample('10T').mean()
+        elif agg == 'min':
+            df_summary[c] = df[c].resample('10T').min()
+        elif agg == 'max':
+            df_summary[c] = df[c].resample('10T').max()
+        
+
+    print(df_summary)
+    chart = alt.Chart(df_summary).transform_fold(selected_metrics,)
+    if type == 'line':
+        chart = chart.mark_line()
+    elif type == 'bar':
+        chart = chart.mark_bar() # width 지정 필요
+    elif type == 'area':
+        chart = chart.mark_area()
+    elif type == 'scatter':
+        chart = chart.mark_circle()
+
+    selection = alt.selection_multi(fields=['key'], bind='legend')
+#opacity=alt.condition(selection, alt.value(1), alt.value(0.2))
+
+    chart = chart.encode(
+        x = alt.X('index:T', title = ''),
+        y = alt.Y('value:Q', title = ''),
+        color=alt.Color('key:N', title = ''),
+        opacity=alt.condition(selection, alt.value(1), alt.value(0.2)),
+        tooltip=[
+        alt.Tooltip('value:Q', title='Value'),
+        alt.Tooltip('key:N', title='Metric'),
+        alt.Tooltip('index:T', title='Timestamp')
+        ]
+        ).properties(width='container', height='container'
+        ).interactive().configure_legend(orient='bottom',
+        ).add_selection(selection)
+
+
+    return chart
+    # ax1.plot_date(x, y,  ms=0,  ls = '-', label = metric)
+    # #lines.append(line)
+    # plt.gca().xaxis.set_major_formatter(myFmt)
+    
+    # #labs = [l.get_label() for l in lines]        
+    # plt.legend(mode="expand")
+    # fig.autofmt_xdate()
+    # #plt.gcf().suptitle(f"{}", size=20, fontweight="bold")
+    # mplcursors.cursor(fig, hover = True)   
+    # plt.grid(True, axis='y')
+    # plt.tight_layout()
+    # return fig
+
+
+
 
 def wait_visualizer():
     global metrics, all_timestamp, col
