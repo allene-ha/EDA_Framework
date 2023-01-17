@@ -23,13 +23,13 @@ def visualize_panel():
 
     css = '''
     .btn .bk-btn-group button {
-        cursor: default;
+        
         border: 0px;
         background-color: transparent;
-        border-radius: 0px;
+        border-radius: 10px;
         height: 30px;
         width: 100px;
-        margin-top: 0;
+        
         font-size: 100%;
         text-align: left; 
     }
@@ -40,6 +40,38 @@ def visualize_panel():
         background-color: transparent;
         box-shadow: inset 0px 0px 0px ;
     }
+    .btn_round .bk-btn-group button {
+        border: 1px royalblue solid;
+        background-color: white;
+        border-radius: 15px;
+        height: 30px;
+        font-size: 100%;
+        text-align: center; 
+        
+       
+    }
+    .btn_round .bk-btn-group button:hover {
+        background-color: white;
+        border: 1px royalblue solid;
+        
+    }
+    .bk.box {
+        background: WhiteSmoke;
+        border-radius: 10px;
+        border: 0px;
+        height: 40px;
+        }
+    .bk.float_box {
+        background: white;
+        border-radius: 10px;
+        border: 1px royalblue solid;
+        height: 40px;
+        padding: 5px;
+        }
+    .bk.float_box_invisible {
+        background: white;
+        border: 0px;
+        }
     .picker {
         width: 300px;
     }
@@ -53,7 +85,7 @@ def visualize_panel():
         return pn.pane.HTML(f"<i class='fa fa-{name}'></i>", width = 50)
 
     template = pn.template.MaterialTemplate(title='DB Experimental Data Analysis Framework')
-
+    template.header_background ='royalblue'
     # menu_items = [('Metrics', 'a'), ('Dashboard', 'b'), None, ('Help', 'help')]
     # menu_button = w.MenuButton(name='Monitoring', items=menu_items, split = True)
     
@@ -85,53 +117,141 @@ def visualize_panel():
 
 
     class Chart():
-        def __init__(self, name, num):
-            self.name = name
+        def __init__(self, num):
+            self.name = ''
             self.num = num
             #self.ctop_btn_add = AwesomeButton(name="Add metric",icon=Icon(name="",value='<i class="fas fa-plus"></i>'))
             #self.ctop_btn_add.css_classes= ['btn']
             l = get_metrics_info()
-            self.metrics = pn.widgets.MultiChoice(name='➕ Add metric', options=l, solid = False, value = [l[0]], height = 150, width = 400)
-            
+            #self.metrics = pn.widgets.MultiChoice(name='➕ Add metric', options=l, solid = False, value = [l[0]], height = 150, width = 400)
+            self.metrics = AwesomeButton(name="Add metric",icon=Icon(name="",value='<i class="fas fa-plus"></i>'))
+            self.metrics.margin = [15,15]
+            self.metrics.css_classes= ['btn']
+            self.metrics.on_click(self.add_metric)
+            self.trigger = pn.widgets.Checkbox(name='', visible = False, value = False)
 
-            self.agg = w.Select(name = '📊 Aggregation', options=['average','min','max','sum'], margin = [10,10])
-            self.agg.css_classes= ['btn']
+            self.metrics = AwesomeButton(name="Add filter",icon=Icon(name="",value='<i class="fas fa-plus"></i>'))
+            self.metrics.margin = [15,15]
+            self.metrics.css_classes= ['btn']
+
+            self.metrics = AwesomeButton(name="Add metric",icon=Icon(name="",value='<i class="fas fa-plus"></i>'))
+            self.metrics.margin = [15,15]
+            self.metrics.css_classes= ['btn']
+            self.metrics.on_click(self.add_metric)
+
+
+            self.select_metrics =  w.Select(name = 'Metric', groups=l, value = 'None', sizing_mode = 'fixed')
+            self.select_agg = w.Select(name = 'Aggregation', value = 'None', options=['None','Average','Min','Max','Sum'], sizing_mode = 'fixed')
+            self.select_agg.css_classes= ['btn']
+            self.metric_bar = pn.Row(self.select_metrics, self.select_agg, css_classes = ['float_box_invisible'])
+            self.metric_bar[0].visible = False
+            self.metric_bar[1].visible = False
+            self.metric_list = []
+
+
             self.ctop_btn_board = AwesomeButton(name="Add to dashboard",icon=Icon(name="",value='<i class="fas fa-bookmark"></i>'))
             self.ctop_btn_board.css_classes= ['btn']
-            self.chart_type = w.Select(name = '📈 Chart type', options={'Line chart':'line', 'Bar chart':'bar', 'Area chart':'area', 'Scatter chart':'scatter'}, margin = [10,10])
-            self.chart_top_bar = pn.Row(self.metrics, self.agg, None, self.chart_type, self.ctop_btn_board, background='WhiteSmoke')
+            self.ctop_btn_board.margin = [15,15]
+
+            self.chart_type = w.Select(name = '', options={'Line chart':'line', 'Bar chart':'bar', 'Area chart':'area', 'Scatter chart':'scatter'}, margin = [15,15])
+            self.chart_top_bar = pn.Row(self.metrics, None, self.chart_type, self.ctop_btn_board, background='WhiteSmoke', css_classes = ['box'])
             self.chart_col = pn.Column()
             self.aggregate = []
+            self.selected_metric_bar = pn.Row()
+        def add_filter(self, clicked_button):
             
-            
-            
+        def add_metric(self, clicked_button):
+            if self.metric_bar[0].visible:
+                self.metric_bar.css_classes = ['float_box_invisible']
+                self.metric_bar[0].visible = False
+                self.metric_bar[1].visible = False
+            else:
+                self.metric_bar.css_classes = ['float_box']
+                self.metric_bar[0].visible = True
+                self.metric_bar[1].visible = True
+
         def _get_metrics(self):
             return get_metrics_info(self.metrics)
-        def draw_chart(self, metrics=[], aggregate='average', type = 'line', timerange = datetime_range_picker.value):
-            chart = visualize_metrics_panel(metrics, aggregate, type, timerange)
-            metrics = [m.replace('_', ' ') for m in metrics]
-            if len(metrics) == 1:
-                self.name = metrics[0]
-            elif len(metrics) >= 2:
-                self.name = ', '.join(metrics[0:3])
-                if len(metrics) > 4:
-                    self.name += f", and {len(metrics)-3} other metrics" 
+        
+        def set_selected_metric_bar(self):
+            self.selected_metric_bar.clear()
+            for metric in self.metric_list:
+                temp = w.Button(name = metric[1]+ ' of '+metric[0]+'    ✘', message = metric, sizing_mode = 'fixed', width =200, css_classes = ['btn_round'])
+                self.selected_metric_bar.append(temp)
+                temp.on_click(self.remove_metric)
+            # if len(self.selected_metric_bar) < 3:
+            #     self.selected_metric_bar.append(None)
+            #     self.selected_metric_bar.append(None)
+
+        def remove_metric(self, event):
+            metric = event.obj.message
+            print(metric)
+            self.selected_metric_bar.remove(event.obj)
+            #print(self.metric_list)
+            self.metric_list.remove(metric)
+            #print(self.metric_list)
+            if self.trigger.value:
+                self.trigger.value = False
+            else: 
+                self.trigger.value = True
+
+        def draw_chart(self, metrics=[], aggregate='average', type = 'line', timerange = datetime_range_picker.value, trigger=''):
+            
+            if not (metrics == 'None' or aggregate == 'None'):
+                self.metric_list.append((metrics,aggregate))
+            
+            chart = visualize_metrics_panel(self.metric_list, type, timerange)
+            
+            metric_names = [a+' of '+m.replace('_', ' ') for (m,a) in self.metric_list]
+            if len(metric_names) == 1:
+                self.name = metric_names[0]
+            elif len(metric_names) >= 2:
+                self.name = ', '.join(metric_names[0:3])
+                if len(metric_names) > 4:
+                    self.name += f", and {len(metric_names)-3} other metrics" 
             #print(self.num)
-            if self.num>1 or len(metrics)>1:
+            if self.num>1 or len(metric_names)>=1:
                 template.main[0][self.num-1].title = self.name
             #print(len(template.main))
             #[self.num].title = self.name
-            return pn.panel(chart)
 
-        def get_title(self, metrics = []):
-            return pn.pane.Markdown(f"### {self.name}")
+            if not (metrics == 'None' or aggregate == 'None'):
+                
+            # initialize
+                self.metric_bar.css_classes = ['float_box_invisible']
+                self.select_metrics.visible = False
+                self.select_agg.visible = False
+                self.set_selected_metric_bar()
+                self.select_metrics.value = 'None'
+                self.select_agg.value = 'None'
+                
+
+
+            return pn.Column(self.selected_metric_bar, pn.panel(chart))
+
+        def get_title(self, metrics, aggregate, trigger):
+            if not (metrics == 'None' or aggregate == 'None'):
+                return pn.pane.Markdown(f"### {self.name}")
+
+            if len(self.metric_list) == 0:
+                return pn.pane.Markdown(f"### Empty Chart")
+            else:
+                metric_names = [a+' of '+m.replace('_', ' ') for (m,a) in self.metric_list]
+                if len(metric_names) == 1:
+                    self.name = metric_names[0]
+                elif len(metric_names) >= 2:
+                    self.name = ', '.join(metric_names[0:3])
+                    if len(metric_names) > 4:
+                        self.name += f", and {len(metric_names)-3} other metrics" 
+                return pn.pane.Markdown(f"### {self.name}")
 
         def chart(self):
-            self.chart_col = pn.Column(pn.bind(self.draw_chart, metrics = self.metrics, aggregate = self.agg, type = self.chart_type, timerange = datetime_range_picker))
-            return pn.Card(pn.bind(self.get_title, metrics = self.metrics), self.chart_top_bar, self.chart_col, collapsible = False, hide_header = True)
+            self.chart_col = pn.Column(pn.bind(self.draw_chart, metrics = self.select_metrics, aggregate = self.select_agg, type = self.chart_type, timerange = datetime_range_picker, trigger = self.trigger))
+            self.c = pn.Card(pn.bind(self.get_title, metrics = self.select_metrics, aggregate = self.select_agg, trigger = self.trigger), self.chart_top_bar, self.metric_bar, self.selected_metric_bar, self.chart_col, collapsible = False, hide_header = True)
+            return self.c
     def new_chart(clicked_button):
         num = len(template.main[0])-1
-        chart = Chart('name', num)
+        chart = Chart(num)
         template.main[0].append(chart.chart())
     
     top_btn_new.on_click(new_chart)
@@ -141,7 +261,7 @@ def visualize_panel():
     template.main.append(
         pn.Column(
             top_bar,
-            Chart('First Chart', 1).chart(),    
+            Chart(1).chart(),    
         ),
     )
     

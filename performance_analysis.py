@@ -1307,16 +1307,18 @@ def visualize_metrics():
 
 def get_metrics_info():
     global col
-    result = []
-    for m in list(col.keys()):
-        result += list(col[m])
+    result = {}
+    for m in col.keys():
+        result[m] = list(col[m])
+    result['options'] = ['None']
     return result
 
 def get_metric_fig():
     global metrics, all_timestamp, col
 
-def visualize_metrics_panel(selected_metrics, agg, type, timerange):
+def visualize_metrics_panel(selected_metrics, type, timerange):
     global metrics, all_timestamp, col
+    # selected_metrics = [(metric,agg),]
     ts = all_timestamp #[i.strftime("%Y-%m-%d %H:%M:%S") for i in all_timestamp] 
     #window_size = 30
     #plt.close()
@@ -1328,34 +1330,37 @@ def visualize_metrics_panel(selected_metrics, agg, type, timerange):
     #fig, ax1 = plt.subplots()
     df = pd.DataFrame(index = ts)
     #lines = []
-    for metric in selected_metrics:
+    #selected_metrics = [selected_metrics]
+    fold = []
+    for (metric, agg) in selected_metrics:
         for c in col.keys():
             if metric in col[c]:
                 category = c
-                
+        #print(metric)
         metrics[category].index = ts
-        df[metric] = metrics[category][metric]
+        df[metric+'_'+agg] = metrics[category][metric]
+        fold.append(metric+'_'+agg)
         
         # y = np.array(metrics[category][metric], dtype=np.float32)
         # y = resample(y, window_size)
     #print(df)
     df = df.loc[timerange[0]:timerange[1]] # slicing
-    print(df)
+    #print(df)
     
     df_summary = pd.DataFrame()
-    for c in df.columns:
-        if agg == 'sum':
-            df_summary[c] = df[c].resample('10T').sum()
-        elif agg == 'average':
-            df_summary[c] = df[c].resample('10T').mean()
-        elif agg == 'min':
-            df_summary[c] = df[c].resample('10T').min()
-        elif agg == 'max':
-            df_summary[c] = df[c].resample('10T').max()
+    for (metric, agg) in selected_metrics:        
+        if agg == 'Sum':
+            df_summary[metric+'_'+agg] = df[metric+'_'+agg].resample('10T').sum()
+        elif agg == 'Average':
+            df_summary[metric+'_'+agg] = df[metric+'_'+agg].resample('10T').mean()
+        elif agg == 'Min':
+            df_summary[metric+'_'+agg] = df[metric+'_'+agg].resample('10T').min()
+        elif agg == 'Max':
+            df_summary[metric+'_'+agg] = df[metric+'_'+agg].resample('10T').max()
         
 
-    print(df_summary)
-    chart = alt.Chart(df_summary).transform_fold(selected_metrics,)
+    #print(df_summary)
+    chart = alt.Chart(df_summary).transform_fold(fold,)
     if type == 'line':
         chart = chart.mark_line()
     elif type == 'bar':
