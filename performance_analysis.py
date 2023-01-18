@@ -1442,10 +1442,11 @@ def visualize_metrics_panel(selected_element, type, timerange):
             if metric in col[c]:
                 category = c
         #print(metric)
-        metrics[category].set_index('timestamp', inplace = True)
-        display(metrics[category])
-        display(metrics[category][metric])
-        df[metric+'_'+agg] = metrics[category][metric]
+        df_copy = metrics[category].copy()
+        df_copy.set_index('timestamp', inplace = True) # column에 없는 경우 발생
+       
+        display(df_copy)
+        df[metric+'_'+agg] = df_copy[metric]
         fold.append(metric+'_'+agg)
         
         # y = np.array(metrics[category][metric], dtype=np.float32)

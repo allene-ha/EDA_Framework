@@ -99,7 +99,7 @@ def visualize_panel():
         width: 300px;
     }
     '''
-    pn.extension(comms = 'ipywidgets', sizing_mode = 'stretch_width', raw_css = [css])
+    pn.extension('vega',comms = 'ipywidgets', sizing_mode = 'stretch_width', raw_css = [css])
     pn.config.js_files["fontawesome"]="https://kit.fontawesome.com/121cf5990e.js"
 
     #pn.config.js_files["fontawesome"]="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/js/all.min.js"
@@ -202,6 +202,7 @@ def visualize_panel():
             self.chart_col = pn.Column()
             self.aggregate = []
             self.selected_element_bar = pn.Row()
+            self.cached_chart = None
         
         def add_metric(self, clicked_button):
            
@@ -255,7 +256,7 @@ def visualize_panel():
         def remove_metric(self, event):
             metric = event.obj.message[1] 
             #print(metric)
-            self.selected_element_bar.remove(metric)
+            self.selected_element_bar.remove(metric) # element가 없대
             self.element_list.remove(event.obj.message)
             if self.trigger.value:
                 self.trigger.value = False
@@ -266,7 +267,8 @@ def visualize_panel():
             
             if not (metric == 'None' or aggregate == 'None'):
                 self.element_list.append(('metric',(metric,aggregate)))
-            
+            else:
+                return pn.Column(self.selected_element_bar, pn.panel(self.cached_chart))
             # check if metrics are all multi-dimension
             chart = visualize_metrics_panel(self.element_list, type, timerange)
             
@@ -294,7 +296,7 @@ def visualize_panel():
                 self.select_agg.value = 'None'
                 
 
-
+            self.cached_chart = chart
             return pn.Column(self.selected_element_bar, pn.panel(chart))
 
         def get_title(self, metric, aggregate, trigger):
