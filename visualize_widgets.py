@@ -12,23 +12,34 @@ from panel import widgets as w
 import datetime
 from awesome_panel_extensions.models.icon import Icon
 from awesome_panel_extensions.widgets.button import AwesomeButton
-from panel.pane import HTML, HoloViews, Markdown
+from panel.pane import HTML, Markdown
 
 
 plt.style.use('seaborn-notebook')
-DATE_BOUNDS = (datetime.datetime(2023, 1, 11, 23, 0, 0), datetime.datetime(2023, 1, 12, 5, 0, 0)) # default 15
-METRIC_DICT = {
-        "activity": "pid",
-        "database": "datid",
-        "table": "relid",
-        "index": "indexrelid",
-    }
+DATE_BOUNDS = (datetime.datetime(2023, 1, 18, 17, 10, 0), datetime.datetime(2023, 1, 18, 23, 59, 0)) # default 15
 
 
 def visualize_panel():    
     import_and_update_data()
 
     css = '''
+    .small-btn .bk-btn-group button {
+        
+        border: 0px;
+        background-color: transparent;
+        border-radius: 10px;
+        height: 20px;
+        width: 20px;
+        font-size: 100%;
+        text-align: left; 
+    }
+    .small-btn .bk-btn-group button:hover {
+        background-color: transparent;
+    }
+    .small-btn .bk-btn-group button:focus {
+        background-color: transparent;
+        box-shadow: inset 0px 0px 0px ;
+    }
     .btn .bk-btn-group button {
         
         border: 0px;
@@ -44,6 +55,10 @@ def visualize_panel():
         background-color: transparent;
     }
     .btn .bk-btn-group button:focus {
+        background-color: transparent;
+        box-shadow: inset 0px 0px 0px ;
+    }
+    .btn .bk-btn-group button:disabled {
         background-color: transparent;
         box-shadow: inset 0px 0px 0px ;
     }
@@ -70,7 +85,7 @@ def visualize_panel():
         }
     .bk.float_box {
         background: white;
-        border-radius: 10px;
+        border-radius: 15px;
         border: 1px royalblue solid;
         height: 40px;
         padding: 5px;
@@ -79,6 +94,7 @@ def visualize_panel():
         background: white;
         border: 0px;
         }
+    
     .picker {
         width: 300px;
     }
@@ -137,14 +153,16 @@ def visualize_panel():
             self.metrics.on_click(self.add_metric)
             self.trigger = pn.widgets.Checkbox(name='', visible = False, value = False)
 
-            self.metrics = AwesomeButton(name="Add filter",icon=Icon(name="",value='<i class="fas fa-plus"></i>'))
-            self.metrics.margin = [15,15]
-            self.metrics.css_classes= ['btn']
+            self.filter = AwesomeButton(name="Add filter",icon=Icon(name="",value='<i class="fas fa-filter"></i>'), disabled = True)
+            self.filter.margin = [15,15]
+            self.filter.css_classes= ['btn']
+            self.filter.on_click(self.add_filter)
 
-            self.metrics = AwesomeButton(name="Add metric",icon=Icon(name="",value='<i class="fas fa-plus"></i>'))
-            self.metrics.margin = [15,15]
-            self.metrics.css_classes= ['btn']
-            self.metrics.on_click(self.add_metric)
+            self.splitting = AwesomeButton(name="Add splitting",icon=Icon(name="",value='<i class="fas fa-wrench"></i>'), disabled = True)
+            self.splitting.margin = [15,15]
+            self.splitting.css_classes= ['btn']
+            self.splitting.on_click(self.add_splitting)
+            #self.splitting.on_click(self.add_metric)
 
 
             self.select_metrics =  w.Select(name = 'Metric', groups=l, value = 'None', sizing_mode = 'fixed')
@@ -153,7 +171,26 @@ def visualize_panel():
             self.metric_bar = pn.Row(self.select_metrics, self.select_agg, css_classes = ['float_box_invisible'])
             self.metric_bar[0].visible = False
             self.metric_bar[1].visible = False
-            self.metric_list = []
+            self.element_list = [] # element list (종류, (values))
+
+            self.select_property = w.Select(name = 'Property', value = 'None', options=['None'], sizing_mode = 'fixed')
+            self.select_operator = w.Select(name = 'Operator', value = '=', options=['='], sizing_mode = 'fixed', width = 200, disabled = True)
+            self.select_values = w.CheckBoxGroup(name = 'Values', inline = False, disabled = True)
+            
+            self.filter_bar = pn.Row(self.select_property, self.select_operator, self.select_values, css_classes = ['float_box_invisible'])
+            self.filter_bar[0].visible = False
+            self.filter_bar[1].visible = False
+            self.filter_bar[2].visible = False
+            
+            self.select_split_values = w.Select(name = 'Values', value = 'None', options=['None'], sizing_mode = 'fixed')
+            self.select_limit = w.input.NumberInput(value = 10, start = 1, stop = 50, step = 1, width = 100, sizing_mode = 'fixed', disabled = True)
+            self.select_sort = w.Select(name = 'Sort', value = 'Ascending', options=['Ascending', 'Descending'], sizing_mode = 'fixed', width = 200, disabled = True)
+
+            self.split_bar = pn.Row(self.select_split_values, self.select_limit, self.select_sort, css_classes = ['float_box_invisible'])
+            self.split_bar[0].visible = False
+            self.split_bar[1].visible = False
+            self.split_bar[2].visible = False
+            
 
 
             self.ctop_btn_board = AwesomeButton(name="Add to dashboard",icon=Icon(name="",value='<i class="fas fa-bookmark"></i>'))
@@ -161,55 +198,79 @@ def visualize_panel():
             self.ctop_btn_board.margin = [15,15]
 
             self.chart_type = w.Select(name = '', options={'Line chart':'line', 'Bar chart':'bar', 'Area chart':'area', 'Scatter chart':'scatter'}, margin = [15,15])
-            self.chart_top_bar = pn.Row(self.metrics, None, self.chart_type, self.ctop_btn_board, background='WhiteSmoke', css_classes = ['box'])
+            self.chart_top_bar = pn.Row(self.metrics, self.filter, self.splitting, self.chart_type, self.ctop_btn_board, background='WhiteSmoke', css_classes = ['box'])
             self.chart_col = pn.Column()
             self.aggregate = []
-            self.selected_metric_bar = pn.Row()
-        #def add_filter(self, clicked_button):
-            
+            self.selected_element_bar = pn.Row()
+        
         def add_metric(self, clicked_button):
+           
             if self.metric_bar[0].visible:
                 self.metric_bar.css_classes = ['float_box_invisible']
-                self.metric_bar[0].visible = False
-                self.metric_bar[1].visible = False
+                for i in self.metric_bar:
+                    i.visible = False
             else:
                 self.metric_bar.css_classes = ['float_box']
-                self.metric_bar[0].visible = True
-                self.metric_bar[1].visible = True
+                for i in self.metric_bar:
+                    i.visible = True
+        
+        def add_filter(self, clicked_button):
+            self._visible(self.filter_bar)
+            if self.filter_bar[0].visible:
+                self.filter_bar.css_classes = ['float_box_invisible']
+                for i in self.filter_bar:
+                    i.visible = False
+            else:
+                self.filter_bar.css_classes = ['float_box']
+                for i in self.filter_bar:
+                    i.visible = True
+        
+        def add_splitting(self, clicked_button):
+            self._visible(self.split_bar)
+            if self.split_bar[0].visible:
+                self.split_bar.css_classes = ['float_box_invisible']
+                for i in self.split_bar:
+                    i.visible = False
+            else:
+                self.split_bar.css_classes = ['float_box']
+                for i in self.split_bar:
+                    i.visible = True
 
         def _get_metrics(self):
             return get_metrics_info(self.metrics)
         
-        def set_selected_metric_bar(self):
-            self.selected_metric_bar.clear()
-            for metric in self.metric_list:
-                temp = w.Button(name = metric[1]+ ' of '+metric[0]+'    ✘', message = metric, sizing_mode = 'fixed', width =200, css_classes = ['btn_round'])
-                self.selected_metric_bar.append(temp)
-                temp.on_click(self.remove_metric)
-            # if len(self.selected_metric_bar) < 3:
-            #     self.selected_metric_bar.append(None)
-            #     self.selected_metric_bar.append(None)
+        def set_selected_element_bar(self): #for visualize
+            self.selected_element_bar.clear()
+            for element in self.element_list:
+                if element[0] == 'metric':
+                    metric = element[1]
+                    name = pn.pane.Markdown("<p style='text-align: center;'>"+metric[1]+' of '+metric[0]+"</p>", height = 20, width = 200)
+                    temp = w.Button(name = '  ✖', message = element, css_classes = ['small-btn'])
+                    temp.on_click(self.remove_metric)
+                     
+                    self.selected_element_bar.append(pn.Row(name,temp, sizing_mode = 'fixed',height = 30, width = 250, css_classes = ['float_box']))
+                    
+
 
         def remove_metric(self, event):
-            metric = event.obj.message
-            print(metric)
-            self.selected_metric_bar.remove(event.obj)
-            #print(self.metric_list)
-            self.metric_list.remove(metric)
-            #print(self.metric_list)
+            metric = event.obj.message[1] 
+            #print(metric)
+            self.selected_element_bar.remove(metric)
+            self.element_list.remove(event.obj.message)
             if self.trigger.value:
                 self.trigger.value = False
             else: 
                 self.trigger.value = True
 
-        def draw_chart(self, metrics=[], aggregate='average', type = 'line', timerange = datetime_range_picker.value, trigger=''):
+        def draw_chart(self, metric='None', aggregate='average', type = 'line', timerange = datetime_range_picker.value, trigger=''):
             
-            if not (metrics == 'None' or aggregate == 'None'):
-                self.metric_list.append((metrics,aggregate))
+            if not (metric == 'None' or aggregate == 'None'):
+                self.element_list.append(('metric',(metric,aggregate)))
             
-            chart = visualize_metrics_panel(self.metric_list, type, timerange)
+            # check if metrics are all multi-dimension
+            chart = visualize_metrics_panel(self.element_list, type, timerange)
             
-            metric_names = [a+' of '+m.replace('_', ' ') for (m,a) in self.metric_list]
+            metric_names = [a+' of '+m.replace('_', ' ') for (e, (m,a)) in self.element_list if e == 'metric']
             if len(metric_names) == 1:
                 self.name = metric_names[0]
             elif len(metric_names) >= 2:
@@ -222,28 +283,28 @@ def visualize_panel():
             #print(len(template.main))
             #[self.num].title = self.name
 
-            if not (metrics == 'None' or aggregate == 'None'):
+            if not (metric == 'None' or aggregate == 'None'):
                 
             # initialize
                 self.metric_bar.css_classes = ['float_box_invisible']
                 self.select_metrics.visible = False
                 self.select_agg.visible = False
-                self.set_selected_metric_bar()
+                self.set_selected_element_bar()
                 self.select_metrics.value = 'None'
                 self.select_agg.value = 'None'
                 
 
 
-            return pn.Column(self.selected_metric_bar, pn.panel(chart))
+            return pn.Column(self.selected_element_bar, pn.panel(chart))
 
-        def get_title(self, metrics, aggregate, trigger):
-            if not (metrics == 'None' or aggregate == 'None'):
+        def get_title(self, metric, aggregate, trigger):
+            if not (metric == 'None' or aggregate == 'None'):
                 return pn.pane.Markdown(f"### {self.name}")
 
-            if len(self.metric_list) == 0:
+            if len(self.element_list) == 0:
                 return pn.pane.Markdown(f"### Empty Chart")
             else:
-                metric_names = [a+' of '+m.replace('_', ' ') for (m,a) in self.metric_list]
+                metric_names = [a+' of '+m.replace('_', ' ') for (e, (m,a)) in self.element_list if e =='metric']
                 if len(metric_names) == 1:
                     self.name = metric_names[0]
                 elif len(metric_names) >= 2:
@@ -253,8 +314,13 @@ def visualize_panel():
                 return pn.pane.Markdown(f"### {self.name}")
 
         def chart(self):
-            self.chart_col = pn.Column(pn.bind(self.draw_chart, metrics = self.select_metrics, aggregate = self.select_agg, type = self.chart_type, timerange = datetime_range_picker, trigger = self.trigger))
-            self.c = pn.Card(pn.bind(self.get_title, metrics = self.select_metrics, aggregate = self.select_agg, trigger = self.trigger), self.chart_top_bar, self.metric_bar, self.selected_metric_bar, self.chart_col, collapsible = False, hide_header = True)
+            self.chart_col = pn.Column(pn.bind(self.draw_chart, 
+                                                metric = self.select_metrics, 
+                                                aggregate = self.select_agg, 
+                                                type = self.chart_type, 
+                                                timerange = datetime_range_picker, 
+                                                trigger = self.trigger))
+            self.c = pn.Card(pn.bind(self.get_title, metric = self.select_metrics, aggregate = self.select_agg, trigger = self.trigger), self.chart_top_bar, self.metric_bar, self.selected_element_bar, self.chart_col, collapsible = False, hide_header = True)
             return self.c
     def new_chart(clicked_button):
         num = len(template.main[0])-1

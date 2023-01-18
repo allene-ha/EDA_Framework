@@ -1,7 +1,5 @@
 import json
 import os
-import re
-import pprint
 import datetime as dt
 from matplotlib import pyplot as plt
 from matplotlib.container import BarContainer
@@ -22,6 +20,29 @@ from query import *
 from dataframe_visualization import *
 #import plotly.graph_objects as go
 import altair as alt
+from bidict import bidict
+
+METRIC_DICT = bidict({
+        "sessions_by_state": "Sessions By State",
+        "sessions_by_wait_event_type": "Sessions By WaitEventType",
+        "oldest_backend_time_sec": "Oldest Backend",
+        "longest_query_time_sec": "Oldest Query",
+        "longest_transaction_time_sec": "Oldest Transaction",
+        "numbackends": "Backends",
+        "deadlocks": "Deadlocks",
+        "blks_hit": "Disk Blocks Hit",
+        "blks_read": "Disk Blocks Read",
+        "temp_files": "Temporary Files",
+        "temp_bytes": "Temporary Files Size",
+        "xact_total": "Total Transactions",
+        "xact_commit": "Transactions Committed",
+        "xact_rollback": "Transactions Rolled back",
+        "tup_deleted": "Tuples Deleted",
+        "tup_fetched": "Tuples Fetched",
+        "tup_inserted": "Tuples Inserted",
+        "tup_returned": "Tuples Returned",
+        "tup_updated": "Tuples Updated",
+})
 
 
 def is_digit(str):
@@ -112,28 +133,38 @@ def get_column_pg() -> dict: #metric 종류를 담은 dict을 return
     agg_user_indexes_metrics = list(text['metrics_data']['local']['index']['pg_stat_user_indexes']['aggregated'].keys())
     agg_user_indexes_io_metrics = list(text['metrics_data']['local']['index']['pg_statio_user_indexes']['aggregated'].keys())
 
-    raw_database_metrics = agg_database_metrics.append('datid').append('datname')
-    raw_conflicts_metrics = agg_conflicts_metrics.append('datid').append('datname')
+    raw_database_metrics = copy.deepcopy(agg_database_metrics)
+    raw_database_metrics.append('datid')
+    raw_database_metrics.append('datname')
+    
+    raw_conflicts_metrics = copy.deepcopy(agg_conflicts_metrics)
+    raw_conflicts_metrics.append('datid')
+    raw_conflicts_metrics.append('datname')
 
     agg_activity_metrics = list(text['metrics_data']['local']['activity']['aggregated'].keys())
     activity_state_metrics = ['active','idle','idle in transaction','idle in transaction (aborted)','fastpath function call', 'disabled']
     activity_wait_event_type_metrics = ['Activity','BufferPin','Client','Extension','IO','IPC','Lock','LWLock','Timeout']
-
-    column = {}
-    column['archiver_metrics'] = archiver_metrics.append('timestamp')
-    column['bgwriter_metrics'] = bgwriter_metrics.append('timestamp')
-    column['agg_database_metrics'] = agg_database_metrics.append('timestamp')
-    column['agg_conflicts_metrics'] = agg_conflicts_metrics.append('timestamp')
-    column['agg_user_tables_metrics'] = agg_user_tables_metrics.append('timestamp')
-    column['agg_user_tables_io_metrics'] = agg_user_tables_io_metrics.append('timestamp')
-    column['agg_user_indexes_metrics'] = agg_user_indexes_metrics.append('timestamp')
-    column['agg_user_indexes_io_metrics'] = agg_user_indexes_io_metrics.append('timestamp')
-    column['raw_database_metrics'] = raw_database_metrics.append('timestamp')
-    column['raw_conflicts_metrics'] = raw_conflicts_metrics.append('timestamp')
-    column['agg_activity_metrics'] = agg_activity_metrics.append('timestamp')
-    column['activity_state_metrics'] = activity_state_metrics.append('timestamp')
-    column['activity_wait_event_type_metrics'] = activity_wait_event_type_metrics.append('timestamp')
     
+    column = {}
+
+    column['archiver_metrics'] = archiver_metrics
+    column['bgwriter_metrics'] = bgwriter_metrics
+    column['agg_database_metrics'] = agg_database_metrics
+    column['agg_conflicts_metrics'] = agg_conflicts_metrics
+    column['agg_user_tables_metrics'] = agg_user_tables_metrics
+    column['agg_user_tables_io_metrics'] = agg_user_tables_io_metrics
+    column['agg_user_indexes_metrics'] = agg_user_indexes_metrics
+    column['agg_user_indexes_io_metrics'] = agg_user_indexes_io_metrics
+    column['raw_database_metrics'] = raw_database_metrics
+    column['raw_conflicts_metrics'] = raw_conflicts_metrics
+    column['agg_activity_metrics'] = agg_activity_metrics
+    column['activity_state_metrics'] = activity_state_metrics
+    column['activity_wait_event_type_metrics'] = activity_wait_event_type_metrics
+    
+    for c in column.keys():
+        column[c].append('timestamp')
+
+    #print(column)
 
     return column
 
@@ -183,59 +214,60 @@ def import_metrics_pg(metrics, text, timestamp,col):
     metrics_data = text['metrics_data']
 
     archiver_metrics_data = metrics_data['global']['pg_stat_archiver']
+    archiver_metrics_data['timestamp'] = timestamp
     new_row = {}
     for m in col['archiver_metrics']:
         new_row[m] = archiver_metrics_data[m]
-    new_row['timestamp'] = timestamp
+    
     metrics['archiver_metrics'] = metrics['archiver_metrics'].append(new_row,ignore_index=True)
    
     bgwriter_metrics_data = metrics_data['global']['pg_stat_bgwriter']
+    bgwriter_metrics_data['timestamp'] = timestamp
     new_row = {}
     for m in col['bgwriter_metrics']:
         new_row[m] = bgwriter_metrics_data[m]
-    new_row['timestamp'] = timestamp
     metrics['bgwriter_metrics'] = metrics['bgwriter_metrics'].append(new_row,ignore_index=True)
     
     agg_database_metrics_data = metrics_data['local']['database']['pg_stat_database']['aggregated']
+    agg_database_metrics_data['timestamp'] = timestamp
     new_row = {}
     for m in col['agg_database_metrics']:
         new_row[m] = agg_database_metrics_data[m]
-    new_row['timestamp'] = timestamp
     metrics['agg_database_metrics'] = metrics['agg_database_metrics'].append(new_row,ignore_index=True)
 
     agg_conflicts_metrics_data = metrics_data['local']['database']['pg_stat_database_conflicts']['aggregated']
+    agg_conflicts_metrics_data['timestamp'] = timestamp
     new_row = {}
     for m in col['agg_conflicts_metrics']:
         new_row[m] = agg_conflicts_metrics_data[m]
-    new_row['timestamp'] = timestamp
     metrics['agg_conflicts_metrics'] = metrics['agg_conflicts_metrics'].append(new_row,ignore_index=True)
 
     agg_user_tables_metrics_data = metrics_data['local']['table']['pg_stat_user_tables']['aggregated']
+    agg_user_tables_metrics_data['timestamp'] = timestamp
     new_row = {}
     for m in col['agg_user_tables_metrics']:
         new_row[m] = agg_user_tables_metrics_data[m]
-    new_row['timestamp'] = timestamp
     metrics['agg_user_tables_metrics'] = metrics['agg_user_tables_metrics'].append(new_row,ignore_index=True)
 
     agg_user_tables_io_metrics_data = metrics_data['local']['table']['pg_statio_user_tables']['aggregated']
+    agg_user_tables_io_metrics_data['timestamp'] = timestamp
     new_row = {}
     for m in col['agg_user_tables_io_metrics']:
         new_row[m] = agg_user_tables_io_metrics_data[m]
-    new_row['timestamp'] = timestamp
     metrics['agg_user_tables_io_metrics'] = metrics['agg_user_tables_io_metrics'].append(new_row,ignore_index=True)
 
     agg_user_indexes_metrics_data = metrics_data['local']['index']['pg_stat_user_indexes']['aggregated']
+    agg_user_indexes_metrics_data['timestamp'] = timestamp
     new_row = {}
     for m in col['agg_user_indexes_metrics']:
         new_row[m] = agg_user_indexes_metrics_data[m]
-    new_row['timestamp'] = timestamp
     metrics['agg_user_indexes_metrics'] = metrics['agg_user_indexes_metrics'].append(new_row,ignore_index=True)
 
     agg_user_indexes_io_metrics_data = metrics_data['local']['index']['pg_statio_user_indexes']['aggregated']
+    agg_user_indexes_io_metrics_data['timestamp'] = timestamp
     new_row = {}
     for m in col['agg_user_indexes_io_metrics']:
         new_row[m] = agg_user_indexes_io_metrics_data[m]
-    new_row['timestamp'] = timestamp
     metrics['agg_user_indexes_io_metrics'] = metrics['agg_user_indexes_io_metrics'].append(new_row,ignore_index=True)
 
     
@@ -258,31 +290,31 @@ def import_metrics_pg(metrics, text, timestamp,col):
         metrics['raw_conflicts_metrics'] = metrics['raw_conflicts_metrics'].append(new_row,ignore_index=True)
 
     agg_activity_metrics_data = metrics_data['local']['activity']['aggregated']
+    agg_activity_metrics_data['timestamp'] = timestamp
     new_row = {}
     for m in col['agg_activity_metrics']:
         if m in agg_activity_metrics_data:
             new_row[m] = agg_activity_metrics_data[m]
-    new_row['timestamp'] = timestamp
     metrics['agg_activity_metrics'] = metrics['agg_activity_metrics'].append(new_row,ignore_index=True)
 
-    activity_state_metrics_data = metrics_data['local']['activity']['state']
+    activity_state_metrics_data = metrics_data['local']['activity']['raw']['state']
+    activity_state_metrics_data['timestamp'] = timestamp
     new_row = {}
     for m in col['activity_state_metrics']:
         if m in activity_state_metrics_data:
             new_row[m] = activity_state_metrics_data[m]
-    new_row['timestamp'] = timestamp
     metrics['activity_state_metrics'] = metrics['activity_state_metrics'].append(new_row,ignore_index=True)
 
-    activity_wait_event_type_metrics_data = metrics_data['local']['activity']['wait_event_type']
+    activity_wait_event_type_metrics_data = metrics_data['local']['activity']['raw']['wait_event_type']
+    activity_wait_event_type_metrics_data['timestamp'] = timestamp
     new_row = {}
     for m in col['activity_wait_event_type_metrics']:
         if m in activity_wait_event_type_metrics_data:
             new_row[m] = activity_wait_event_type_metrics_data[m]
-    new_row['timestamp'] = timestamp
     metrics['activity_wait_event_type_metrics'] = metrics['activity_wait_event_type_metrics'].append(new_row,ignore_index=True)
     
     
-    
+    #print(metrics)
     return metrics
 
 
@@ -1371,43 +1403,58 @@ def get_metrics_info():
     global col
     result = {}
     for m in col.keys():
-        result[m] = list(col[m])
+        if 'raw' in m:
+            continue
+        temp = []
+        for c in col[m]:
+            if c == 'timestamp':
+                continue
+            elif c in METRIC_DICT:
+                temp.append(METRIC_DICT[c])
+            else:
+                temp.append(c)
+        result[m] = temp
+        
     result['options'] = ['None']
     return result
 
 def get_metric_fig():
     global metrics, all_timestamp, col
 
-def visualize_metrics_panel(selected_metrics, type, timerange):
+def visualize_metrics_panel(selected_element, type, timerange):
+    print(selected_element)
+    selected_metrics = [m for (e,m) in selected_element if e == 'metric']
+    print(selected_metrics)
+    selected_filter = [f for (e,f) in selected_element if e == 'filter']
+    selected_split = [s for (e,s) in selected_element if e == 'split']
     global metrics, all_timestamp, col
-    # selected_metrics = [(metric,agg),]
-    ts = all_timestamp #[i.strftime("%Y-%m-%d %H:%M:%S") for i in all_timestamp] 
-    #window_size = 30
-    #plt.close()
-    #plt.rcParams['figure.figsize'] = [11, 6]
-    #myFmt = DateFormatter("%Y-%m-%d %H:%M:%S")
-    #x = all_timestamp
-    #x = x[::window_size]
+    ts = all_timestamp 
     
     #fig, ax1 = plt.subplots()
     df = pd.DataFrame(index = ts)
-    #lines = []
-    #selected_metrics = [selected_metrics]
+    #print(df)
     fold = []
     for (metric, agg) in selected_metrics:
+        if metric in METRIC_DICT.inverse:
+            metric = METRIC_DICT.inverse[metric] # Convert
+        print("inversed", metric)
         for c in col.keys():
             if metric in col[c]:
                 category = c
         #print(metric)
-        metrics[category].index = ts
+        metrics[category].set_index('timestamp', inplace = True)
+        display(metrics[category])
+        display(metrics[category][metric])
         df[metric+'_'+agg] = metrics[category][metric]
         fold.append(metric+'_'+agg)
         
         # y = np.array(metrics[category][metric], dtype=np.float32)
         # y = resample(y, window_size)
-    #print(df)
+    print("before slice")
+    display(df)
     df = df.loc[timerange[0]:timerange[1]] # slicing
-    #print(df)
+    print("after slice")
+    display(df)
     
     df_summary = pd.DataFrame()
     for (metric, agg) in selected_metrics:        
@@ -1436,8 +1483,8 @@ def visualize_metrics_panel(selected_metrics, type, timerange):
 #opacity=alt.condition(selection, alt.value(1), alt.value(0.2))
 
     chart = chart.encode(
-        x = alt.X('index:T', title = ''),
-        y = alt.Y('value:Q', title = ''),
+        x = alt.X('index:T', title = '',axis=alt.Axis(grid=False)),
+        y = alt.Y('value:Q', title = '', axis=alt.Axis(grid=True)),
         color=alt.Color('key:N', title = ''),
         opacity=alt.condition(selection, alt.value(1), alt.value(0.2)),
         tooltip=[

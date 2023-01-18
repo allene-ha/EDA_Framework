@@ -666,15 +666,17 @@ class PostgresCollector(BaseDbCollector):
                   ,"select extract(epoch from (NOW() - min(query_start))) as longest_query_time_sec from pg_stat_activity where state = 'active';"
                   ,"select extract(epoch from (NOW() - min(xact_start))) as longest_transaction_time_sec from pg_stat_activity where state = 'active';"
                   ,"SELECT count(*) as numbackends FROM pg_stat_activity WHERE state = 'active';"]
+        activity['aggregated'] = {}
         for q in queries:
             res, meta = self._cmd(q)
             print(res[0][0], meta[0])
-            activity['agg'][meta[0]] = int(res[0][0])
+            activity['aggregated'][meta[0]] = int(res[0][0])
         
         # ACTIVITY_STAT = ["""select state, count(*) from pg_stat_activity group by state having state is not null;""",
         # """select wait_event_type, count(*) from pg_stat_activity group by wait_event_type having wait_event_type is not null;"""]
 
         rows = self._get_metrics("""select state, count(*) from pg_stat_activity group by state having state is not null;""")
+        activity['raw'] = {}
         activity['raw']['state']={}
         for row in rows:
             activity['raw']['state'][row['state']] = row['count']
