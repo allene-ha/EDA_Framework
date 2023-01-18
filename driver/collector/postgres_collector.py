@@ -669,20 +669,20 @@ class PostgresCollector(BaseDbCollector):
         for q in queries:
             res, meta = self._cmd(q)
             print(res[0][0], meta[0])
-            activity[meta[0]] = str(res[0][0])
+            activity['agg'][meta[0]] = int(res[0][0])
         
         # ACTIVITY_STAT = ["""select state, count(*) from pg_stat_activity group by state having state is not null;""",
         # """select wait_event_type, count(*) from pg_stat_activity group by wait_event_type having wait_event_type is not null;"""]
 
         rows = self._get_metrics("""select state, count(*) from pg_stat_activity group by state having state is not null;""")
-        activity['state']={}
+        activity['raw']['state']={}
         for row in rows:
-            activity['state'][row['state']] = row['count']
+            activity['raw']['state'][row['state']] = row['count']
         
         rows = self._get_metrics("""select wait_event_type, count(*) from pg_stat_activity group by wait_event_type having wait_event_type is not null;""")
-        activity['wait_event_type']={}
+        activity['raw']['wait_event_type']={}
         for row in rows:
-            activity['wait_event_type'][row['wait_event_type']] = row['wait_event_type']
+            activity['raw']['wait_event_type'][row['wait_event_type']] = row['count']
             
         
         

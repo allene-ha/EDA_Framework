@@ -112,19 +112,29 @@ def get_column_pg() -> dict: #metric 종류를 담은 dict을 return
     agg_user_indexes_metrics = list(text['metrics_data']['local']['index']['pg_stat_user_indexes']['aggregated'].keys())
     agg_user_indexes_io_metrics = list(text['metrics_data']['local']['index']['pg_statio_user_indexes']['aggregated'].keys())
 
+    raw_database_metrics = agg_database_metrics.append('datid').append('datname')
+    raw_conflicts_metrics = agg_conflicts_metrics.append('datid').append('datname')
 
+    agg_activity_metrics = list(text['metrics_data']['local']['activity']['aggregated'].keys())
+    activity_state_metrics = ['active','idle','idle in transaction','idle in transaction (aborted)','fastpath function call', 'disabled']
+    activity_wait_event_type_metrics = ['Activity','BufferPin','Client','Extension','IO','IPC','Lock','LWLock','Timeout']
 
     column = {}
-    column['archiver_metrics'] = archiver_metrics
-    column['bgwriter_metrics'] = bgwriter_metrics
-    column['agg_database_metrics'] = agg_database_metrics
-    column['agg_conflicts_metrics'] = agg_conflicts_metrics
-    column['agg_user_tables_metrics'] = agg_user_tables_metrics
-    column['agg_user_tables_io_metrics'] = agg_user_tables_io_metrics
-    column['agg_user_indexes_metrics'] = agg_user_indexes_metrics
-    column['agg_user_indexes_io_metrics'] = agg_user_indexes_io_metrics
+    column['archiver_metrics'] = archiver_metrics.append('timestamp')
+    column['bgwriter_metrics'] = bgwriter_metrics.append('timestamp')
+    column['agg_database_metrics'] = agg_database_metrics.append('timestamp')
+    column['agg_conflicts_metrics'] = agg_conflicts_metrics.append('timestamp')
+    column['agg_user_tables_metrics'] = agg_user_tables_metrics.append('timestamp')
+    column['agg_user_tables_io_metrics'] = agg_user_tables_io_metrics.append('timestamp')
+    column['agg_user_indexes_metrics'] = agg_user_indexes_metrics.append('timestamp')
+    column['agg_user_indexes_io_metrics'] = agg_user_indexes_io_metrics.append('timestamp')
+    column['raw_database_metrics'] = raw_database_metrics.append('timestamp')
+    column['raw_conflicts_metrics'] = raw_conflicts_metrics.append('timestamp')
+    column['agg_activity_metrics'] = agg_activity_metrics.append('timestamp')
+    column['activity_state_metrics'] = activity_state_metrics.append('timestamp')
+    column['activity_wait_event_type_metrics'] = activity_wait_event_type_metrics.append('timestamp')
+    
 
-    #column['wait'] = wait_metrics
     return column
 
 
@@ -132,7 +142,7 @@ def create_dataframe(col):
     metrics = {}
     for me in col.keys():
         metrics[me] = pd.DataFrame(columns = col[me])   
-    # raw를 제외하고 생성
+
     return metrics
 
 def import_metrics_mysql(metrics, text, timestamp,col):
@@ -176,67 +186,102 @@ def import_metrics_pg(metrics, text, timestamp,col):
     new_row = {}
     for m in col['archiver_metrics']:
         new_row[m] = archiver_metrics_data[m]
+    new_row['timestamp'] = timestamp
     metrics['archiver_metrics'] = metrics['archiver_metrics'].append(new_row,ignore_index=True)
    
     bgwriter_metrics_data = metrics_data['global']['pg_stat_bgwriter']
     new_row = {}
     for m in col['bgwriter_metrics']:
         new_row[m] = bgwriter_metrics_data[m]
+    new_row['timestamp'] = timestamp
     metrics['bgwriter_metrics'] = metrics['bgwriter_metrics'].append(new_row,ignore_index=True)
     
     agg_database_metrics_data = metrics_data['local']['database']['pg_stat_database']['aggregated']
     new_row = {}
     for m in col['agg_database_metrics']:
         new_row[m] = agg_database_metrics_data[m]
+    new_row['timestamp'] = timestamp
     metrics['agg_database_metrics'] = metrics['agg_database_metrics'].append(new_row,ignore_index=True)
 
     agg_conflicts_metrics_data = metrics_data['local']['database']['pg_stat_database_conflicts']['aggregated']
     new_row = {}
     for m in col['agg_conflicts_metrics']:
         new_row[m] = agg_conflicts_metrics_data[m]
+    new_row['timestamp'] = timestamp
     metrics['agg_conflicts_metrics'] = metrics['agg_conflicts_metrics'].append(new_row,ignore_index=True)
 
     agg_user_tables_metrics_data = metrics_data['local']['table']['pg_stat_user_tables']['aggregated']
     new_row = {}
     for m in col['agg_user_tables_metrics']:
         new_row[m] = agg_user_tables_metrics_data[m]
+    new_row['timestamp'] = timestamp
     metrics['agg_user_tables_metrics'] = metrics['agg_user_tables_metrics'].append(new_row,ignore_index=True)
 
     agg_user_tables_io_metrics_data = metrics_data['local']['table']['pg_statio_user_tables']['aggregated']
     new_row = {}
     for m in col['agg_user_tables_io_metrics']:
         new_row[m] = agg_user_tables_io_metrics_data[m]
+    new_row['timestamp'] = timestamp
     metrics['agg_user_tables_io_metrics'] = metrics['agg_user_tables_io_metrics'].append(new_row,ignore_index=True)
 
     agg_user_indexes_metrics_data = metrics_data['local']['index']['pg_stat_user_indexes']['aggregated']
     new_row = {}
     for m in col['agg_user_indexes_metrics']:
         new_row[m] = agg_user_indexes_metrics_data[m]
+    new_row['timestamp'] = timestamp
     metrics['agg_user_indexes_metrics'] = metrics['agg_user_indexes_metrics'].append(new_row,ignore_index=True)
 
     agg_user_indexes_io_metrics_data = metrics_data['local']['index']['pg_statio_user_indexes']['aggregated']
     new_row = {}
     for m in col['agg_user_indexes_io_metrics']:
         new_row[m] = agg_user_indexes_io_metrics_data[m]
+    new_row['timestamp'] = timestamp
     metrics['agg_user_indexes_io_metrics'] = metrics['agg_user_indexes_io_metrics'].append(new_row,ignore_index=True)
 
+    
     raw_database_metrics_data = metrics_data['local']['database']['pg_stat_database']['raw'] 
-    new_row = {}
-    for m in col['raw_database_metrics']:
-        if m in raw_database_metrics_data:
-            new_row[m] = raw_database_metrics_data[m]
-    metrics['raw_database_metrics'] = metrics['raw_database_metrics'].append(new_row,ignore_index=True)
+    for d in raw_database_metrics_data.keys():
+        new_row = {}
+        for m in col['raw_database_metrics']:
+            if m in raw_database_metrics_data[d]:
+                new_row[m] = raw_database_metrics_data[d][m]
+        new_row['timestamp'] = timestamp
+        metrics['raw_database_metrics'] = metrics['raw_database_metrics'].append(new_row,ignore_index=True)
 
-    raw_conflicts_metrics_data = metrics_data['local']['database']['pg_stat_database_conflicts']['raw']
-    new_row = {}
-    for m in col['raw_database_metrics']:
-        if m in raw_database_metrics_data:
-            new_row[m] = raw_database_metrics_data[m]
-    metrics['raw_database_metrics'] = metrics['raw_database_metrics'].append(new_row,ignore_index=True)
+    raw_conflicts_metrics_data = metrics_data['local']['database']['pg_stat_database_conflicts']['raw'] 
+    for d in raw_conflicts_metrics_data.keys():
+        new_row = {}
+        for m in col['raw_conflicts_metrics']:
+            if m in raw_conflicts_metrics_data[d]:
+                new_row[m] = raw_conflicts_metrics_data[d][m]
+        new_row['timestamp'] = timestamp
+        metrics['raw_conflicts_metrics'] = metrics['raw_conflicts_metrics'].append(new_row,ignore_index=True)
 
-    raw_activity_metrics_data = metrics_data['local']['activity']['pg_stat_activity']['raw'] # list
-    metrics['raw_activity_metrics'] = pd.DataFrame(raw_activity_metrics_data)
-   
+    agg_activity_metrics_data = metrics_data['local']['activity']['aggregated']
+    new_row = {}
+    for m in col['agg_activity_metrics']:
+        if m in agg_activity_metrics_data:
+            new_row[m] = agg_activity_metrics_data[m]
+    new_row['timestamp'] = timestamp
+    metrics['agg_activity_metrics'] = metrics['agg_activity_metrics'].append(new_row,ignore_index=True)
+
+    activity_state_metrics_data = metrics_data['local']['activity']['state']
+    new_row = {}
+    for m in col['activity_state_metrics']:
+        if m in activity_state_metrics_data:
+            new_row[m] = activity_state_metrics_data[m]
+    new_row['timestamp'] = timestamp
+    metrics['activity_state_metrics'] = metrics['activity_state_metrics'].append(new_row,ignore_index=True)
+
+    activity_wait_event_type_metrics_data = metrics_data['local']['activity']['wait_event_type']
+    new_row = {}
+    for m in col['activity_wait_event_type_metrics']:
+        if m in activity_wait_event_type_metrics_data:
+            new_row[m] = activity_wait_event_type_metrics_data[m]
+    new_row['timestamp'] = timestamp
+    metrics['activity_wait_event_type_metrics'] = metrics['activity_wait_event_type_metrics'].append(new_row,ignore_index=True)
+    
+    
     
     return metrics
 
