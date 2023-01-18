@@ -17,6 +17,13 @@ from panel.pane import HTML, HoloViews, Markdown
 
 plt.style.use('seaborn-notebook')
 DATE_BOUNDS = (datetime.datetime(2023, 1, 11, 23, 0, 0), datetime.datetime(2023, 1, 12, 5, 0, 0)) # default 15
+METRIC_DICT = {
+        "activity": "pid",
+        "database": "datid",
+        "table": "relid",
+        "index": "indexrelid",
+    }
+
 
 def visualize_panel():    
     import_and_update_data()
@@ -158,7 +165,7 @@ def visualize_panel():
             self.chart_col = pn.Column()
             self.aggregate = []
             self.selected_metric_bar = pn.Row()
-        def add_filter(self, clicked_button):
+        #def add_filter(self, clicked_button):
             
         def add_metric(self, clicked_button):
             if self.metric_bar[0].visible:

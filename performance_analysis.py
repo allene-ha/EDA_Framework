@@ -132,7 +132,7 @@ def create_dataframe(col):
     metrics = {}
     for me in col.keys():
         metrics[me] = pd.DataFrame(columns = col[me])   
-    
+    # raw를 제외하고 생성
     return metrics
 
 def import_metrics_mysql(metrics, text, timestamp,col):
@@ -169,6 +169,7 @@ def import_metrics_mysql(metrics, text, timestamp,col):
     return metrics
 
 def import_metrics_pg(metrics, text, timestamp,col):
+    # Timestamp를 활용하자
     metrics_data = text['metrics_data']
 
     archiver_metrics_data = metrics_data['global']['pg_stat_archiver']
@@ -219,7 +220,23 @@ def import_metrics_pg(metrics, text, timestamp,col):
         new_row[m] = agg_user_indexes_io_metrics_data[m]
     metrics['agg_user_indexes_io_metrics'] = metrics['agg_user_indexes_io_metrics'].append(new_row,ignore_index=True)
 
-    
+    raw_database_metrics_data = metrics_data['local']['database']['pg_stat_database']['raw'] 
+    new_row = {}
+    for m in col['raw_database_metrics']:
+        if m in raw_database_metrics_data:
+            new_row[m] = raw_database_metrics_data[m]
+    metrics['raw_database_metrics'] = metrics['raw_database_metrics'].append(new_row,ignore_index=True)
+
+    raw_conflicts_metrics_data = metrics_data['local']['database']['pg_stat_database_conflicts']['raw']
+    new_row = {}
+    for m in col['raw_database_metrics']:
+        if m in raw_database_metrics_data:
+            new_row[m] = raw_database_metrics_data[m]
+    metrics['raw_database_metrics'] = metrics['raw_database_metrics'].append(new_row,ignore_index=True)
+
+    raw_activity_metrics_data = metrics_data['local']['activity']['pg_stat_activity']['raw'] # list
+    metrics['raw_activity_metrics'] = pd.DataFrame(raw_activity_metrics_data)
+   
     
     return metrics
 
@@ -1389,18 +1406,6 @@ def visualize_metrics_panel(selected_metrics, type, timerange):
 
 
     return chart
-    # ax1.plot_date(x, y,  ms=0,  ls = '-', label = metric)
-    # #lines.append(line)
-    # plt.gca().xaxis.set_major_formatter(myFmt)
-    
-    # #labs = [l.get_label() for l in lines]        
-    # plt.legend(mode="expand")
-    # fig.autofmt_xdate()
-    # #plt.gcf().suptitle(f"{}", size=20, fontweight="bold")
-    # mplcursors.cursor(fig, hover = True)   
-    # plt.grid(True, axis='y')
-    # plt.tight_layout()
-    # return fig
 
 
 
