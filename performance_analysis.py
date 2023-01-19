@@ -23,6 +23,8 @@ import altair as alt
 from bidict import bidict
 
 METRIC_DICT = bidict({
+        "num_sessions":"Sessions",
+        "num_wait_sessions":"Waiting Sessions",
         "sessions_by_state": "Sessions By State",
         "sessions_by_wait_event_type": "Sessions By WaitEventType",
         "oldest_backend_time_sec": "Oldest Backend",
@@ -1444,29 +1446,38 @@ def visualize_metrics_panel(selected_element, type, timerange):
         #print(metric)
         df_copy = metrics[category].copy()
         df_copy.set_index('timestamp', inplace = True) # column에 없는 경우 발생
-       
+
         display(df_copy)
-        df[metric+'_'+agg] = df_copy[metric]
+        df_copy[metric+'_'+agg] = df_copy[metric]
         fold.append(metric+'_'+agg)
         
         # y = np.array(metrics[category][metric], dtype=np.float32)
         # y = resample(y, window_size)
     print("before slice")
-    display(df)
-    df = df.loc[timerange[0]:timerange[1]] # slicing
+    #display(df_copy)
+    idx = [i for i in df_copy.index if i >= timerange[0] and i<= timerange[1]]
+    display(df_copy)
+    print(idx)
+    df_copy = df_copy.loc[idx]
+    #.filter(items = idx, axis = 0)
+#[df_copy.ge(timerange[0], axis = 0)]
+    #df_copy = df_copy[df_copy.le(timerange[1], axis = 0)]
+    #df_copy = df_copy.loc[timerange[0]:timerange[1]] # slicing
     print("after slice")
-    display(df)
+    display(df_copy)
     
     df_summary = pd.DataFrame()
-    for (metric, agg) in selected_metrics:        
+    for (metric, agg) in selected_metrics:    
+        if metric in METRIC_DICT.inverse:
+            metric = METRIC_DICT.inverse[metric] # Convert    
         if agg == 'Sum':
-            df_summary[metric+'_'+agg] = df[metric+'_'+agg].resample('10T').sum()
+            df_summary[metric+'_'+agg] = df_copy[metric+'_'+agg].resample('10T').sum()
         elif agg == 'Average':
-            df_summary[metric+'_'+agg] = df[metric+'_'+agg].resample('10T').mean()
+            df_summary[metric+'_'+agg] = df_copy[metric+'_'+agg].resample('10T').mean()
         elif agg == 'Min':
-            df_summary[metric+'_'+agg] = df[metric+'_'+agg].resample('10T').min()
+            df_summary[metric+'_'+agg] = df_copy[metric+'_'+agg].resample('10T').min()
         elif agg == 'Max':
-            df_summary[metric+'_'+agg] = df[metric+'_'+agg].resample('10T').max()
+            df_summary[metric+'_'+agg] = df_copy[metric+'_'+agg].resample('10T').max()
         
 
     #print(df_summary)

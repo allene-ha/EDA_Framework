@@ -16,7 +16,7 @@ from panel.pane import HTML, Markdown
 
 
 plt.style.use('seaborn-notebook')
-DATE_BOUNDS = (datetime.datetime(2023, 1, 18, 17, 10, 0), datetime.datetime(2023, 1, 18, 23, 59, 0)) # default 15
+DATE_BOUNDS = (datetime.datetime(2023, 1, 19, 13, 0, 0), datetime.datetime(2023, 1, 19, 14, 20, 0)) # default 15
 
 
 def visualize_panel():    
@@ -24,14 +24,12 @@ def visualize_panel():
 
     css = '''
     .small-btn .bk-btn-group button {
-        
         border: 0px;
         background-color: transparent;
         border-radius: 10px;
         height: 20px;
         width: 20px;
         font-size: 100%;
-        text-align: left; 
     }
     .small-btn .bk-btn-group button:hover {
         background-color: transparent;
@@ -41,13 +39,13 @@ def visualize_panel():
         box-shadow: inset 0px 0px 0px ;
     }
     .btn .bk-btn-group button {
-        
+
         border: 0px;
         background-color: transparent;
         border-radius: 10px;
         height: 30px;
         width: 100px;
-        
+
         font-size: 100%;
         text-align: left; 
     }
@@ -69,13 +67,13 @@ def visualize_panel():
         height: 30px;
         font-size: 100%;
         text-align: center; 
-        
-       
+
+
     }
     .btn_round .bk-btn-group button:hover {
         background-color: white;
         border: 1px royalblue solid;
-        
+
     }
     .bk.box {
         background: WhiteSmoke;
@@ -84,17 +82,25 @@ def visualize_panel():
         height: 40px;
         }
     .bk.float_box {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        align: center;
+        align-self: start;
         background: white;
         border-radius: 15px;
         border: 1px royalblue solid;
         height: 40px;
-        padding: 5px;
+        margin-right: 30px;
+        margin-bottom: 10px;
+        margin-top: -10px;
+        
         }
     .bk.float_box_invisible {
         background: white;
         border: 0px;
         }
-    
+
     .picker {
         width: 300px;
     }
@@ -172,6 +178,7 @@ def visualize_panel():
             self.metric_bar[0].visible = False
             self.metric_bar[1].visible = False
             self.element_list = [] # element list (종류, (values))
+            self.chart_list = []
 
             self.select_property = w.Select(name = 'Property', value = 'None', options=['None'], sizing_mode = 'fixed')
             self.select_operator = w.Select(name = 'Operator', value = '=', options=['='], sizing_mode = 'fixed', width = 200, disabled = True)
@@ -245,31 +252,83 @@ def visualize_panel():
             for element in self.element_list:
                 if element[0] == 'metric':
                     metric = element[1]
-                    name = pn.pane.Markdown("<p style='text-align: center;'>"+metric[1]+' of '+metric[0]+"</p>", height = 20, width = 200)
-                    temp = w.Button(name = '  ✖', message = element, css_classes = ['small-btn'])
+                    #name = w.indicators.String()
+                    name = pn.pane.HTML("<center>"+metric[1]+' of '+metric[0], align = 'center',width=200)
+                    temp = w.Button(name = '✖', message = element, css_classes = ['small-btn'], width = 20, margin=[-3,0])
                     temp.on_click(self.remove_metric)
                      
-                    self.selected_element_bar.append(pn.Row(name,temp, sizing_mode = 'fixed',height = 30, width = 250, css_classes = ['float_box']))
+                    self.selected_element_bar.append(pn.Row(name,temp, sizing_mode = 'fixed', width=250, css_classes = ['float_box']))
                     
 
 
         def remove_metric(self, event):
-            metric = event.obj.message[1] 
-            #print(metric)
-            self.selected_element_bar.remove(metric) # element가 없대
-            self.element_list.remove(event.obj.message)
+            e = event.obj.message 
+
+            for element in self.selected_element_bar:
+                if element[1].message == e:
+                    self.selected_element_bar.remove(element)
+            print(self.element_list)
+            self.element_list.remove(e)
+            print(self.element_list)
             if self.trigger.value:
                 self.trigger.value = False
             else: 
                 self.trigger.value = True
 
-        def draw_chart(self, metric='None', aggregate='average', type = 'line', timerange = datetime_range_picker.value, trigger=''):
-            
+        def draw_chart(self,
+                        metric='None', aggregate='None', # metric
+                        property = 'None', operator = '=', value =[], # filter
+                        s_value = 'None', limit = 0, sort = 'Ascending', # split
+                        type = 'line', timerange = datetime_range_picker.value, trigger=''):
+            print("Draw")
+            print(self.element_list)
             if not (metric == 'None' or aggregate == 'None'):
                 self.element_list.append(('metric',(metric,aggregate)))
-            else:
+                print("append", metric, aggregate)
+            if not (property == 'None' or operator == '=' or value ==[]):
+                self.element_list.append(('filter',(property, operator, value)))
+            if not (s_value == 'None'):
+                self.element_list.append(('split',(s_value, limit, sort)))
+            if set(self.chart_list)==set(self.element_list):
+                print("elif test")
+                print(self.chart_list)
+                print(self.element_list)
+
                 return pn.Column(self.selected_element_bar, pn.panel(self.cached_chart))
             # check if metrics are all multi-dimension
+            metric_list = [m for (e,m) in self.element_list if e == 'metric']
+            if len(metric_list)>0:
+                MULTI_DIM_METRICS = [
+                    ["Sessions"], ["Waiting Sessions"],
+                    ["Backends", 
+                    "Deadlocks",
+                    "Disk Blocks Hit",
+                    "Disk Blocks Read",
+                    "Temporary Files",
+                    "Temporary Files Size", 
+                    "Total Transactions", 
+                    "Transactions Committed", 
+                    "Transactions Rolled back",
+                    "Tuples Deleted",
+                    "Tuples Fetched", 
+                    "Tuples Inserted", 
+                    "Tuples Returned", 
+                    "Tuples Updated",]
+                ]
+                
+                for c in MULTI_DIM_METRICS:
+                    if len(set(metric_list)-set(c))==0:
+                        self.filter.disabled =False
+                        self.splitting.disabled = False
+                        break
+                    else:
+                        self.filter.disabled =True
+                        self.splitting.disabled =True
+                        
+                        
+
+            
+            print(self.element_list)
             chart = visualize_metrics_panel(self.element_list, type, timerange)
             
             metric_names = [a+' of '+m.replace('_', ' ') for (e, (m,a)) in self.element_list if e == 'metric']
@@ -285,8 +344,7 @@ def visualize_panel():
             #print(len(template.main))
             #[self.num].title = self.name
 
-            if not (metric == 'None' or aggregate == 'None'):
-                
+            if not (metric == 'None' or aggregate == 'None'): 
             # initialize
                 self.metric_bar.css_classes = ['float_box_invisible']
                 self.select_metrics.visible = False
@@ -295,16 +353,30 @@ def visualize_panel():
                 self.select_metrics.value = 'None'
                 self.select_agg.value = 'None'
                 
+            if not (property == 'None' or operator == '=' or value ==[]):
+                self.filter_bar.css_classes = ['float_box_invisible']
+                self.select_property.value = "None"
+                self.select_operator.value = '='
+                self.select_value.value = []
+                
+            if not (s_value == 'None'):
+                self.split_bar.css_classes = ['float_box_invisible']
+                self.select_split_values.value = "None"
+                self.select_limit.value = '10'
+                self.select_sort.value = 'Ascending'
+
+                
 
             self.cached_chart = chart
+            self.chart_list = copy.deepcopy(self.element_list)
             return pn.Column(self.selected_element_bar, pn.panel(chart))
 
         def get_title(self, metric, aggregate, trigger):
             if not (metric == 'None' or aggregate == 'None'):
-                return pn.pane.Markdown(f"### {self.name}")
+                return pn.pane.Markdown(f"### {self.name}", margin = [5,10])
 
             if len(self.element_list) == 0:
-                return pn.pane.Markdown(f"### Empty Chart")
+                return pn.pane.Markdown(f"### Empty Chart", margin = [5,10])
             else:
                 metric_names = [a+' of '+m.replace('_', ' ') for (e, (m,a)) in self.element_list if e =='metric']
                 if len(metric_names) == 1:
@@ -313,12 +385,13 @@ def visualize_panel():
                     self.name = ', '.join(metric_names[0:3])
                     if len(metric_names) > 4:
                         self.name += f", and {len(metric_names)-3} other metrics" 
-                return pn.pane.Markdown(f"### {self.name}")
+                return pn.pane.Markdown(f"### {self.name}", margin = [5,10])
 
         def chart(self):
             self.chart_col = pn.Column(pn.bind(self.draw_chart, 
-                                                metric = self.select_metrics, 
-                                                aggregate = self.select_agg, 
+                                                metric = self.select_metrics, aggregate = self.select_agg, 
+                                                property = self.select_property, operator = self.select_operator, value = self.select_values,
+                                                s_value = self.select_split_values, limit = self.select_limit, sort = self.select_sort,
                                                 type = self.chart_type, 
                                                 timerange = datetime_range_picker, 
                                                 trigger = self.trigger))

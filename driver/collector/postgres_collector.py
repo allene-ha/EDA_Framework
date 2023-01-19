@@ -665,7 +665,8 @@ class PostgresCollector(BaseDbCollector):
         queries = ["select extract(epoch from (NOW() - min(backend_start))) as oldest_backend_time_sec from pg_stat_activity;"
                   ,"select extract(epoch from (NOW() - min(query_start))) as longest_query_time_sec from pg_stat_activity where state = 'active';"
                   ,"select extract(epoch from (NOW() - min(xact_start))) as longest_transaction_time_sec from pg_stat_activity where state = 'active';"
-                  ,"SELECT count(*) as numbackends FROM pg_stat_activity WHERE state = 'active';"]
+                  ,"SELECT count(*) as num_sessions FROM pg_stat_activity WHERE state = 'active';"
+                  ,"SELECT count(*) as num_wait_sessions FROM pg_stat_activity WHERE wait_event_type is not null;"]
         activity['aggregated'] = {}
         for q in queries:
             res, meta = self._cmd(q)
