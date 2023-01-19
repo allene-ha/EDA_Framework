@@ -1423,62 +1423,63 @@ def get_metrics_info():
 def get_metric_fig():
     global metrics, all_timestamp, col
 
-def visualize_metrics_panel(selected_element, type, timerange):
-    print(selected_element)
-    selected_metrics = [m for (e,m) in selected_element if e == 'metric']
-    print(selected_metrics)
-    selected_filter = [f for (e,f) in selected_element if e == 'filter']
-    selected_split = [s for (e,s) in selected_element if e == 'split']
+def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='line', timerange=[]):
+    #selected_metrics = [m for (e,m) in selected_element if e == 'metric']
+    
+    print("filter",filter)
+    print("split", split)
+
+    column_dict = {'Database name':'datname',
+                    'State':'state',
+                    'Wait event type':'wait_event_type'}
+
     global metrics, all_timestamp, col
     ts = all_timestamp 
     
-    #fig, ax1 = plt.subplots()
-    df = pd.DataFrame(index = ts)
+    df_copy = pd.DataFrame(index = ts)
     #print(df)
     fold = []
     for (metric, agg) in selected_metrics:
         if metric in METRIC_DICT.inverse:
             metric = METRIC_DICT.inverse[metric] # Convert
-        print("inversed", metric)
         for c in col.keys():
             if metric in col[c]:
                 category = c
-        #print(metric)
-        df_copy = metrics[category].copy()
-        df_copy.set_index('timestamp', inplace = True) # column에 없는 경우 발생
+        df_temp = metrics[category].copy()
+        df_temp.set_index('timestamp', inplace = True) # column에 없는 경우 발생
+        if filter != None:
+            print("filter???")
+            df_temp = df_temp.loc[df_temp[column_dict[filter[0]]].isin(filter[2])]
+        if split != None:
+            df_copy = df_copy.join(df_temp[[column_dict[split[0]], metric]], how='outer')
+        else:
+            df_copy = df_copy.join(df_temp[metric], how='outer')#= df_temp[metric].copy()
 
-        display(df_copy)
-        df_copy[metric+'_'+agg] = df_copy[metric]
-        fold.append(metric+'_'+agg)
-        
-        # y = np.array(metrics[category][metric], dtype=np.float32)
-        # y = resample(y, window_size)
-    print("before slice")
-    #display(df_copy)
+    if split == None:
+        df_copy = df_copy.groupby(level = 0).agg('mean')
+
     idx = [i for i in df_copy.index if i >= timerange[0] and i<= timerange[1]]
-    display(df_copy)
-    print(idx)
     df_copy = df_copy.loc[idx]
-    #.filter(items = idx, axis = 0)
-#[df_copy.ge(timerange[0], axis = 0)]
-    #df_copy = df_copy[df_copy.le(timerange[1], axis = 0)]
-    #df_copy = df_copy.loc[timerange[0]:timerange[1]] # slicing
-    print("after slice")
-    display(df_copy)
+
     
     df_summary = pd.DataFrame()
     for (metric, agg) in selected_metrics:    
         if metric in METRIC_DICT.inverse:
             metric = METRIC_DICT.inverse[metric] # Convert    
         if agg == 'Sum':
-            df_summary[metric+'_'+agg] = df_copy[metric+'_'+agg].resample('10T').sum()
+            df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').sum()
         elif agg == 'Average':
-            df_summary[metric+'_'+agg] = df_copy[metric+'_'+agg].resample('10T').mean()
+            df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').mean()
         elif agg == 'Min':
-            df_summary[metric+'_'+agg] = df_copy[metric+'_'+agg].resample('10T').min()
+            df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').min()
         elif agg == 'Max':
-            df_summary[metric+'_'+agg] = df_copy[metric+'_'+agg].resample('10T').max()
+            df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').max()
+        fold.append(metric+'_'+agg)
         
+
+    #display("summary", df_summary)
+    #print(fold)
+    df_summary.reset_index(inplace=True)
 
     #print(df_summary)
     chart = alt.Chart(df_summary).transform_fold(fold,)
@@ -1497,7 +1498,7 @@ def visualize_metrics_panel(selected_element, type, timerange):
     chart = chart.encode(
         x = alt.X('index:T', title = '',axis=alt.Axis(grid=False)),
         y = alt.Y('value:Q', title = '', axis=alt.Axis(grid=True)),
-        color=alt.Color('key:N', title = ''),
+        
         opacity=alt.condition(selection, alt.value(1), alt.value(0.2)),
         tooltip=[
         alt.Tooltip('value:Q', title='Value'),
@@ -1507,11 +1508,21 @@ def visualize_metrics_panel(selected_element, type, timerange):
         ).properties(width='container', height='container'
         ).interactive().configure_legend(orient='bottom',
         ).add_selection(selection)
+    if split == None:
+        chart = chart.encode(color=alt.Color('key:N', title = ''))
+    else:
+        if len(selected_metrics)==1:
+            chart = chart.encode(color=alt.Color(column_dict[split[0]]+':N'))
+        else:
+            chart = chart.encode(color=alt.Color('key:N', title = ''),
+                                shape=alt.Color(column_dict[split[0]]+':N'))
 
 
     return chart
 
-
+def get_dat_names():
+    global metrics
+    return list(metrics["raw_database_metrics"].datname.dropna().unique())
 
 
 def wait_visualizer():

@@ -20,9 +20,17 @@ DATE_BOUNDS = (datetime.datetime(2023, 1, 19, 13, 0, 0), datetime.datetime(2023,
 
 
 def visualize_panel():    
+
     import_and_update_data()
+    DAT_NAMES = get_dat_names()
+    print(DAT_NAMES)
+    STATE = ['active','idle','idle in transaction','idle in transaction (aborted)','fastpath function call', 'disabled']
+    WAIT_EVENT_TYPE = ['Activity','BufferPin','Client','Extension','IO','IPC','Lock','LWLock','Timeout']
 
     css = '''
+    .none {
+        display: none;
+    }
     .small-btn .bk-btn-group button {
         border: 0px;
         background-color: transparent;
@@ -97,8 +105,7 @@ def visualize_panel():
         
         }
     .bk.float_box_invisible {
-        background: white;
-        border: 0px;
+        display: none;
         }
 
     .picker {
@@ -106,6 +113,7 @@ def visualize_panel():
     }
     '''
     pn.extension('vega',comms = 'ipywidgets', sizing_mode = 'stretch_width', raw_css = [css])
+    
     pn.config.js_files["fontawesome"]="https://kit.fontawesome.com/121cf5990e.js"
 
     #pn.config.js_files["fontawesome"]="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/js/all.min.js"
@@ -115,16 +123,10 @@ def visualize_panel():
 
     template = pn.template.MaterialTemplate(title='DB Experimental Data Analysis Framework')
     template.header_background ='royalblue'
-    # menu_items = [('Metrics', 'a'), ('Dashboard', 'b'), None, ('Help', 'help')]
-    # menu_button = w.MenuButton(name='Monitoring', items=menu_items, split = True)
-    
+  
     template.sidebar.append(Markdown("""## Monitoring"""))
     
     
-    # Side bar
-
-    #side_btn_metrics = w.Button(name='Metrics', css_classes = ['btn'])
-    #side_btn_board = w.Button(name='Dashboard', css_classes = ['btn'])
     side_btn_metrics = AwesomeButton(name="Metrics",icon=Icon(name="",value="""<i class="fa fa-chart-line"></i>"""))
     side_btn_metrics.css_classes= ['btn']
 
@@ -148,11 +150,8 @@ def visualize_panel():
     class Chart():
         def __init__(self, num):
             self.name = ''
-            self.num = num
-            #self.ctop_btn_add = AwesomeButton(name="Add metric",icon=Icon(name="",value='<i class="fas fa-plus"></i>'))
-            #self.ctop_btn_add.css_classes= ['btn']
+            self.num = num            
             l = get_metrics_info()
-            #self.metrics = pn.widgets.MultiChoice(name='➕ Add metric', options=l, solid = False, value = [l[0]], height = 150, width = 400)
             self.metrics = AwesomeButton(name="Add metric",icon=Icon(name="",value='<i class="fas fa-plus"></i>'))
             self.metrics.margin = [15,15]
             self.metrics.css_classes= ['btn']
@@ -177,28 +176,30 @@ def visualize_panel():
             self.metric_bar = pn.Row(self.select_metrics, self.select_agg, css_classes = ['float_box_invisible'])
             self.metric_bar[0].visible = False
             self.metric_bar[1].visible = False
-            self.element_list = [] # element list (종류, (values))
-            self.chart_list = []
+            self.metric_list = []
+            self.chart_list = {'metric':None, 'filter':None, 'split':None}
 
-            self.select_property = w.Select(name = 'Property', value = 'None', options=['None'], sizing_mode = 'fixed')
-            self.select_operator = w.Select(name = 'Operator', value = '=', options=['='], sizing_mode = 'fixed', width = 200, disabled = True)
-            self.select_values = w.CheckBoxGroup(name = 'Values', inline = False, disabled = True)
-            
-            self.filter_bar = pn.Row(self.select_property, self.select_operator, self.select_values, css_classes = ['float_box_invisible'])
-            self.filter_bar[0].visible = False
-            self.filter_bar[1].visible = False
-            self.filter_bar[2].visible = False
+            self.select_property = w.Select(name = 'Property', value = 'None', options=['None'], sizing_mode = 'fixed', width = 250)
+            self.select_operator = w.Select(name = 'Operator', value = '=', options=['='], sizing_mode = 'fixed', width = 100)
+            self.select_values = w.CheckBoxGroup( inline = False, width = 250)
+            self.select_values_name = pn.pane.HTML("values", visible = False)
+            self.filter_bar = pn.Row(self.select_property, self.select_operator, pn.Column(self.select_values_name,self.select_values), css_classes = ['float_box_invisible'])
+            self.select_property.visible = False
+            self.select_operator.visible = False
+            self.select_values_name.vislbie = False
+            self.select_values.visible = False
             
             self.select_split_values = w.Select(name = 'Values', value = 'None', options=['None'], sizing_mode = 'fixed')
-            self.select_limit = w.input.NumberInput(value = 10, start = 1, stop = 50, step = 1, width = 100, sizing_mode = 'fixed', disabled = True)
+            self.select_limit = w.input.NumberInput(name = 'Limit', value = 10, start = 1, stop = 50, step = 1, width = 100, sizing_mode = 'fixed', disabled = True)
             self.select_sort = w.Select(name = 'Sort', value = 'Ascending', options=['Ascending', 'Descending'], sizing_mode = 'fixed', width = 200, disabled = True)
 
             self.split_bar = pn.Row(self.select_split_values, self.select_limit, self.select_sort, css_classes = ['float_box_invisible'])
-            self.split_bar[0].visible = False
-            self.split_bar[1].visible = False
-            self.split_bar[2].visible = False
+            self.select_split_values.visible = False
+            self.select_limit.visible = False
+            self.select_sort.visible = False
             
-
+            self.chart_filter = None
+            self.chart_split = None
 
             self.ctop_btn_board = AwesomeButton(name="Add to dashboard",icon=Icon(name="",value='<i class="fas fa-bookmark"></i>'))
             self.ctop_btn_board.css_classes= ['btn']
@@ -208,7 +209,7 @@ def visualize_panel():
             self.chart_top_bar = pn.Row(self.metrics, self.filter, self.splitting, self.chart_type, self.ctop_btn_board, background='WhiteSmoke', css_classes = ['box'])
             self.chart_col = pn.Column()
             self.aggregate = []
-            self.selected_element_bar = pn.Row()
+            self.selected_element_bar = pn.Row(pn.Row(), pn.Row(), pn.Row()) # metric, filter, split
             self.cached_chart = None
         
         def add_metric(self, clicked_button):
@@ -219,22 +220,29 @@ def visualize_panel():
                     i.visible = False
             else:
                 self.metric_bar.css_classes = ['float_box']
+                
                 for i in self.metric_bar:
                     i.visible = True
+                    i.value = 'None'
         
         def add_filter(self, clicked_button):
-            self._visible(self.filter_bar)
+            print("ADD filter")
             if self.filter_bar[0].visible:
                 self.filter_bar.css_classes = ['float_box_invisible']
                 for i in self.filter_bar:
                     i.visible = False
+                self.select_values_name.vislbie = False
+                self.select_values.visible = False
             else:
+                print("ADD filter visible?")
                 self.filter_bar.css_classes = ['float_box']
                 for i in self.filter_bar:
                     i.visible = True
+                self.select_values.value = self.select_values.options
+                self.select_values_name.vislbie = True
+                self.select_values.visible = True
         
         def add_splitting(self, clicked_button):
-            self._visible(self.split_bar)
             if self.split_bar[0].visible:
                 self.split_bar.css_classes = ['float_box_invisible']
                 for i in self.split_bar:
@@ -248,28 +256,50 @@ def visualize_panel():
             return get_metrics_info(self.metrics)
         
         def set_selected_element_bar(self): #for visualize
-            self.selected_element_bar.clear()
-            for element in self.element_list:
-                if element[0] == 'metric':
-                    metric = element[1]
-                    #name = w.indicators.String()
-                    name = pn.pane.HTML("<center>"+metric[1]+' of '+metric[0], align = 'center',width=200)
-                    temp = w.Button(name = '✖', message = element, css_classes = ['small-btn'], width = 20, margin=[-3,0])
-                    temp.on_click(self.remove_metric)
-                     
-                    self.selected_element_bar.append(pn.Row(name,temp, sizing_mode = 'fixed', width=250, css_classes = ['float_box']))
-                    
+            #self.selected_element_bar.clear()
+            #self.filter # 라는게 있다고 가정할게 현재 걸려있는 필터, 필터는 property 하나에 밖에 못 걸어.
+            metric_container = pn.Row()
+            filter_container = pn.Row()
+            split_container = pn.Row()
+
+
+            for metric in self.metric_list:
+                name = pn.pane.HTML("<center>"+metric[1]+' of '+metric[0], align = 'center',width=200)
+                temp = w.Button(name = '✖', message = (0,metric), css_classes = ['small-btn'], width = 20, margin=[-3,0])
+                temp.on_click(self.remove_metric)
+                metric_container.append(pn.Row(pn.Row(name,temp, sizing_mode = 'fixed', width=250, css_classes = ['float_box'])))
+                  
+            if self.chart_filter != None:
+                name = pn.pane.HTML("<center>"+self.chart_filter[0]+self.chart_filter[1]+', '.join(self.chart_filter[2]), align = 'center',width=200)
+                temp = w.Button(name = '✖', message = (1,copy.deepcopy(self.chart_filter)), css_classes = ['small-btn'], width = 20, margin=[-3,0])
+                temp.on_click(self.remove_metric)        
+                filter_container.append(pn.Row(name,temp, sizing_mode = 'fixed', width=250, css_classes = ['float_box']))
+            
+            if self.chart_split != None:
+                name = pn.pane.HTML("<center>split by"+self.chart_split[0], align = 'center', width=150)
+                temp = w.Button(name = '✖', message = (2,copy.deepcopy(self.chart_split)), css_classes = ['small-btn'], width = 20, margin=[-3,0])
+                temp.on_click(self.remove_metric)        
+                split_container.append(pn.Row(name,temp, sizing_mode = 'fixed', width=200, css_classes = ['float_box']))
+            
+            self.selected_element_bar = pn.Row(metric_container, filter_container, split_container)
+            
+
 
 
         def remove_metric(self, event):
-            e = event.obj.message 
-
-            for element in self.selected_element_bar:
-                if element[1].message == e:
-                    self.selected_element_bar.remove(element)
-            print(self.element_list)
-            self.element_list.remove(e)
-            print(self.element_list)
+            e = event.obj.message # (숫자, metric or filter or split)
+            if e[0] == 0:
+                for m in self.selected_element_bar[0]: # Row
+                    if m[1].message == (0,m):
+                        self.selected_element_bar[0].remove(m)
+                        self.metric_list.remove(e[1])
+            elif e[0] == 1:
+                self.selected_element_bar[1]=pn.Row()
+                self.chart_filter = None
+            elif e[0] == 2:
+                self.selected_element_bar[2]=pn.Row()
+                self.chart_split = None
+            
             if self.trigger.value:
                 self.trigger.value = False
             else: 
@@ -281,23 +311,72 @@ def visualize_panel():
                         s_value = 'None', limit = 0, sort = 'Ascending', # split
                         type = 'line', timerange = datetime_range_picker.value, trigger=''):
             print("Draw")
-            print(self.element_list)
+            print(property)
+            print(operator)
+            print(value)
             if not (metric == 'None' or aggregate == 'None'):
-                self.element_list.append(('metric',(metric,aggregate)))
-                print("append", metric, aggregate)
-            if not (property == 'None' or operator == '=' or value ==[]):
-                self.element_list.append(('filter',(property, operator, value)))
-            if not (s_value == 'None'):
-                self.element_list.append(('split',(s_value, limit, sort)))
-            if set(self.chart_list)==set(self.element_list):
-                print("elif test")
-                print(self.chart_list)
-                print(self.element_list)
+                if len(self.metric_list)==0 or self.metric_list[-1] != (metric,aggregate):
+                    self.metric_list.append((metric,aggregate))
+                    print("append", metric, aggregate)
 
+            if not (property == 'None'):
+                self.chart_filter = (property, operator, value)
+         
+                       
+            if not (s_value == 'None'):
+                self.chart_split = (s_value, limit, sort)
+
+            print(self.chart_list) # chart_list includes filter and split
+            print(self.metric_list)
+            if self.chart_list['metric'] != None and set(self.chart_list['metric'])==set(self.metric_list) and self.chart_list['filter'] == self.chart_filter and self.chart_list['split'] == self.chart_split:
+                print("elif test")
                 return pn.Column(self.selected_element_bar, pn.panel(self.cached_chart))
-            # check if metrics are all multi-dimension
-            metric_list = [m for (e,m) in self.element_list if e == 'metric']
-            if len(metric_list)>0:
+
+            print(self.metric_list)
+            chart = visualize_metrics_panel(self.metric_list, self.chart_filter, self.chart_split, type, timerange)
+            
+            metric_names = [a+' of '+m.replace('_', ' ') for (m,a) in self.metric_list]
+            if len(metric_names) == 1:
+                self.name = metric_names[0]
+            elif len(metric_names) >= 2:
+                self.name = ', '.join(metric_names[0:3])
+                if len(metric_names) > 4:
+                    self.name += f", and {len(metric_names)-3} other metrics" 
+            #print(self.num)
+            if self.num>1 or len(metric_names)>=1:
+                template.main[0][self.num-1].title = self.name
+          
+
+            if not (metric == 'None' or aggregate == 'None'): 
+            # initialize
+                self.metric_bar.css_classes = ['float_box_invisible']
+                self.select_metrics.visible = False
+                self.select_agg.visible = False
+                #self.select_metrics.value = 'None'
+                #self.select_agg.value = 'None'
+                
+            if not (property == 'None' or operator == '=' or value ==[]):
+                self.filter_bar.css_classes = ['float_box_invisible']
+                self.select_property.value = "None"
+                self.select_operator.value = '='
+                self.select_value.value = ()
+                
+            if not (s_value == 'None'):
+                self.split_bar.css_classes = ['float_box_invisible']
+                self.select_split_values.value = "None"
+                self.select_limit.value = '10'
+                self.select_sort.value = 'Ascending'
+
+                
+            self.set_selected_element_bar()
+            self.cached_chart = chart
+            self.chart_list['metric'] = copy.deepcopy(self.metric_list)
+            self.chart_list['filter'] = self.chart_filter
+            self.chart_list['split'] = self.chart_split
+            
+
+            ml = [m for (m,a) in self.metric_list]
+            if len(ml)>0:
                 MULTI_DIM_METRICS = [
                     ["Sessions"], ["Waiting Sessions"],
                     ["Backends", 
@@ -315,70 +394,37 @@ def visualize_panel():
                     "Tuples Returned", 
                     "Tuples Updated",]
                 ]
-                
-                for c in MULTI_DIM_METRICS:
-                    if len(set(metric_list)-set(c))==0:
+                for i,c in enumerate(MULTI_DIM_METRICS):  
+                    if len(set(ml)-set(c))==0:
+                        if i == 0:
+                            #self.select_property.options = ['State']
+                            self.select_values.options = STATE
+                            self.select_split_values.options = STATE
+                        elif i == 1:
+                            #self.select_property.options = ['Wait event type']
+                            self.select_values.options = WAIT_EVENT_TYPE
+                            self.select_split_values = WAIT_EVENT_TYPE
+                        elif i == 2:
+                            #self.select_property.options = ['Database name']
+                            self.select_values.options = DAT_NAMES
+                            self.select_split_values = DAT_NAMES
                         self.filter.disabled =False
                         self.splitting.disabled = False
+                        self.select_values.disabled = False
                         break
                     else:
                         self.filter.disabled =True
                         self.splitting.disabled =True
-                        
-                        
-
-            
-            print(self.element_list)
-            chart = visualize_metrics_panel(self.element_list, type, timerange)
-            
-            metric_names = [a+' of '+m.replace('_', ' ') for (e, (m,a)) in self.element_list if e == 'metric']
-            if len(metric_names) == 1:
-                self.name = metric_names[0]
-            elif len(metric_names) >= 2:
-                self.name = ', '.join(metric_names[0:3])
-                if len(metric_names) > 4:
-                    self.name += f", and {len(metric_names)-3} other metrics" 
-            #print(self.num)
-            if self.num>1 or len(metric_names)>=1:
-                template.main[0][self.num-1].title = self.name
-            #print(len(template.main))
-            #[self.num].title = self.name
-
-            if not (metric == 'None' or aggregate == 'None'): 
-            # initialize
-                self.metric_bar.css_classes = ['float_box_invisible']
-                self.select_metrics.visible = False
-                self.select_agg.visible = False
-                self.set_selected_element_bar()
-                self.select_metrics.value = 'None'
-                self.select_agg.value = 'None'
-                
-            if not (property == 'None' or operator == '=' or value ==[]):
-                self.filter_bar.css_classes = ['float_box_invisible']
-                self.select_property.value = "None"
-                self.select_operator.value = '='
-                self.select_value.value = []
-                
-            if not (s_value == 'None'):
-                self.split_bar.css_classes = ['float_box_invisible']
-                self.select_split_values.value = "None"
-                self.select_limit.value = '10'
-                self.select_sort.value = 'Ascending'
-
-                
-
-            self.cached_chart = chart
-            self.chart_list = copy.deepcopy(self.element_list)
             return pn.Column(self.selected_element_bar, pn.panel(chart))
 
         def get_title(self, metric, aggregate, trigger):
             if not (metric == 'None' or aggregate == 'None'):
                 return pn.pane.Markdown(f"### {self.name}", margin = [5,10])
 
-            if len(self.element_list) == 0:
+            if len(self.metric_list) == 0:
                 return pn.pane.Markdown(f"### Empty Chart", margin = [5,10])
             else:
-                metric_names = [a+' of '+m.replace('_', ' ') for (e, (m,a)) in self.element_list if e =='metric']
+                metric_names = [a+' of '+m.replace('_', ' ') for (m,a) in self.metric_list]
                 if len(metric_names) == 1:
                     self.name = metric_names[0]
                 elif len(metric_names) >= 2:
@@ -386,16 +432,16 @@ def visualize_panel():
                     if len(metric_names) > 4:
                         self.name += f", and {len(metric_names)-3} other metrics" 
                 return pn.pane.Markdown(f"### {self.name}", margin = [5,10])
-
+       
         def chart(self):
             self.chart_col = pn.Column(pn.bind(self.draw_chart, 
                                                 metric = self.select_metrics, aggregate = self.select_agg, 
-                                                property = self.select_property, operator = self.select_operator, value = self.select_values,
-                                                s_value = self.select_split_values, limit = self.select_limit, sort = self.select_sort,
+                                                property = self.select_property, operator = '=', value = self.select_values,
+                                                s_value = self.select_split_values, limit = 10, sort = 'Ascending',
                                                 type = self.chart_type, 
                                                 timerange = datetime_range_picker, 
                                                 trigger = self.trigger))
-            self.c = pn.Card(pn.bind(self.get_title, metric = self.select_metrics, aggregate = self.select_agg, trigger = self.trigger), self.chart_top_bar, self.metric_bar, self.selected_element_bar, self.chart_col, collapsible = False, hide_header = True)
+            self.c = pn.Card(pn.bind(self.get_title, metric = self.select_metrics, aggregate = self.select_agg, trigger = self.trigger), self.chart_top_bar, self.metric_bar, self.filter_bar, self.split_bar, self.selected_element_bar, self.chart_col, collapsible = False, hide_header = True)
             return self.c
     def new_chart(clicked_button):
         num = len(template.main[0])-1
