@@ -389,15 +389,18 @@ def visualize_panel():
             if self.chart_list['metric'] != None and set(self.chart_list['metric'])==set(self.metric_list) and self.chart_list['filter'] == self.chart_filter and self.chart_list['split'] == self.chart_split:
                 return pn.Column(self.selected_element_bar, pn.panel(self.cached_chart))
             
-            option_dict = {'y_min':y_min,
+            if self.chart_setting_btn.clicks:
+                option_dict = {'y_min':y_min,
                             'y_max':y_max,
                             'l_visible':l_visible,
                             'l_position':l_position,
                             'l_size':l_size,}
 
 
-            chart = visualize_metrics_panel(self.metric_list, self.chart_filter, self.chart_split, type, timerange)
+            chart = visualize_metrics_panel(self.metric_list, self.chart_filter, self.chart_split, type, timerange, option_dict)
             
+            # Chart setting widget value 설정해야함!!!
+
             metric_names = [a+' of '+m.replace('_', ' ') for (m,a) in self.metric_list]
             if len(metric_names) == 1:
                 self.name = metric_names[0]

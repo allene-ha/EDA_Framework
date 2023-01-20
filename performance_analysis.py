@@ -1423,11 +1423,9 @@ def get_metrics_info():
 def get_metric_fig():
     global metrics, all_timestamp, col
 
-def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='line', timerange=[]):
+def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='line', timerange=[], option_dict = None):
     #selected_metrics = [m for (e,m) in selected_element if e == 'metric']
     
-    print("filter",filter)
-    print("split", split)
 
     column_dict = {'Database name':'datname',
                     'State':'state',
@@ -1448,7 +1446,6 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
         df_temp = metrics[category].copy()
         df_temp.set_index('timestamp', inplace = True) # column에 없는 경우 발생
         if filter != None:
-            print("filter???")
             df_temp = df_temp.loc[df_temp[column_dict[filter[0]]].isin(filter[2])]
         if split != None:
             df_copy = df_copy.join(df_temp[[column_dict[split[0]], metric]], how='outer')
@@ -1477,11 +1474,8 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
         fold.append(metric+'_'+agg)
         
 
-    #display("summary", df_summary)
-    #print(fold)
     df_summary.reset_index(inplace=True)
 
-    #print(df_summary)
     chart = alt.Chart(df_summary).transform_fold(fold,)
     if type == 'line':
         chart = chart.mark_line()
@@ -1493,7 +1487,6 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
         chart = chart.mark_circle()
 
     selection = alt.selection_multi(fields=['key'], bind='legend')
-#opacity=alt.condition(selection, alt.value(1), alt.value(0.2))
 
     chart = chart.encode(
         x = alt.X('index:T', title = '',axis=alt.Axis(grid=False)),
@@ -1516,8 +1509,17 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
         else:
             chart = chart.encode(color=alt.Color('key:N', title = ''),
                                 shape=alt.Color(column_dict[split[0]]+':N'))
-
-
+    if option_dict != None:
+        #option_dict['y_min']
+        chart.encoding.y.scale = alt.Scale(domain=[option_dict['y_min'], option_dict['y_max']])
+        if option_dict['l_position'] == 'Right':
+            chart = chart.configure_legend(orient='right')
+        if option_dict['l_size'] == "Full":
+            chart = chart.configure_legend(labelLimit= 0)
+        if option_dict['l_visible'] == "Hidden":
+            chart.encoding.color.legend=None
+            chart.encoding.shape.legend=None
+            
     return chart
 
 def get_dat_names():
