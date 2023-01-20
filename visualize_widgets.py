@@ -39,6 +39,17 @@ def visualize_panel():
         width: 20px;
         font-size: 100%;
     }
+    .btn .bk-btn-group button {
+
+        border: 0px;
+        background-color: transparent;
+        border-radius: 10px;
+        height: 30px;
+        width: 100px;
+
+        font-size: 100%;
+        text-align: left; 
+    }
     .small-btn .bk-btn-group button:hover {
         background-color: transparent;
     }
@@ -147,6 +158,9 @@ def visualize_panel():
     top_bar = pn.Row(top_btn_new,top_btn_refresh,None, datetime_range_picker)
 
 
+    template.modal.append(pn.Column()) 
+    modal_area = template.modal[0]
+
     class Chart():
         def __init__(self, num):
             self.name = ''
@@ -201,17 +215,64 @@ def visualize_panel():
             self.chart_filter = None
             self.chart_split = None
 
-            self.ctop_btn_board = AwesomeButton(name="Add to dashboard",icon=Icon(name="",value='<i class="fas fa-bookmark"></i>'))
+            self.ctop_btn_board = AwesomeButton(name="Pin to dashboard",icon=Icon(name="",value='<i class="fas fa-bookmark"></i>'))
             self.ctop_btn_board.css_classes= ['btn']
             self.ctop_btn_board.margin = [15,15]
 
+            self.chart_setting_btn = AwesomeButton(icon=Icon(name="",value='<i class="fas fa-align-justify"></i>'), sizing_mode = "fixed", width = 40, height = 40)
+            self.chart_setting_btn.css_classes= ['btn']
+            self.chart_setting_btn.margin = [15,15]
+            self.chart_setting_btn.on_click(self.set_chart_setting)
+
             self.chart_type = w.Select(name = '', options={'Line chart':'line', 'Bar chart':'bar', 'Area chart':'area', 'Scatter chart':'scatter'}, margin = [15,15])
-            self.chart_top_bar = pn.Row(self.metrics, self.filter, self.splitting, self.chart_type, self.ctop_btn_board, background='WhiteSmoke', css_classes = ['box'])
+            self.chart_top_bar = pn.Row(self.metrics, self.filter, self.splitting, self.chart_type, self.ctop_btn_board, self.chart_setting_btn, background='WhiteSmoke', css_classes = ['box'])
             self.chart_col = pn.Column()
             self.aggregate = []
-            self.selected_element_bar = pn.Row(pn.Row(), pn.Row(), pn.Row()) # metric, filter, split
+            self.metric_container = pn.Row()
+            self.filter_container = pn.Row()
+            self.split_container = pn.Row()
+            self.selected_element_bar = pn.Row(self.metric_container, self.filter_container, self.split_container) # metric, filter, split
             self.cached_chart = None
+            self.initialize_chart_setting()
+            
+        def initialize_chart_setting(self):
+            self.y_min = w.NumberInput(name = 'Min value', placeholder='Enter your value...', width = 200)
+            self.y_max = w.NumberInput(name = 'Max value', placeholder='Enter your value...', width = 200)
+            self.b_min = w.Button(name = 'Reset ', button_type = 'light', width = 60, align = 'center')
+            self.b_max = w.Button(name = 'Reset ', button_type = 'light', width = 60, align = 'center')
+
+            self.r_type = w.RadioButtonGroup(
+                name='Chart type', options=['line', 'area', 'bar', 'scatter', 'table'], button_type='primary')
+
+            self.r_title = w.RadioButtonGroup(
+                name='Chart title', options=['Auto', 'Custom', 'None'], button_type='primary')
+
+            self.l_visible = w.RadioButtonGroup(options=['Visible', 'Hidden'], button_type='primary', width = 150)
+            self.l_position = w.RadioButtonGroup(options=['Bottom', 'Right'], button_type='primary', width = 150)
+            self.l_size = w.RadioButtonGroup(options=['Compact', 'Full'], button_type='primary', width = 150)
+            self.l_grid = pn.GridBox(
+                'Visibility',self.l_visible,
+                'Position',self.l_position,
+                'Size',self.l_size,
+                ncols=2, align = 'center')
+
+
+            self.box = pn.WidgetBox('<font size="5em">⚙️ Chart settings</font>',
+                            #'<hr width="300px"><b>Chart type<b/>', 
+                            #r_type, 
+                            '<hr width="300px"><b>Chart title<b/>',
+                            self.r_title,
+                            '<div style="margin: 0px 0px 0px 10px;">Title created from your selection of metrics, filters, and grouping.</div><hr width="300px">',
+                            '<b>Y-axis range<b/>',
+                            pn.Row(self.t_min, self.b_min), pn.Row(self.t_max, self.b_max),
+                            '<hr width="300px"><b>Legends<b/>',
+                            self.l_grid, width = 300)
         
+        def set_chart_setting(self, clicked_button):
+            modal_area.clear()
+            modal_area.append(self.box)
+            template.open_modal()
+
         def add_metric(self, clicked_button):
            
             if self.metric_bar[0].visible:
@@ -258,30 +319,29 @@ def visualize_panel():
         def set_selected_element_bar(self): #for visualize
             #self.selected_element_bar.clear()
             #self.filter # 라는게 있다고 가정할게 현재 걸려있는 필터, 필터는 property 하나에 밖에 못 걸어.
-            metric_container = pn.Row()
-            filter_container = pn.Row()
-            split_container = pn.Row()
-
+            self.metric_container.clear()
+            self.filter_container.clear()
+            self.split_container.clear()
 
             for metric in self.metric_list:
                 name = pn.pane.HTML("<center>"+metric[1]+' of '+metric[0], align = 'center',width=200)
                 temp = w.Button(name = '✖', message = (0,metric), css_classes = ['small-btn'], width = 20, margin=[-3,0])
                 temp.on_click(self.remove_metric)
-                metric_container.append(pn.Row(pn.Row(name,temp, sizing_mode = 'fixed', width=250, css_classes = ['float_box'])))
+                self.metric_container.append(pn.Row(name,temp, sizing_mode = 'fixed', width=250, css_classes = ['float_box']))
                   
             if self.chart_filter != None:
                 name = pn.pane.HTML("<center>"+self.chart_filter[0]+self.chart_filter[1]+', '.join(self.chart_filter[2]), align = 'center',width=200)
                 temp = w.Button(name = '✖', message = (1,copy.deepcopy(self.chart_filter)), css_classes = ['small-btn'], width = 20, margin=[-3,0])
                 temp.on_click(self.remove_metric)        
-                filter_container.append(pn.Row(name,temp, sizing_mode = 'fixed', width=250, css_classes = ['float_box']))
+                self.filter_container.append(pn.Row(name,temp, sizing_mode = 'fixed', width=250, css_classes = ['float_box']))
             
             if self.chart_split != None:
                 name = pn.pane.HTML("<center>split by"+self.chart_split[0], align = 'center', width=150)
                 temp = w.Button(name = '✖', message = (2,copy.deepcopy(self.chart_split)), css_classes = ['small-btn'], width = 20, margin=[-3,0])
                 temp.on_click(self.remove_metric)        
-                split_container.append(pn.Row(name,temp, sizing_mode = 'fixed', width=200, css_classes = ['float_box']))
+                self.split_container.append(pn.Row(name,temp, sizing_mode = 'fixed', width=200, css_classes = ['float_box']))
             
-            self.selected_element_bar = pn.Row(metric_container, filter_container, split_container)
+            
             
 
 
@@ -289,15 +349,18 @@ def visualize_panel():
         def remove_metric(self, event):
             e = event.obj.message # (숫자, metric or filter or split)
             if e[0] == 0:
-                for m in self.selected_element_bar[0]: # Row
+                for m in self.metric_container: # Row
+                    print("Remove metric")
+                    print(m)
+                    print(m[1].message)
                     if m[1].message == (0,m):
-                        self.selected_element_bar[0].remove(m)
+                        self.metric_container.remove(m)
                         self.metric_list.remove(e[1])
             elif e[0] == 1:
-                self.selected_element_bar[1]=pn.Row()
+                self.filter_container.clear()
                 self.chart_filter = None
             elif e[0] == 2:
-                self.selected_element_bar[2]=pn.Row()
+                self.split_container.clear()
                 self.chart_split = None
             
             if self.trigger.value:
@@ -309,30 +372,30 @@ def visualize_panel():
                         metric='None', aggregate='None', # metric
                         property = 'None', operator = '=', value =[], # filter
                         s_value = 'None', limit = 0, sort = 'Ascending', # split
-                        type = 'line', timerange = datetime_range_picker.value, trigger=''):
-            print("Draw")
-            print(property)
-            print(operator)
-            print(value)
+                        y_min=None, y_max=None, l_visible=None, l_position=None, l_size=None,
+                        type='line', timerange=datetime_range_picker.value, trigger=''):
+            
             if not (metric == 'None' or aggregate == 'None'):
                 if len(self.metric_list)==0 or self.metric_list[-1] != (metric,aggregate):
                     self.metric_list.append((metric,aggregate))
-                    print("append", metric, aggregate)
 
-            if not (property == 'None'):
+            if not (property == 'None' or len(value)==0):
                 self.chart_filter = (property, operator, value)
          
                        
             if not (s_value == 'None'):
                 self.chart_split = (s_value, limit, sort)
 
-            print(self.chart_list) # chart_list includes filter and split
-            print(self.metric_list)
             if self.chart_list['metric'] != None and set(self.chart_list['metric'])==set(self.metric_list) and self.chart_list['filter'] == self.chart_filter and self.chart_list['split'] == self.chart_split:
-                print("elif test")
                 return pn.Column(self.selected_element_bar, pn.panel(self.cached_chart))
+            
+            option_dict = {'y_min':y_min,
+                            'y_max':y_max,
+                            'l_visible':l_visible,
+                            'l_position':l_position,
+                            'l_size':l_size,}
 
-            print(self.metric_list)
+
             chart = visualize_metrics_panel(self.metric_list, self.chart_filter, self.chart_split, type, timerange)
             
             metric_names = [a+' of '+m.replace('_', ' ') for (m,a) in self.metric_list]
@@ -397,15 +460,15 @@ def visualize_panel():
                 for i,c in enumerate(MULTI_DIM_METRICS):  
                     if len(set(ml)-set(c))==0:
                         if i == 0:
-                            #self.select_property.options = ['State']
+                            self.select_property.options = ['State']
                             self.select_values.options = STATE
                             self.select_split_values.options = STATE
                         elif i == 1:
-                            #self.select_property.options = ['Wait event type']
+                            self.select_property.options = ['Wait event type']
                             self.select_values.options = WAIT_EVENT_TYPE
                             self.select_split_values = WAIT_EVENT_TYPE
                         elif i == 2:
-                            #self.select_property.options = ['Database name']
+                            self.select_property.options = ['Database name']
                             self.select_values.options = DAT_NAMES
                             self.select_split_values = DAT_NAMES
                         self.filter.disabled =False
@@ -438,6 +501,8 @@ def visualize_panel():
                                                 metric = self.select_metrics, aggregate = self.select_agg, 
                                                 property = self.select_property, operator = '=', value = self.select_values,
                                                 s_value = self.select_split_values, limit = 10, sort = 'Ascending',
+                                                y_min = self.y_min, y_max = self.y_max, 
+                                                l_visible = self.l_visible, l_position = self.l_position, l_size = self.l_size,
                                                 type = self.chart_type, 
                                                 timerange = datetime_range_picker, 
                                                 trigger = self.trigger))
@@ -461,8 +526,8 @@ def visualize_panel():
     
 
     
-    #template.servable()
-    template.show()
+    return template
+    #template.show()
 
     #display(HTML(style))
     
