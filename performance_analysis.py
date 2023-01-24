@@ -1423,10 +1423,10 @@ def get_metrics_info():
 def get_metric_fig():
     global metrics, all_timestamp, col
 
-def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='line', timerange=[], option_dict = None):
+def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='line', timerange=[], option_dict = {}):
     #selected_metrics = [m for (e,m) in selected_element if e == 'metric']
-    
-
+    print("visualize fun",option_dict)
+    print(type)
     column_dict = {'Database name':'datname',
                     'State':'state',
                     'Wait event type':'wait_event_type'}
@@ -1448,41 +1448,72 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
         if filter != None:
             df_temp = df_temp.loc[df_temp[column_dict[filter[0]]].isin(filter[2])]
         if split != None:
+            print("SPLITTTT")
             df_copy = df_copy.join(df_temp[[column_dict[split[0]], metric]], how='outer')
         else:
             df_copy = df_copy.join(df_temp[metric], how='outer')#= df_temp[metric].copy()
-
+    print("after copy and join")
+    display(df_copy)
     if split == None:
         df_copy = df_copy.groupby(level = 0).agg('mean')
 
     idx = [i for i in df_copy.index if i >= timerange[0] and i<= timerange[1]]
     df_copy = df_copy.loc[idx]
-
+    print("after slice")
+    display(df_copy)
     
-    df_summary = pd.DataFrame()
-    for (metric, agg) in selected_metrics:    
-        if metric in METRIC_DICT.inverse:
-            metric = METRIC_DICT.inverse[metric] # Convert    
-        if agg == 'Sum':
-            df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').sum()
-        elif agg == 'Average':
-            df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').mean()
-        elif agg == 'Min':
-            df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').min()
-        elif agg == 'Max':
-            df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').max()
-        fold.append(metric+'_'+agg)
-        
 
+    df_summary = pd.DataFrame()
+    
+    if split != None:
+        
+        metric, agg = selected_metrics[0]
+        if metric in METRIC_DICT.inverse:
+            metric = METRIC_DICT.inverse[metric] # Convert  
+        df_copy.dropna(axis=0, inplace = True)
+        #print(df_copy)
+        p_table = df_copy.pivot_table(index = df_copy.index, columns = column_dict[split[0]], values = metric)
+        print("after pivot")
+        display(p_table)
+        for i in df_copy[column_dict[split[0]]].dropna().unique():
+            # if metric in METRIC_DICT.inverse:
+            #     metric = METRIC_DICT.inverse[metric] # Convert    
+            if agg == 'Sum':
+                df_summary[i] = p_table[i].resample('1T').sum()
+            elif agg == 'Average':
+                df_summary[i] = p_table[i].resample('1T').mean()
+            elif agg == 'Min':
+                df_summary[i] = p_table[i].resample('1T').min()
+            elif agg == 'Max':
+                df_summary[i] = p_table[i].resample('1T').max()
+            fold.append(i)
+    else:
+        for (metric, agg) in selected_metrics:    
+            if metric in METRIC_DICT.inverse:
+                metric = METRIC_DICT.inverse[metric] # Convert    
+            if agg == 'Sum':
+                df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').sum()
+            elif agg == 'Average':
+                df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').mean()
+            elif agg == 'Min':
+                df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').min()
+            elif agg == 'Max':
+                df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').max()
+            fold.append(metric+'_'+agg)
+            
+    display(df_summary)
     df_summary.reset_index(inplace=True)
 
+    
+
+    print(fold)
     chart = alt.Chart(df_summary).transform_fold(fold,)
     if type == 'line':
         chart = chart.mark_line()
     elif type == 'bar':
         chart = chart.mark_bar() # width 지정 필요
     elif type == 'area':
-        chart = chart.mark_area()
+        chart = chart.mark_area(opacity=0.3)
     elif type == 'scatter':
         chart = chart.mark_circle()
 
@@ -1490,8 +1521,8 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
 
     chart = chart.encode(
         x = alt.X('index:T', title = '',axis=alt.Axis(grid=False)),
-        y = alt.Y('value:Q', title = '', axis=alt.Axis(grid=True)),
         
+        color=alt.Color('key:N', title = ''),
         opacity=alt.condition(selection, alt.value(1), alt.value(0.2)),
         tooltip=[
         alt.Tooltip('value:Q', title='Value'),
@@ -1501,24 +1532,36 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
         ).properties(width='container', height='container'
         ).interactive().configure_legend(orient='bottom',
         ).add_selection(selection)
-    if split == None:
-        chart = chart.encode(color=alt.Color('key:N', title = ''))
-    else:
-        if len(selected_metrics)==1:
-            chart = chart.encode(color=alt.Color(column_dict[split[0]]+':N'))
+    if len(fold)>0:
+        avg_val = []
+        for i in fold:
+            avg_val.append(df_summary[i].mean())
+        print("avg_val", avg_val)
+        if min(avg_val) * 100 < max(avg_val):
+            chart = chart.encode(y = alt.Y('value:Q', title = '', axis=alt.Axis(grid=True), scale = alt.Scale(type='symlog')),)
         else:
-            chart = chart.encode(color=alt.Color('key:N', title = ''),
-                                shape=alt.Color(column_dict[split[0]]+':N'))
-    if option_dict != None:
-        #option_dict['y_min']
+            chart = chart.encode(y = alt.Y('value:Q', title = '', axis=alt.Axis(grid=True)),)
+        
+    # if split == None:
+    #     chart = chart.encode(color=alt.Color('key:N', title = ''))
+    # else:
+    #     if len(selected_metrics)==1:
+    #         chart = chart.encode(color=alt.Color(column_dict[split[0]]+':N'))
+    #     else:
+    #         chart = chart.encode(color=alt.Color('key:N', title = ''),
+    #                             shape=alt.Color(column_dict[split[0]]+':N'))
+    if option_dict['y_min']!=option_dict['y_max']:
+
         chart.encoding.y.scale = alt.Scale(domain=[option_dict['y_min'], option_dict['y_max']])
-        if option_dict['l_position'] == 'Right':
-            chart = chart.configure_legend(orient='right')
-        if option_dict['l_size'] == "Full":
-            chart = chart.configure_legend(labelLimit= 0)
-        if option_dict['l_visible'] == "Hidden":
-            chart.encoding.color.legend=None
-            chart.encoding.shape.legend=None
+    if option_dict['l_position'] == 'Right':
+        chart.config.legend.orient = 'right'
+       
+    
+    if option_dict['l_size'] == "Full":
+        chart.config.legend.labelLimit = 0
+    if option_dict['l_visible'] == "Hidden":
+        chart.encoding.color.legend=None
+        chart.encoding.shape.legend=None
             
     return chart
 
