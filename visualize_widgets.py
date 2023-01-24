@@ -8,11 +8,13 @@ import ipywidgets as widgets
 from ipywidgets import Label, HBox, VBox, Button, HTML, Output, Layout
 import panel as pn
 from panel import widgets as w
-#import holoviews as hv
+import holoviews as hv
 import datetime
 from awesome_panel_extensions.models.icon import Icon
 from awesome_panel_extensions.widgets.button import AwesomeButton
 from panel.pane import HTML, Markdown
+from panel.layout.gridstack import GridStack
+
 
 
 plt.style.use('seaborn-notebook')
@@ -131,10 +133,20 @@ def visualize_panel():
         text-align: start;
         box-shadow: none;
     }
-    
+    .title .bk-input, .title .bk-input:focus{
+        border: 0px;
+        border-radious: 0px;
+        font-size: 16px;
+        font-weight : bold;
+        outline: none;
+        box-shadow: none;
+    }
+    .title .bk-input:hover{
+        text-decoration : underline;
+    }
 
     '''
-    pn.extension('vega',comms = 'ipywidgets', sizing_mode = 'stretch_width', raw_css = [css])
+    pn.extension('vega','gridstack',comms = 'ipywidgets', sizing_mode = 'stretch_width', raw_css = [css])
     
     pn.config.js_files["fontawesome"]="https://kit.fontawesome.com/121cf5990e.js"
 
@@ -160,6 +172,99 @@ def visualize_panel():
     
     def home():
         return ["Happy Home",1,2,3]
+
+    def dashboard():
+        
+        top_btn_new = AwesomeButton(name="New Dashboard",icon=Icon(name="",value='<i class="fas fa-sticky-note"></i>'))
+        top_btn_new.css_classes= ['btn']
+        
+
+        
+
+        #datetime_range_picker = w.DatetimeRangePicker(name='Time range', value=DATE_BOUNDS, width = 400)
+
+
+        class Dashboard:
+            def __init__(self):
+
+                self.title = pn.widgets.TextInput(value='New Chart', width = 400, css_classes = ['title'])
+
+                self.top_btn_refresh = AwesomeButton(name="Refresh",icon=Icon(name="",value="""<i class="fas fa-sync"></i>"""))
+                self.top_btn_refresh.css_classes= ['btn']
+
+                self.top_btn_clone = AwesomeButton(name="Clone",icon=Icon(name="",value="""<i class="fas fa-copy"></i>"""))
+                self.top_btn_clone.css_classes= ['btn']
+
+                self.top_btn_edit = AwesomeButton(name="Edit",icon=Icon(name="",value="""<i class="fas fa-pencil"></i>"""))
+                self.top_btn_edit.css_classes= ['btn']
+
+                self.metric_charts = pn.Card(title= 'Metric charts', visible = False, collapsible =False)
+                #self.tile_gallery = pn.Column(self.metric_charts, visible= False, css_classes= ['float_box_invisible'])
+                
+
+                self.edit_box = pn.Column(HTML("<h3><b>Tile Gallery"),self.metric_charts, visible= False, css_classes= ['float_box_invisible'])
+                
+
+                self.top_btn_edit.on_click(self.set_edit_box)
+
+                self.top_btn_delete = AwesomeButton(name="Delete",icon=Icon(name="",value="""<i class="fas fa-trash"></i>"""))
+                self.top_btn_delete.css_classes= ['btn']
+                self.top_bar = pn.Row(self.title, top_btn_new, self.top_btn_edit, self.top_btn_clone, self.top_btn_delete)
+                
+            
+                
+                self.gstack = GridStack(sizing_mode='stretch_width', allow_resize = True, allow_drag = True)
+                
+                from bokeh.plotting import figure
+
+                fig = figure()
+                fig.scatter([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 1, 2, 3, 2, 1, 0, -1, -2, -3])
+
+
+                self.gstack[0, :3] = pn.Spacer(background='#FF0000')
+                self.gstack[1:3, 0] = pn.Spacer(background='#0000FF')
+                self.gstack[1:3, 1:3] = fig
+                self.gstack[3:5, 0] = hv.Curve([1, 2, 3])
+                self.gstack[3:5, 1] = 'https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png'
+                self.gstack[3:5, 2] = pn.Column(
+                    pn.widgets.FloatSlider(),
+                    pn.widgets.ColorPicker(),
+                    pn.widgets.Toggle(name='Toggle Me!')
+                )
+
+                self.box = pn.Column(self.top_bar,self.edit_box, self.gstack)
+            def set_edit_box(self, clicked_button):
+                if self.edit_box.visible:
+                    for i in self.edit_box:
+                        i.visible = False
+                        i.set_classes = ['float_box_invisible']
+                        for j in i:
+                            j.visible = False
+                            j.set_classes = ['float_box_invisible']
+                            for k in j:
+                                k.visible = False
+                                k.set_classes = ['float_box_invisible']
+                    self.edit_box.visible = False
+                    self.edit_box.set_classes = ['float_box_invisible']
+                else:
+                    for i in self.edit_box:
+                        i.visible = True
+                        i.set_classes = ['float_box']
+                        for j in i:
+                            j.visible = True
+                            j.set_classes = ['float_box']
+                            for k in j:
+                                k.visible = True
+                                k.set_classes = ['float_box']
+                    self.edit_box.visible = True
+                    self.edit_box.set_classes = ['float_box']
+            def get(self):
+                return self.box
+
+        return [
+            Dashboard().get()  
+        ]
+        #)
 
     def metrics():
         # Top bar
@@ -287,6 +392,7 @@ def visualize_panel():
             
             def add_dashboard(self, clicked_button):
                 dashboard_chart.append(self.cached_chart)
+                print(dashboard_chart)
 
             def apply_chart_setting(self, clicked_button):
                 #print("APPLY")
@@ -562,7 +668,7 @@ def visualize_panel():
         #)
         
     PAGES = {
-        '🏠 Home': home,'📈 Metrics': metrics, '🖥️ Dashboard': home,
+        '🏠 Home': home,'📈 Metrics': metrics, '🖥️ Dashboard': dashboard,
     }
     @pn.depends(page_name, watch=True)
     def change_page(page_name):
