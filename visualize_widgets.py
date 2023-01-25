@@ -108,7 +108,7 @@ def visualize_panel():
         border: 1px royalblue solid;
 
     }
-    .bk-root.bk-btn-default.bk-active, .bk-root.bk-btn-default{
+    .bk.bk-btn.bk-btn-default.bk-active, .bk.bk-btn.bk-btn-default{
         display: inline-block;
         background-color: transparent;
         border: 0px;
@@ -122,7 +122,20 @@ def visualize_panel():
         outline: 0;
         box-shadow: none;
     }
-
+    .bk.bk-radio.bk-btn-default.bk-active{
+        display: inline-block;
+        background-color: lightgray;
+        border: 0px;
+        text-align: start;
+        vertical-align: middle;
+        white-space: nowrap;
+        padding: 6px 12px;
+        font-size: 15px;
+        border: 0px;
+        border-radius: 0px;
+        outline: 0;
+        box-shadow: none;
+    }
     
     .bk.box {
         background: WhiteSmoke;
@@ -231,13 +244,14 @@ def visualize_panel():
         top_btn_new.css_classes= ['btn']
     
         class Tile:
-            def __init__(self, title):
+            def __init__(self, title, contents=None):
                 self.title = HTML(f"<b><font color='#323130' size='3'>{title}")
                 self.btn_delete = w.Button(name = '🗑', css_classes = ['small-btn'], width = 20, visible = False)
                 self.btn_setting = w.Button(name = '⋯', css_classes = ['small-btn'], width = 20)
                 self.btn_setting.on_click(self.open_setting_modal)
                 self.bar = pn.Row(self.title, self.btn_delete, self.btn_setting)
-                self.content = pn.Column("")
+                self.content = pn.Column()
+                self.content.append(contents)
                 self.checkbox = w.Checkbox(name='Oberride the dashboard time settings at the tile level.',value = False)
                 self.s_timespan = w.Select(name='', options=['Past 30 minutes', 'Past hour', 'Past 4 hours'], disabled = True)
                 self.s_granularity = w.Select(name='', options=['Automatic', '1 minute', '5 minutes'], disabled = True)
@@ -298,7 +312,7 @@ def visualize_panel():
                 self.top_w = w.RadioButtonGroup(options=['Auto refresh: Off', 'UTC Time: Past 24 hours'], sizing_mode = 'fixed', width = 200, height = 30)
                 self.top_space = pn.Row(pn.Spacer(height=100))
                 
-                self.gstack = GridStack(width = 1250, height = 1000, ncols = 25, allow_resize = True, allow_drag = True)
+                self.gstack = pn.GridSpec(width = 1250, height = 1000, ncols = 25, nrows = 25)#GridStack(width = 1250, height = 1000, ncols = 25, allow_resize = True, allow_drag = True)
                 
                 self.add_tile = w.Button(name = '+ Add tile', css_classes = ['btn'])
                 def open_tile_gallery(button):
@@ -328,8 +342,8 @@ def visualize_panel():
 
 
                 
-                self.tile_list = w.RadioButtonGroup(name='', options={'🏠 Metrics chart':'metrics chart', '⏰ Clock':'Clock', '📝 Markdown':'Markdown'}, orientation='vertical',sizing_mode = 'fixed', height = 600, width = 300)
-                self.add_btn = w.Button(name ='Add', width = 300, css_classes = ['btn'])
+                self.tile_list = w.RadioButtonGroup(name='', options={'🏠 Metrics chart':'metrics chart', '⏰ Clock':'Clock', '📝 Markdown':'Markdown'},css_classes = ['btn_radio'], orientation='vertical',sizing_mode = 'fixed', height = 600, width = 300)
+                self.add_btn = w.Button(name ='Add', width = 300, button_type = 'default')
                 self.add_btn.on_click(self.grid_add_tile)
                 self.tile_modal = Modal(pn.Column(Markdown("### Tile Gallery"), self.tile_list, self.add_btn, align='center'), show_close_button = True)
                 self.tile_modal.style = css
@@ -342,19 +356,25 @@ def visualize_panel():
 
                 i,j = self.find_empty(size)
                 print(i,j)
-                self.gstack[i:i+size[0], j:j+size[1]] = pn.Spacer(background = 'yellow')#self.initialize_tile(self.tile_list.value)# 바로 여기 !!!
+                self.gstack[i:i+size[0], j:j+size[1]] = self.initialize_tile(self.tile_list.value)# 바로 여기 !!!
             
             def initialize_tile(self, type):
                 if type == 'Metrics chart':
                     button = w.Button(name = 'Click to set metric charts', sizing_mode = 'stretch_both') 
                     button.on_click(self.initialize_metric_charts)
-                    return button
+                    return Tile("Test Metric", button).tile
 
             def initialize_gstack(self):
                 self.gstack[0:3, 0:3] = Tile("Utilization").tile
                 self.gstack[3:6, 0:3] = Tile("Performance").tile
                 self.gstack[6:9, 0:3] = Tile("Data").tile
-                print(self.gstack.grid)
+                # print(self.gstack.grid)
+                # size = (4,3)
+
+                # i,j = self.find_empty(size)
+                # print(i,j)
+                # self.gstack[i:i+size[0], j:j+size[1]] = pn.Spacer(background = 'yellow')
+                # print(self.gstack.grid)
 
             def initialize_metric_charts(self, button):
                 print("HELLO")
