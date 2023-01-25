@@ -1457,6 +1457,7 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
     if split == None:
         df_copy = df_copy.groupby(level = 0).agg('mean')
 
+    print(timerange)
     idx = [i for i in df_copy.index if i >= timerange[0] and i<= timerange[1]]
     df_copy = df_copy.loc[idx]
     print("after slice")
@@ -1504,7 +1505,7 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
     display(df_summary)
     df_summary.reset_index(inplace=True)
 
-    
+    display(df_summary)
 
     print(fold)
     chart = alt.Chart(df_summary).transform_fold(fold,)
@@ -1520,7 +1521,7 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
     selection = alt.selection_multi(fields=['key'], bind='legend')
 
     chart = chart.encode(
-        x = alt.X('index:T', title = '',axis=alt.Axis(grid=False)),
+        x = alt.X('index:T', title = '',axis=alt.Axis(grid=False)),# scale=alt.Scale(domain=[df_summary['index'].min(),df_summary['index'].max()])),
         
         color=alt.Color('key:N', title = ''),
         opacity=alt.condition(selection, alt.value(1), alt.value(0.2)),
