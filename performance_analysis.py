@@ -1425,8 +1425,8 @@ def get_metric_fig():
 
 def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='line', timerange=[], option_dict = {}):
     #selected_metrics = [m for (e,m) in selected_element if e == 'metric']
-    print("visualize fun",option_dict)
-    print(type)
+    #print("visualize fun",option_dict)
+    #print(type)
     column_dict = {'Database name':'datname',
                     'State':'state',
                     'Wait event type':'wait_event_type'}
@@ -1448,20 +1448,20 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
         if filter != None:
             df_temp = df_temp.loc[df_temp[column_dict[filter[0]]].isin(filter[2])]
         if split != None:
-            print("SPLITTTT")
+            #print("SPLITTTT")
             df_copy = df_copy.join(df_temp[[column_dict[split[0]], metric]], how='outer')
         else:
             df_copy = df_copy.join(df_temp[metric], how='outer')#= df_temp[metric].copy()
-    print("after copy and join")
-    display(df_copy)
+    # print("after copy and join")
+    # display(df_copy)
     if split == None:
         df_copy = df_copy.groupby(level = 0).agg('mean')
 
-    print(timerange)
+    # print(timerange)
     idx = [i for i in df_copy.index if i >= timerange[0] and i<= timerange[1]]
     df_copy = df_copy.loc[idx]
-    print("after slice")
-    display(df_copy)
+    # print("after slice")
+    # display(df_copy)
     
 
     df_summary = pd.DataFrame()
@@ -1474,8 +1474,8 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
         df_copy.dropna(axis=0, inplace = True)
         #print(df_copy)
         p_table = df_copy.pivot_table(index = df_copy.index, columns = column_dict[split[0]], values = metric)
-        print("after pivot")
-        display(p_table)
+        #print("after pivot")
+        #display(p_table)
         for i in df_copy[column_dict[split[0]]].dropna().unique():
             # if metric in METRIC_DICT.inverse:
             #     metric = METRIC_DICT.inverse[metric] # Convert    
@@ -1502,12 +1502,12 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
                 df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').max()
             fold.append(metric+'_'+agg)
             
-    display(df_summary)
+    #display(df_summary)
     df_summary.reset_index(inplace=True)
 
-    display(df_summary)
+    #display(df_summary)
 
-    print(fold)
+    #print(fold)
     chart = alt.Chart(df_summary).transform_fold(fold,)
     if type == 'line':
         chart = chart.mark_line()
@@ -1530,7 +1530,7 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
         alt.Tooltip('key:N', title='Metric'),
         alt.Tooltip('index:T', title='Timestamp')
         ]
-        ).properties(width='container', height='container'
+        ).properties(width='container'
         ).interactive().configure_legend(orient='bottom',
         ).add_selection(selection)
     if len(fold)>0:
@@ -1543,26 +1543,20 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
         else:
             chart = chart.encode(y = alt.Y('value:Q', title = '', axis=alt.Axis(grid=True)),)
         
-    # if split == None:
-    #     chart = chart.encode(color=alt.Color('key:N', title = ''))
-    # else:
-    #     if len(selected_metrics)==1:
-    #         chart = chart.encode(color=alt.Color(column_dict[split[0]]+':N'))
-    #     else:
-    #         chart = chart.encode(color=alt.Color('key:N', title = ''),
-    #                             shape=alt.Color(column_dict[split[0]]+':N'))
-    if option_dict['y_min']!=option_dict['y_max']:
+   
+    if len(option_dict)>0:
+        if option_dict['y_min']!=option_dict['y_max']:
 
-        chart.encoding.y.scale = alt.Scale(domain=[option_dict['y_min'], option_dict['y_max']])
-    if option_dict['l_position'] == 'Right':
-        chart.config.legend.orient = 'right'
-       
-    
-    if option_dict['l_size'] == "Full":
-        chart.config.legend.labelLimit = 0
-    if option_dict['l_visible'] == "Hidden":
-        chart.encoding.color.legend=None
-        chart.encoding.shape.legend=None
+            chart.encoding.y.scale = alt.Scale(domain=[option_dict['y_min'], option_dict['y_max']])
+        if option_dict['l_position'] == 'Right':
+            chart.config.legend.orient = 'right'
+        
+        
+        if option_dict['l_size'] == "Full":
+            chart.config.legend.labelLimit = 0
+        if option_dict['l_visible'] == "Hidden":
+            chart.encoding.color.legend=None
+            chart.encoding.shape.legend=None
             
     return chart
 

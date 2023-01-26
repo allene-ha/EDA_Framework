@@ -31,6 +31,21 @@ def visualize_panel():
     WAIT_EVENT_TYPE = ['Activity','BufferPin','Client','Extension','IO','IPC','Lock','LWLock','Timeout']
 
     css = '''
+    .mdc-top-app-bar__section{
+        padding: 0px 12px;
+    }
+    #header {
+        height: 55px;
+      
+    }
+    .pn-busy-container {
+    visibility: hidden;
+    }
+    .title{
+        font-size: 1em !important;
+        font-weight: 550 !important;
+    }
+
     .none {
         display: none;
     }
@@ -42,7 +57,7 @@ def visualize_panel():
         width: 20px;
         font-size: 100%;
     }
-    .btn .bk-btn-group button, .btn_focus .bk-btn-group button:hover, .btn_focus .bk-btn-group button:focus {
+    .btn .bk-btn-group button, .btn-focus .bk-btn-group button:hover, .btn-focus .bk-btn-group button:focus {
 
         border: 0px;
         background-color: transparent;
@@ -53,7 +68,7 @@ def visualize_panel():
         font-size: 100%;
         text-align: left; 
     }
-    .btn_focus .bk-btn-group button {
+    .btn-focus .bk-btn-group button {
 
         border: 0px;
         background-color: rgba(255, 0, 0, 0.2);
@@ -94,7 +109,7 @@ def visualize_panel():
         box-shadow: inset 0px 0px 0px ;
     }
     .btn_round .bk-btn-group button {
-        border: 1px royalblue solid;
+        border: 1px maroon solid;
         background-color: white;
         border-radius: 15px;
         height: 30px;
@@ -105,12 +120,26 @@ def visualize_panel():
     }
     .btn_round .bk-btn-group button:hover {
         background-color: white;
-        border: 1px royalblue solid;
+        border: 1px maroon solid;
 
     }
-    .bk.bk-btn.bk-btn-default.bk-active, .bk.bk-btn.bk-btn-default{
+    .bk.bk-btn.bk-btn-default{
         display: inline-block;
         background-color: transparent;
+        border: 0px;
+        text-align: start;
+        vertical-align: middle;
+        white-space: nowrap;
+        padding: 6px 12px;
+        font-size: 15px;
+        border: 0px;
+        border-radius: 0px;
+        outline: 0;
+        box-shadow: none;
+    }
+    .bk.bk-btn.bk-btn-default.bk-active{
+        display: inline-block;
+        background-color: lightgray;
         border: 0px;
         text-align: start;
         vertical-align: middle;
@@ -136,7 +165,13 @@ def visualize_panel():
         outline: 0;
         box-shadow: none;
     }
-    
+    .bk.modal-box {
+        display: flex;
+        
+        border: 0px;
+        background: white;
+        
+        }
     .bk.box {
         background: WhiteSmoke;
         border-radius: 10px;
@@ -151,7 +186,7 @@ def visualize_panel():
         align-self: start;
         background: white;
         border-radius: 15px;
-        border: 1px royalblue solid;
+        border: 1px maroon solid;
         height: 40px;
         margin-right: 30px;
         margin-bottom: 10px;
@@ -191,18 +226,36 @@ def visualize_panel():
         text-decoration : underline;
     }
     .dialog-content{
-        margin: 0px;
+        background: white;
+        margin: auto;
         z-index: 100002;
-        background-color: white;
         padding: 0px;
         padding-bottom: 0px;
-    
         position: fixed;
         top: 9%;
         left: 80%;
         bottom: 100%;
         right: 100%;
         
+    }
+    .dialog-container[aria-hidden='true'] {
+        display: none;
+    }
+    .pnx-dialog-close {
+        position: absolute;
+        top: 0.5em;
+        right: 0.5em;
+        border: 0;
+        padding: 0.25em;
+        background-color: transparent;
+        font-size: 1.5em;
+        width: 1.5em;
+        height: 1.5em;
+        text-align: center;
+        cursor: pointer;
+        transition: 0.15s;
+        border-radius: 50%;
+        z-index: 10003;
     }
     .dialog-overlay{
         background-color: transparent !important;
@@ -222,9 +275,8 @@ def visualize_panel():
     #pn.config.js_files["fontawesome"]="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/js/all.min.js"
     
     template = pn.template.MaterialTemplate(title='DB Experimental Data Analysis Framework')
-    template.header_background ='royalblue'
+    template.header_background ='maroon'
   
-    template.sidebar.append(Markdown("""## Monitoring"""))
     
     page_name = pn.widgets.RadioButtonGroup(name="Page", options=['🏠 Home','📈 Metrics','🖥️ Dashboard'], css_classes =['btn_radio'], orientation="vertical")
     template.sidebar.append(page_name)
@@ -233,26 +285,57 @@ def visualize_panel():
     dashboard_chart = []
     template.modal.append(pn.Column()) 
     modal_area = template.modal[0]
-    
+    modal = Modal(show_close_button = True)
+    modal.style = css
     
     def home():
         return [Markdown("# 🏠"),HTML("<a href='https://bitbucket.org/postech_dblab/eda_framework_visualization/src/main/'>Visit Github!</a>"),]
 
     def dashboard():
-        
+        dashboard_list = []
         top_btn_new = AwesomeButton(name="New Dashboard",icon=Icon(name="",value='<i class="fas fa-sticky-note"></i>'))
         top_btn_new.css_classes= ['btn']
-    
+        def add_dashboard(clicked_button):
+            temp = Dashboard(len(dashboard_list)+1)
+            template.main[0].append(temp.get())
+            for board in dashboard_list:
+                board.update_gridstack()
+            dashboard_list.append(temp)
+            temp.update_gridstack()
+
+        top_btn_new.on_click(add_dashboard)
+
+        def simple_draw_chart(
+                        metric='None', aggregate='Average', # metric
+                        type='line', timerange=datetime_range_picker.value):
+            
+            chart = visualize_metrics_panel([(metric, aggregate)], None, None, type, timerange)
+            chart = chart.properties(width = 323, height = 164)
+            metric_name = aggregate+' of '+metric.replace('_', ' ') 
+            
+            
+            title = metric_name
+            pn.pane.Markdown(f"### {metric_name}", margin = [5,10])
+
+            return [title, pn.panel(chart)]
+        
+
         class Tile:
-            def __init__(self, title, contents=None):
-                self.title = HTML(f"<b><font color='#323130' size='3'>{title}")
+            def __init__(self, board_obj, title, contents=None):
+                self.gstack = board_obj
+
+                         
+                self.title = HTML(f"<b><font color='#323130' size='3'>{title}", width = 300)
+                
                 self.btn_delete = w.Button(name = '🗑', css_classes = ['small-btn'], width = 20, visible = False)
+
+                self.btn_delete.on_click(self.delete_tile)
                 self.btn_setting = w.Button(name = '⋯', css_classes = ['small-btn'], width = 20)
                 self.btn_setting.on_click(self.open_setting_modal)
                 self.bar = pn.Row(self.title, self.btn_delete, self.btn_setting)
                 self.content = pn.Column()
                 self.content.append(contents)
-                self.checkbox = w.Checkbox(name='Oberride the dashboard time settings at the tile level.',value = False)
+                self.checkbox = w.Checkbox(name='Override the dashboard time settings at the tile level.',value = False)
                 self.s_timespan = w.Select(name='', options=['Past 30 minutes', 'Past hour', 'Past 4 hours'], disabled = True)
                 self.s_granularity = w.Select(name='', options=['Automatic', '1 minute', '5 minutes'], disabled = True)
                 self.s_tz = w.RadioButtonGroup(name = '', options = ['UTC', "Local"], disabled = True)
@@ -268,26 +351,32 @@ def visualize_panel():
                         self.s_tz.disabled = True
                         return pn.GridBox("Timespan", self.s_timespan, "Time granularity", self.s_granularity, "Show time as", self.s_tz, ncols =2)
                     
-                setting_box = pn.Column(HTML("<h3><b>Configure tile settings"), 
+                self.setting_box = pn.Column(HTML("<h3><b>Configure tile settings"), 
                                         HTML("<b>Time settings"), 
                                         self.checkbox,
                                         pn.bind(time_setting_widget, checkbox = self.checkbox),
                                         HTML("<b>Resize"),
                                         w.Button(name = 'Copy'),
                                         w.Button(name = 'Remove'),
-                                        )
-                self.setting_modal = Modal(setting_box)
-                self.tile = pn.Column(self.bar, self.content,self.setting_modal, css_classes =['tile-box'], scrollable = False)
+                                        css_classes = ['modal-box'])
+                #self.setting_modal = Modal(setting_box)
+                self.tile = pn.Column(self.bar, self.content, modal, css_classes =['tile-box'], )
+            def delete_tile(self, clicked_button):
+                self.board_obj.grid_delete_tile(id(self))
             def open_setting_modal(self, clicked_button):
-                if self.setting_modal.is_open:
-                    self.setting_modal.is_open= False
+                modal.clear()
+                modal.append(self.setting_box)
+
+                if modal.is_open:
+                    modal.is_open= False
                 else:
-                    self.setting_modal.is_open= True
+                    modal.is_open= True
             # def get_tile(self):
             #     return self.tile
 
         class Dashboard:
-            def __init__(self):
+            def __init__(self, num):
+                self.num = num
 
                 self.title = pn.widgets.TextInput(value='New Chart', width = 400, css_classes = ['title'])
 
@@ -312,11 +401,17 @@ def visualize_panel():
                 self.top_w = w.RadioButtonGroup(options=['Auto refresh: Off', 'UTC Time: Past 24 hours'], sizing_mode = 'fixed', width = 200, height = 30)
                 self.top_space = pn.Row(pn.Spacer(height=100))
                 
-                self.gstack = pn.GridSpec(width = 1250, height = 1000, ncols = 25, nrows = 25)#GridStack(width = 1250, height = 1000, ncols = 25, allow_resize = True, allow_drag = True)
-                
+                self.gstack = GridStack(width = 1250, height = 1000, ncols = 20, height_policy ='min', width_policy = 'min' ,allow_resize = True, allow_drag = True)
+                #print("initialize")
+                #print(self.gstack)
+                self.gstack_objects = self.gstack.objects
+                self.gstack_dict = {}
+
                 self.add_tile = w.Button(name = '+ Add tile', css_classes = ['btn'])
                 def open_tile_gallery(button):
-                    self.tile_modal.is_open = True
+                    modal.clear()
+                    modal.append(self.tile_box)
+                    modal.is_open = True
                 self.add_tile.on_click(open_tile_gallery)
 
                 self.cached_gstack = None
@@ -324,15 +419,15 @@ def visualize_panel():
                 self.clear_btn = w.Button(name = 'Clear', button_type = 'danger', width = 40)
                 
                 def clear(button):
-                    self.gstack = self.cached_gstack.clone()
-                    self.cached_gstack = None
+                    self.update_gridstack()
                     
                     self.top_space[0] = pn.Spacer(height=100)
                     for i in self.gstack.objects:
                         self.gstack.objects[i][0][1].visible = False
                 
                 def save(button):
-                    self.cached_gstack = None
+                    self.update_gridstack()
+
                     self.top_space[0] = pn.Spacer(height=100)
                     for i in self.gstack.objects:
                         self.gstack.objects[i][0][1].visible = False
@@ -342,69 +437,146 @@ def visualize_panel():
 
 
                 
-                self.tile_list = w.RadioButtonGroup(name='', options={'🏠 Metrics chart':'metrics chart', '⏰ Clock':'Clock', '📝 Markdown':'Markdown'},css_classes = ['btn_radio'], orientation='vertical',sizing_mode = 'fixed', height = 600, width = 300)
-                self.add_btn = w.Button(name ='Add', width = 300, button_type = 'default')
+                self.tile_list = w.RadioButtonGroup(name='', options={'🏠 Metrics chart':'Metrics chart', '⏰ Clock':'Clock', '📝 Markdown':'Markdown'},css_classes = ['btn_radio'], orientation='vertical',sizing_mode = 'fixed', height = 600, width = 300)
+                self.add_btn = w.Button(name ='Add', button_type= 'primary', width = 60,align='center')
                 self.add_btn.on_click(self.grid_add_tile)
-                self.tile_modal = Modal(pn.Column(Markdown("### Tile Gallery"), self.tile_list, self.add_btn, align='center'), show_close_button = True)
-                self.tile_modal.style = css
+                self.tile_box = pn.Column(Markdown("### Tile Gallery"), self.tile_list, self.add_btn, css_classes = ['modal-box'])
+                # self.tile_modal = Modal(pn.Column(Markdown("### Tile Gallery"), self.tile_list, self.add_btn), show_close_button = True)
+                # self.tile_modal.style = css
                 self.initialize_gstack()
+                
 
-                self.box = pn.Column(self.top_bar,self.top_w, self.top_space, self.gstack, self.tile_modal)
-            
-            def grid_add_tile(self,buttons):
-                size = (4,3)
-
+                self.box = pn.Column(self.top_bar,self.top_w, self.top_space, self.gstack, modal)
+           
+            def update_gridstack(self):
+                #print("before assigning new obj")
+                #print(self.gstack)
+                self.gstack = GridStack(objects = self.gstack_objects, width = 1250, height = 1000, ncols = 20, height_policy ='fit', width_policy = 'fit' ,allow_resize = True, allow_drag = True)
+                #print("after assigning new obj")
+                #print(self.gstack)
+                self.box = pn.Column(self.top_bar,self.top_w, self.top_space, self.gstack, modal)
+                #print(template.main[0][0])
+                template.main[0][self.num-1] = self.box
+                #print(self.gstack.grid)
+                
+            def grid_add_tile(self, clicked_button):
+                size = (3, 3)
+                #print("add_tile",self.gstack)
                 i,j = self.find_empty(size)
-                print(i,j)
-                self.gstack[i:i+size[0], j:j+size[1]] = self.initialize_tile(self.tile_list.value)# 바로 여기 !!!
+                if i == None:
+                    print("No space")
+                    return
+                #print(i,j)
+                #print("after find empty",self.gstack)
+                key = (i,j,i+size[0],j+size[1])
+                #print(key)
+                value = self.initialize_tile(self.tile_list.value)# 바로 여기 !!!
+                #print("after initialize_tile",self.gstack)
+                #print(value) # value 가 none????
+                self.gstack_objects[key] = value
+                #print("after object",self.gstack)
+                #print("대입")
+                self.update_gridstack()
+                #print("update")
+                self.gstack_dict[id(value)] = [key,value]
+
+            
+            def grid_delete_tile(self, delete_tile_id):
+                delete_position, _ = self.gstack_dict[delete_tile_id]
+                self.gstack_objects.pop(delete_position)
+                self.update_gridstack()
+                del self.gstack_dict[delete_tile_id]
+
             
             def initialize_tile(self, type):
+                #print(type)
                 if type == 'Metrics chart':
                     button = w.Button(name = 'Click to set metric charts', sizing_mode = 'stretch_both') 
                     button.on_click(self.initialize_metric_charts)
-                    return Tile("Test Metric", button).tile
+                    temp = Tile(self, "Test Metric", button)
+                    #print("TEMPTILE")
+                    #print(temp)
+                    #print(temp.tile)
+                    return temp.tile
 
             def initialize_gstack(self):
-                self.gstack[0:3, 0:3] = Tile("Utilization").tile
-                self.gstack[3:6, 0:3] = Tile("Performance").tile
-                self.gstack[6:9, 0:3] = Tile("Data").tile
-                # print(self.gstack.grid)
-                # size = (4,3)
+                temp = Tile(self, "Utilization")
+                self.gstack[0:3, 0:2] = temp.tile
+                self.gstack_dict[id(temp.tile)] = [(0,0,3,2), temp.tile]
 
-                # i,j = self.find_empty(size)
-                # print(i,j)
-                # self.gstack[i:i+size[0], j:j+size[1]] = pn.Spacer(background = 'yellow')
-                # print(self.gstack.grid)
+                temp = Tile(self, "Performance")
+                self.gstack[3:6, 0:2] = temp.tile
+                self.gstack_dict[id(temp.tile)] = [(3,0,6,2), temp.tile]
+
+                temp = Tile(self, "Index") # 바꿔야함
+                self.gstack[6:9, 0:2] = temp.tile
+                self.gstack_dict[id(temp.tile)] = [(6,0,9,2), temp.tile]
+
+
+                temp = Tile(self, *simple_draw_chart("Deadlocks"))
+                self.gstack[3:6, 2:5] = temp.tile
+                self.gstack_dict[id(temp.tile)] = [(3,2,6,5), temp.tile]
+
+                temp = Tile(self, *simple_draw_chart("Backends"))
+                self.gstack[0:3, 2:5] = temp.tile
+                self.gstack_dict[id(temp.tile)] = [(0,2,3,5), temp.tile]
+
+                temp = Tile(self, *simple_draw_chart("Transactions Committed"))
+                self.gstack[3:6, 5:8] = temp.tile
+                self.gstack_dict[id(temp.tile)] = [(3,5,6,8), temp.tile]
+
+                temp = Tile(self, *simple_draw_chart("idx_scan"))
+                self.gstack[6:9, 2:5] = temp.tile
+                self.gstack_dict[id(temp.tile)] = [(6,2,9,5), temp.tile]
+
+                temp = Tile(self, *simple_draw_chart("seq_scan"))
+                self.gstack[6:9, 5:8] = temp.tile
+                self.gstack_dict[id(temp.tile)] = [(6,5,9,8), temp.tile]
+
+                print(self.gstack.grid)
+                self.gstack_objects =  self.gstack.objects 
+                print("after initialize")
+                print(self.gstack)
+                
+                
 
             def initialize_metric_charts(self, button):
                 print("HELLO")
 
             def set_tile_gallery(self, clicked_button):
-                self.cached_gstack = self.gstack.clone()
-                if self.tile_modal.is_open:
-                    self.tile_modal.is_open = False
+                #self.cached_gstack = self.gstack.clone()
+                modal.clear()
+                modal.append(self.tile_box)
+               
+                if modal.is_open:
+                    modal.is_open = False
                 else:
-                    self.tile_modal.is_open = True
+                    modal.is_open = True
                 
                 for i in self.gstack.objects:
                     self.gstack.objects[i][0][1].visible = True
                 self.top_space.clear()
                 self.top_space.append(pn.Row(self.add_tile, self.save_btn, self.clear_btn, None, None, height = 100))
             
-            def find_empty(self,size):
+            def find_empty(self, size):
                 grid = self.gstack.grid
+                #print(grid)
                 r,c = grid.shape
-                for i in range(r-size[0]):
-                    for j in range(c-size[1]):
+                for i in range(r-size[0]+1):
+                    for j in range(c-size[1]+1):
+                        print(i,j)
                         if np.sum(grid[i:i+size[0], j:j+size[1]], axis=None) == 0:
                             return i, j
+                return None, None
 
                 
             def get(self):
                 return self.box
 
+        temp = Dashboard(1)
+        dashboard_list.append(temp)
         return [
-            Dashboard().get()  
+            temp.box 
         ]
         #)
 
@@ -469,7 +641,7 @@ def visualize_panel():
             self.ctop_btn_board.margin = [15,15]
             if dashboard:
                 self.ctop_btn_board.on_click(self.add_dashboard) ## 다르게
-                self.ctop_btn_board.css_classes= ['btn_focus']
+                self.ctop_btn_board.css_classes= ['btn-focus']
             else:
                 self.ctop_btn_board.on_click(self.add_dashboard)
                 self.ctop_btn_board.css_classes= ['btn']
@@ -758,7 +930,7 @@ def visualize_panel():
                         self.splitting.disabled =True
             
             return pn.Column(self.selected_element_bar, pn.panel(chart))
-
+        
         def get_title(self, metric, aggregate, trigger):
             if trigger:
                 self.trigger = False
