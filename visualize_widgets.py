@@ -320,7 +320,7 @@ def visualize_panel():
 
             return [title, pn.panel(chart)]
         
-        class MarkdownTiie(Tile):
+        class MarkdownTile(Tile):
             def __init__(self, board_obj, title, contents=None):
                 super().__init__(board_obj, title, contents)
                 
