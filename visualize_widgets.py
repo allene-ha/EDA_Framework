@@ -323,8 +323,9 @@ def visualize_panel():
         class MarkdownTiie(Tile):
             def __init__(self, board_obj, title, contents=None):
                 super().__init__(board_obj, title, contents)
-                self.title = w.TextInput(name='Title', placeholder='My title')
-                self.subtitle = w.TextInput(name='subtitle', placeholder='My subtitle')
+                
+                self.wtitle = w.TextInput(name='Title', placeholder='My title')
+                self.wsubtitle = w.TextInput(name='subtitle', placeholder='My subtitle')
                 self.editor = w.Ace(value="", sizing_mode='stretch_both', language='markdown', height=300)
                 self.done = w.Button(name='Done')
                 self.reset = w.Button(name='Reset')
@@ -332,7 +333,8 @@ def visualize_panel():
                 self.reset.on_click(self.reset_value)
                 #w.input.TextAreaInput(name = 'Content', )
             def update_markdown(self, clicked_button):
-                self.contents = Markdown(self.editor.value)
+                self.title = HTML(f"<b><font color='#323130' size='3'>{self.wtitle.value}", width = 300)
+                self.contents = pn.Column(self.wsubtitle.value,Markdown(self.editor.value))
                 
             
             def reset_value(self, clicked_button):
@@ -342,8 +344,8 @@ def visualize_panel():
             def set_setting_box(self):
 
                 self.setting_box = pn.Column(HTML("<h3><b>Edit Markdown"), 
-                                        self.title,
-                                        self.subtitle,
+                                        self.wtitle,
+                                        self.wsubtitle,
                                         self.editor,
                                         pn.Row(self.done, self.reset),
                                         css_classes = ['modal-box'])
@@ -448,13 +450,9 @@ def visualize_panel():
 
         class Tile:
             def __init__(self, board_obj, title, contents=None):
-                self.board_obj = board_obj
-
-                         
+                self.board_obj = board_obj                         
                 self.title = HTML(f"<b><font color='#323130' size='3'>{title}", width = 300)
-                
                 self.btn_delete = w.Button(name = '🗑', css_classes = ['small-btn'], width = 20, visible = False)
-
                 self.btn_delete.on_click(self.delete_tile)
                 self.btn_setting = w.Button(name = '⋯', css_classes = ['small-btn'], width = 20)
                 self.btn_setting.on_click(self.open_setting_modal)
@@ -566,10 +564,12 @@ def visualize_panel():
                 type = self.tile_list.value 
                 if type =='Metrics chart':
                     size = (3, 3)
-                if type == 'Clock':
+                elif type == 'Clock':
                     size = (2, 2)
-                if type == 'Markdown':
+                elif type == 'Markdown':
                     size = (3, 2)
+                else:
+                    size = (1,1)
                 #print("add_tile",self.gstack)
                 i,j = self.find_empty(size)
                 if i == None:
@@ -596,33 +596,18 @@ def visualize_panel():
                 if type == 'Metrics chart':
                     button = w.Button(name = 'Click to set metric charts', sizing_mode = 'stretch_both') 
                     button.on_click(self.initialize_metric_charts)
-                    temp = Tile(self, "Test Metric", button)
-                    #print("TEMPTILE")
-                    #print(temp)
-                    #print(temp.tile)
+                    temp = MetricTile(self, "New metric", button)
+                    
                     return temp.tile
                 elif type == 'Clock':
-                    def day(date):
-                        days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-                        day = date.weekday()
-                        return days[day]
-                    today = datetime.today()
-                    now = datetime.now()
-                    ampm = 'AM'
-                    hour = now.hour
-                    min = now.minute
-                    if now.hour >= 12:
-                        ampm = 'PM'
-                    if now.hour >12:
-                        hour -= 12
-                    clock = HTML(f"""<center>Korea Standard Time<br>
-                                <h1>{hour}:{min} {ampm}</h1><br>
-                                {day(today)}, {today.strftime("%B %d, %Y")}</center>""", width = 200, height = 130, margin=0, padding=0)
+                    
                                 
                     #clock = pn.indicators.Number(name='Korea Standard Time', value=value, format=f'{int(value/100)}:{value%100}'+ampm)
-                    temp = Tile(self, "", clock)
+                    temp = ClockTile(self, "")
                     return temp.tile
                 elif type == 'Markdown':
+                    temp = MarkdownTile(self, "")
+                    return temp.tile
                    
 
                     
