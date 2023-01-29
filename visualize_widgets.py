@@ -116,8 +116,15 @@ def visualize_panel():
         height: 30px;
         font-size: 100%;
         text-align: center; 
-
-
+    }
+    .btn-board .bk-btn-group button {
+        border: 1px maroon solid !important;
+        background-color: white !important;
+        border-radius: 0px !important;
+        height: 50px !important;
+        width: 100px !important;
+        text-align: center !important;
+        font-size: 100%;
     }
     .btn_round .bk-btn-group button:hover {
         background-color: white;
@@ -167,8 +174,8 @@ def visualize_panel():
         box-shadow: none;
     }
     .bk.modal-box {
-        display: flex;
-        
+    
+        justify-content: center;
         border: 0px;
         background: white;
         
@@ -197,6 +204,10 @@ def visualize_panel():
     .bk.float_box_invisible {
         display: none;
         }
+
+    .bk.menu_box {
+        justify-content: space-around;
+                    }
 
     .picker {
         width: 300px;
@@ -262,6 +273,9 @@ def visualize_panel():
         background-color: transparent !important;
 
     }
+    .mdc-card{
+        box-shadow: -1px -1px 1px -1px rgb(0 0 0 / 20%), -1px -1px 1px 0px rgb(0 0 0 / 14%), 0px -1px 3px 0px rgb(0 0 0 / 12%) !important;
+    }
     .bk .tile-box{
         background-color: transparent !important;
         border-color: rgba(0,0,0,.12);
@@ -269,7 +283,7 @@ def visualize_panel():
 
     }
     '''
-    pn.extension('vega','gridstack',comms = 'ipywidgets', sizing_mode = 'stretch_width', raw_css = [css])
+    pn.extension('vega','gridstack','ace',comms = 'ipywidgets', sizing_mode = 'stretch_width', raw_css = [css], notifications = True)
     
     pn.config.js_files["fontawesome"]="https://kit.fontawesome.com/121cf5990e.js"
 
@@ -282,7 +296,7 @@ def visualize_panel():
     page_name = pn.widgets.RadioButtonGroup(name="Page", options=['🏠 Home','📈 Metrics','🖥️ Dashboard'], css_classes =['btn_radio'], orientation="vertical")
     template.sidebar.append(page_name)
     template.main.append(pn.Column())
-    datetime_range_picker = w.DatetimeRangePicker(name='Time range', value=DATE_BOUNDS, width = 400)
+    datetime_range_picker = w.DatetimeRangePicker(name='', value=DATE_BOUNDS, width = 300)
     dashboard_chart = []
     template.modal.append(pn.Column()) 
     modal_area = template.modal[0]
@@ -320,29 +334,71 @@ def visualize_panel():
 
             return [title, pn.panel(chart)]
         
-        class MarkdownTile(Tile):
+        class Tile:
             def __init__(self, board_obj, title, contents=None):
+                self.board_obj = board_obj                         
+                self.title = HTML(f"<b><font color='#323130' size='3'>{title}")
+                if len(title)==0:
+                    self.title.width = 150
+                self.btn_delete = w.Button(name = '🗑', css_classes = ['small-btn'], width = 20, visible = False)
+                self.btn_delete.on_click(self.delete_tile)
+                self.btn_setting = w.Button(name = '⋯', css_classes = ['small-btn'], width = 20)
+                self.btn_setting.on_click(self.open_setting_modal)
+                self.bar = pn.Row(self.title, self.btn_delete, self.btn_setting, css_classes =['menu_box'])
+                self.content = pn.Column(contents)
+                self.setting_box = None
+                
+                #self.setting_modal = Modal(setting_box)
+                self.tile = pn.Column(self.bar, self.content, modal, css_classes =['tile-box'], width_policy = 'fit', height_policy='fit')
+            def delete_tile(self, clicked_button):
+                self.board_obj.grid_delete_tile(id(self))
+            def open_setting_modal(self, clicked_button):
+                modal.clear()
+                modal.append(self.setting_box)
+
+                if modal.is_open:
+                    modal.is_open= False
+                else:
+                    modal.is_open= True
+            # def get_tile(self):
+            #     return self.tile
+
+        class MarkdownTile(Tile):
+            def __init__(self, board_obj, title, contents = None):
                 super().__init__(board_obj, title, contents)
                 
-                self.wtitle = w.TextInput(name='Title', placeholder='My title')
+                self.wtitle = w.TextInput(name='Title', placeholder='My title', value=title)
                 self.wsubtitle = w.TextInput(name='subtitle', placeholder='My subtitle')
-                self.editor = w.Ace(value="", sizing_mode='stretch_both', language='markdown', height=300)
+                self.editor = w.Ace(value="", language='markdown', height=300)
                 self.done = w.Button(name='Done')
                 self.reset = w.Button(name='Reset')
                 self.done.on_click(self.update_markdown)
                 self.reset.on_click(self.reset_value)
+                
+                self.bar = pn.Row(self.title, self.btn_delete, self.btn_setting, css_classes =['menu_box'])
+
+                self.set_setting_box()
                 #w.input.TextAreaInput(name = 'Content', )
             def update_markdown(self, clicked_button):
-                self.title = HTML(f"<b><font color='#323130' size='3'>{self.wtitle.value}", width = 300)
-                self.contents = pn.Column(self.wsubtitle.value,Markdown(self.editor.value))
+
+                print(self.wtitle.value, self.wsubtitle.value)
+                if len(self.wtitle.value)>0 and len(self.wsubtitle.value)>0:
+                    self.bar[0].object = f"<b><font color='#323130' size='3'>{self.wtitle.value}</b></font><br><font size='1'>{self.wsubtitle.value}</font>"
+                elif len(self.wtitle.value)>0 and len(self.wsubtitle.value)==0:
+                    self.bar[0].object =f"<b><font color='#323130' size='3'>{self.wtitle.value}"
+                elif len(self.wtitle.value)==0 and len(self.wsubtitle.value)>0:                    
+                    self.bar[0].object =f"<b><font color='#323130' size='3'>{self.wsubtitle.value}"
                 
+                self.content.clear()
+                self.content.append(Markdown(self.editor.value))
+              
             
             def reset_value(self, clicked_button):
                 self.editor.value = ''
 
 
             def set_setting_box(self):
-
+                print("Set markdown setting")
                 self.setting_box = pn.Column(HTML("<h3><b>Edit Markdown"), 
                                         self.wtitle,
                                         self.wsubtitle,
@@ -359,7 +415,8 @@ def visualize_panel():
                 self.s_timespan = w.Select(name='', options=['Past 30 minutes', 'Past hour', 'Past 4 hours'], disabled = True)
                 self.s_granularity = w.Select(name='', options=['Automatic', '1 minute', '5 minutes'], disabled = True)
                 self.s_tz = w.RadioButtonGroup(name = '', options = ['UTC', "Local"], disabled = True)
-            
+                self.set_setting_box()
+
             def set_setting_box(self):
                 
                 def time_setting_widget(checkbox = self.checkbox):
@@ -394,8 +451,11 @@ def visualize_panel():
                 self.reset = w.Button(name='Reset')
                 self.done.on_click(self.update_clock)
                 self.set_setting_box()
+                self.content.clear()
+                self.content.append(self.contents)
 
                 pn.state.add_periodic_callback(self._create_callback(), period=60000, count=200)
+                self.tile = pn.Column(self.bar, self.content, modal, css_classes =['tile-box'], width_policy = 'fit', height_policy='fit')
             
             def _create_callback(self):
                     async def update():
@@ -403,35 +463,36 @@ def visualize_panel():
                     return update
 
             def update_clock(self, clicked_button=None):
-                self.contents = self.initialize_clock(self.tz.value, self.tf.value)
+                self.content.clear()
+                self.content.append(self.initialize_clock(self.tz.value, self.tf.value))
 
             def initialize_clock(self, location, time_format):
                 today = datetime.today()
-                now = datetime.utcnow()
-
                 tz = pytz.timezone(location)
-                tz.localize(now)
+                utcnow = datetime.utcnow() 
+                local_now = pytz.utc.localize(utcnow, is_dst=None).astimezone(tz)
+
                 def day(date):
                     days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
                     day = date.weekday()
                     return days[day]
                 
                 ampm = 'AM'
-                hour = now.hour
-                min = now.minute
-                if time_format == False:
+                hour = local_now.hour
+                min = local_now.minute
+                if time_format == True:
                     ampm = ''
-                elif now.hour >= 12:
+                elif local_now.hour >= 12:
                     ampm = 'PM'
-                if now.hour > 12:
-                    hour -= 12
+                    if local_now.hour > 12:
+                        hour -= 12
                 if location == "Asia/Seoul":
                     tz_full = 'Korea Standard Time'
                 else:
                     tz_full = location
                 clock = HTML(f"""<center>{tz_full}<br>
-                            <h1>{hour}:{min} {ampm}</h1><br>
-                            {day(today)}, {today.strftime("%B %d, %Y")}</center>""", width = 200, height = 130, margin=0, padding=0)
+                            <b><font size="5em">{hour} : {min} {ampm}</font></b><br>
+                            {day(today)}, {today.strftime("%B %d, %Y")}</center>""", width = 200, height = 100, margin=0, )
                 return clock
 
             def set_setting_box(self):                
@@ -448,32 +509,7 @@ def visualize_panel():
 
 
 
-        class Tile:
-            def __init__(self, board_obj, title, contents=None):
-                self.board_obj = board_obj                         
-                self.title = HTML(f"<b><font color='#323130' size='3'>{title}", width = 300)
-                self.btn_delete = w.Button(name = '🗑', css_classes = ['small-btn'], width = 20, visible = False)
-                self.btn_delete.on_click(self.delete_tile)
-                self.btn_setting = w.Button(name = '⋯', css_classes = ['small-btn'], width = 20)
-                self.btn_setting.on_click(self.open_setting_modal)
-                self.bar = pn.Row(self.title, self.btn_delete, self.btn_setting)
-                self.content = pn.Column(contents)
-                self.setting_box = None
-                
-                #self.setting_modal = Modal(setting_box)
-                self.tile = pn.Column(self.bar, self.content, modal, css_classes =['tile-box'], width_policy = 'fit', height_policy='fit')
-            def delete_tile(self, clicked_button):
-                self.board_obj.grid_delete_tile(id(self))
-            def open_setting_modal(self, clicked_button):
-                modal.clear()
-                modal.append(self.setting_box)
-
-                if modal.is_open:
-                    modal.is_open= False
-                else:
-                    modal.is_open= True
-            # def get_tile(self):
-            #     return self.tile
+        
 
         class Dashboard:
             def __init__(self, num):
@@ -516,7 +552,7 @@ def visualize_panel():
                 self.add_tile.on_click(open_tile_gallery)
 
                 self.cached_gstack = None
-                self.save_btn = w.Button(name = 'Save', button_type = 'primary', width = 40)
+                self.save_btn = w.Button(name = 'Save', width = 40, css_classes = ['btn-board'])
                 self.clear_btn = w.Button(name = 'Clear', button_type = 'danger', width = 40)
                 
                 def clear(button):
@@ -539,26 +575,20 @@ def visualize_panel():
 
                 
                 self.tile_list = w.RadioButtonGroup(name='', options={'🏠 Metrics chart':'Metrics chart', '⏰ Clock':'Clock', '📝 Markdown':'Markdown'},css_classes = ['btn_radio'], orientation='vertical',sizing_mode = 'fixed', height = 600, width = 300)
-                self.add_btn = w.Button(name ='Add')
+                self.add_btn = w.Button(name ='Add', css_classes = ['btn-board'], width = 100)
                 self.add_btn.on_click(self.grid_add_tile)
                 self.tile_box = pn.Column(Markdown("### Tile Gallery"), self.tile_list, self.add_btn, css_classes = ['modal-box'])
-                # self.tile_modal = Modal(pn.Column(Markdown("### Tile Gallery"), self.tile_list, self.add_btn), show_close_button = True)
-                # self.tile_modal.style = css
                 self.initialize_gstack()
                 
 
-                self.box = pn.Column(self.top_bar,self.top_w, self.top_space, self.gstack, modal)
+                self.box = pn.Column(self.top_bar,self.top_w, self.top_space, modal, self.gstack)
            
             def update_gridstack(self):
-                #print("before assigning new obj")
-                #print(self.gstack)
                 self.gstack = GridStack(objects = self.gstack_objects, width = 1500, height = 1500, ncols = 20, nrows = 16, sizing_mode = 'fixed',allow_resize = True, allow_drag = True)
-                #print("after assigning new obj
-                #print(self.gstack)
-                self.box = pn.Column(self.top_bar,self.top_w, self.top_space, self.gstack, modal)
-                #print(template.main[0][0])
+                self.box = pn.Column(self.top_bar,self.top_w, self.top_space, modal, self.gstack)
                 template.main[0][self.num-1] = self.box
-                #print(self.gstack.grid)
+                for i in self.gstack.objects:
+                    self.gstack.objects[i][0][1].visible = True
                 
             def grid_add_tile(self, clicked_button):
                 type = self.tile_list.value 
@@ -573,22 +603,27 @@ def visualize_panel():
                 #print("add_tile",self.gstack)
                 i,j = self.find_empty(size)
                 if i == None:
+                    pn.state.notifications.send('There is no space left in the dashboard!', type='error', duration=3000)
+
                     print("No space")
                     return
                 
                 key = (i,j,i+size[0],j+size[1])
-                value = self.initialize_tile(type)# 바로 여기 !!!
+                value, id = self.initialize_tile(type)# 바로 여기 !!!
 
                 self.gstack_objects[key] = value
                 self.update_gridstack()
-                self.gstack_dict[id(value)] = [key,value]
+                self.gstack_dict[id] = [key,value]
 
             
             def grid_delete_tile(self, delete_tile_id):
                 delete_position, _ = self.gstack_dict[delete_tile_id]
                 self.gstack_objects.pop(delete_position)
+               
                 self.update_gridstack()
+                modal.is_open = False
                 del self.gstack_dict[delete_tile_id]
+
 
             
             def initialize_tile(self, type):
@@ -598,54 +633,49 @@ def visualize_panel():
                     button.on_click(self.initialize_metric_charts)
                     temp = MetricTile(self, "New metric", button)
                     
-                    return temp.tile
-                elif type == 'Clock':
-                    
-                                
+                    return temp.tile, id(temp)
+                elif type == 'Clock':        
                     #clock = pn.indicators.Number(name='Korea Standard Time', value=value, format=f'{int(value/100)}:{value%100}'+ampm)
                     temp = ClockTile(self, "")
-                    return temp.tile
+                    return temp.tile, id(temp)
                 elif type == 'Markdown':
-                    temp = MarkdownTile(self, "")
-                    return temp.tile
+                    temp = MarkdownTile(self, "Markdown")
+                    return temp.tile, id(temp)
                    
 
-                    
-
-
             def initialize_gstack(self):
-                temp = Tile(self, "Utilization")
+                temp = MarkdownTile(self, "Utilization")
                 self.gstack[0:3, 0:2] = temp.tile
-                self.gstack_dict[id(temp.tile)] = [(0,0,3,2), temp.tile]
+                self.gstack_dict[id(temp)] = [(0,0,3,2), temp.tile]
 
-                temp = Tile(self, "Performance")
+                temp = MarkdownTile(self, "Performance")
                 self.gstack[3:6, 0:2] = temp.tile
-                self.gstack_dict[id(temp.tile)] = [(3,0,6,2), temp.tile]
+                self.gstack_dict[id(temp)] = [(3,0,6,2), temp.tile]
 
-                temp = Tile(self, "Index") # 바꿔야함
+                temp = MarkdownTile(self, "Index") 
                 self.gstack[6:9, 0:2] = temp.tile
-                self.gstack_dict[id(temp.tile)] = [(6,0,9,2), temp.tile]
+                self.gstack_dict[id(temp)] = [(6,0,9,2), temp.tile]
 
 
-                temp = Tile(self, *simple_draw_chart("Deadlocks"))
+                temp = MetricTile(self, *simple_draw_chart("Deadlocks"))
                 self.gstack[3:6, 2:5] = temp.tile
-                self.gstack_dict[id(temp.tile)] = [(3,2,6,5), temp.tile]
+                self.gstack_dict[id(temp)] = [(3,2,6,5), temp.tile]
 
-                temp = Tile(self, *simple_draw_chart("Backends"))
+                temp = MetricTile(self, *simple_draw_chart("Backends"))
                 self.gstack[0:3, 2:5] = temp.tile
-                self.gstack_dict[id(temp.tile)] = [(0,2,3,5), temp.tile]
+                self.gstack_dict[id(temp)] = [(0,2,3,5), temp.tile]
 
-                temp = Tile(self, *simple_draw_chart("Transactions Committed"))
+                temp = MetricTile(self, *simple_draw_chart("Transactions Committed"))
                 self.gstack[3:6, 5:8] = temp.tile
-                self.gstack_dict[id(temp.tile)] = [(3,5,6,8), temp.tile]
+                self.gstack_dict[id(temp)] = [(3,5,6,8), temp.tile]
 
-                temp = Tile(self, *simple_draw_chart("idx_scan"))
+                temp = MetricTile(self, *simple_draw_chart("idx_scan"))
                 self.gstack[6:9, 2:5] = temp.tile
-                self.gstack_dict[id(temp.tile)] = [(6,2,9,5), temp.tile]
+                self.gstack_dict[id(temp)] = [(6,2,9,5), temp.tile]
 
-                temp = Tile(self, *simple_draw_chart("seq_scan"))
+                temp = MetricTile(self, *simple_draw_chart("seq_scan"))
                 self.gstack[6:9, 5:8] = temp.tile
-                self.gstack_dict[id(temp.tile)] = [(6,5,9,8), temp.tile]
+                self.gstack_dict[id(temp)] = [(6,5,9,8), temp.tile]
 
                 print(self.gstack.grid)
                 self.gstack_objects =  self.gstack.objects 
@@ -670,7 +700,7 @@ def visualize_panel():
                 for i in self.gstack.objects:
                     self.gstack.objects[i][0][1].visible = True
                 self.top_space.clear()
-                self.top_space.append(pn.Row(self.add_tile, self.save_btn, self.clear_btn, None, None, height = 100))
+                self.top_space.append(pn.Row(self.add_tile, None, None, self.save_btn, None, height = 100))
             
             def find_empty(self, size):
                 grid = self.gstack.grid
@@ -1082,7 +1112,7 @@ def visualize_panel():
         top_btn_new.disabled = True
         top_btn_refresh = AwesomeButton(name="Refresh",icon=Icon(name="",value="""<i class="fas fa-sync"></i>"""))
         top_btn_refresh.css_classes= ['btn']
-        top_bar = pn.Row(top_btn_new,top_btn_refresh,None, datetime_range_picker)    
+        top_bar = pn.Row(top_btn_new,top_btn_refresh,pn.layout.HSpacer(), None, datetime_range_picker)    
         
         #template.main.append(
         template.main[0][:] = [
@@ -1100,9 +1130,50 @@ def visualize_panel():
 
         top_btn_refresh = AwesomeButton(name="Refresh",icon=Icon(name="",value="""<i class="fas fa-sync"></i>"""))
         top_btn_refresh.css_classes= ['btn']
-    
 
-        top_bar = pn.Row(top_btn_new,top_btn_refresh,None, datetime_range_picker)
+        time_range = w.Select(name = 'Time range', options=['Last 30 minutes',
+                                                            'Last hour',
+                                                            'Last 4 hours',
+                                                            'Last 12 hours',
+                                                            'Last 24 hours', 'Custom'], value = 'Custom', width = 300)
+
+        time_granularity = w.Select(name = 'Time granularity', options = ['Automatic', 
+                                                                            '1 minutes', 
+                                                                            '5 minutes', 
+                                                                            '15 minutes', 
+                                                                            '30 minutes', 
+                                                                            '1 hour', 
+                                                                            '6 hours',
+                                                                            '12 hours', 
+                                                                            '1 day'], width = 200)
+        tz = w.RadioBoxGroup(name = 'Show time as', options = ['UTC/GMT','Local'], value=['Local'])
+
+        auto_refresh = w.Select(name = 'Auto refresh', options = {'None':'None',  '1 minutes':60000, 
+                                                                            '5 minutes':300000, 
+                                                                            '15 minutes':900000, 
+                                                                           '30 minutes':1800000}, width = 200)
+
+        pc = None                                                                   
+        def set_auto_refresh(event):
+            if auto_refresh.value != 'None':
+                if pc != None:
+                    pc.stop()                
+                pc = pn.state.add_periodic_callback(refresh, period=auto_refresh.value, count=200)
+
+        auto_refresh.param.watch(set_auto_refresh, 'value')
+
+
+        def custom_time(event):
+            if time_range.value != 'Custom':
+                datetime_range_picker.disabled = True
+            else:
+                datetime_range_picker.disabled = False
+        
+        time_range.param.watch(custom_time, 'value')
+
+
+
+        top_bar = pn.Row(top_btn_new,pn.Column(top_btn_refresh, auto_refresh),pn.layout.HSpacer(), pn.layout.HSpacer(), pn.Column(time_granularity, tz),pn.Column(time_range,datetime_range_picker))
 
         def new_chart(clicked_button):
             num = len(template.main[0])
