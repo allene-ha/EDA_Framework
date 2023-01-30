@@ -514,15 +514,10 @@ def visualize_panel():
         class Dashboard:
             def __init__(self, num):
                 self.num = num
-                
                 self.title = pn.widgets.TextInput(value='New Chart', width = 400, css_classes = ['title'])
-
                 self.top_btn_refresh = AwesomeButton(name="Refresh",icon=Icon(name="",value="""<i class="fas fa-sync"></i>"""))
                 self.top_btn_refresh.css_classes= ['btn']
-
-                self.top_btn_clone = AwesomeButton(name="Clone",icon=Icon(name="",value="""<i class="fas fa-copy"></i>"""))
-                self.top_btn_clone.css_classes= ['btn']
-
+                
                 self.top_btn_edit = AwesomeButton(name="Edit",icon=Icon(name="",value="""<i class="fas fa-pencil"></i>"""))
                 self.top_btn_edit.css_classes= ['btn']
                 self.top_btn_edit.on_click(self.set_tile_gallery)
@@ -533,14 +528,59 @@ def visualize_panel():
 
                 self.top_btn_delete = AwesomeButton(name="Delete",icon=Icon(name="",value="""<i class="fas fa-trash"></i>"""))
                 self.top_btn_delete.css_classes= ['btn']
-                self.top_bar = pn.Row(self.title, top_btn_new, self.top_btn_edit, self.top_btn_clone, self.top_btn_delete)
+                self.top_bar = pn.Row(self.title, self.top_btn_edit, self.top_btn_delete, pn.Spacer(height=100),pn.Spacer(height=100))
 
-                self.top_w = w.RadioButtonGroup(options=['Auto refresh: Off', 'UTC Time: Past 24 hours'], sizing_mode = 'fixed', width = 200, height = 30)
+                self.auto_refresh = w.Select(name = 'Auto refresh', options = {'Off':'None',  'every 5 minutes':300000, 
+                                                                            'Every 10 minutes': 600000, 
+                                                                            'Every 15 minutes':900000, 
+                                                                           'Every 30 minutes':1800000}, width = 200)
+                
+                self.time = w.Button(name = 'UTC Time: Past 24 hours')
+                # self.time이 클릭되면 top_space에 box를 표시할거임
+
+                def update_button(event):
+                    self.box[1][1].name = f'{self.tz.value} Time: {self.time_range.value}'
+                    if self.time_range.value == 'Custom':
+                        self.time_setting[0].append(datetime_range_picker)
+                    else:
+                        self.time_setting[0].remove(datetime_range_picker)
+
+                self.time_range.param.watch(update_button, 'value')
+                self.tz.param.watch(update_button, 'value')
+
+                self.time_range = w.Select(name = 'Time range', options=['Past 30 minutes',
+                                                                    'Past hour',
+                                                                    'Past 4 hours',
+                                                                    'Past 12 hours',
+                                                                    'Past 24 hours', 'Custom'], value = 'Custom', width = 300)
+
+                self.time_granularity = w.Select(name = 'Time granularity', options = ['Automatic', 
+                                                                                    '1 minutes', 
+                                                                                    '5 minutes', 
+                                                                                    '15 minutes', 
+                                                                                    '30 minutes', 
+                                                                                    '1 hour', 
+                                                                                    '6 hours',
+                                                                                    '12 hours', 
+                                                                                    '1 day'], width = 200)
+                self.tz = w.RadioBoxGroup(name = 'Show time as', options = ['UTC','Local'], value=['Local'])
                 self.top_space = pn.Row(pn.Spacer(height=100))
+                self.time_setting = pn.Row(pn.Column(self.time_range), pn.Column(self.time_granularity, self.tz))
+                def show_time_setting(cb):
+                    if len(self.top_space) == 1: # spacer만 있을 경우?
+                        self.top_space.clear()
+                        self.top_space.append(self.time_setting)
+                    else:
+                        self.top_space.clear()
+                        self.top_space.append(pn.Spacer(height=100))
+                self.time.on_click(show_time_setting)
+                
+                
+                
+                
                 
                 self.gstack = GridStack(width = 1500, height = 1500, ncols = 20, nrows = 16, sizing_mode = 'fixed',allow_resize = True, allow_drag = True)
-                #print("initialize")
-                #print(self.gstack)
+              
                 self.gstack_objects = self.gstack.objects
                 self.gstack_dict = {}
 
@@ -581,7 +621,7 @@ def visualize_panel():
                 self.initialize_gstack()
                 
 
-                self.box = pn.Column(self.top_bar,self.top_w, self.top_space, modal, self.gstack)
+                self.box = pn.Column(self.top_bar,pn.Column(self.auto_refresh, self.time), self.top_space, modal, self.gstack)
            
             def update_gridstack(self):
                 self.gstack = GridStack(objects = self.gstack_objects, width = 1500, height = 1500, ncols = 20, nrows = 16, sizing_mode = 'fixed',allow_resize = True, allow_drag = True)
@@ -1148,7 +1188,7 @@ def visualize_panel():
                                                                             '1 day'], width = 200)
         tz = w.RadioBoxGroup(name = 'Show time as', options = ['UTC/GMT','Local'], value=['Local'])
 
-        auto_refresh = w.Select(name = 'Auto refresh', options = {'None':'None',  '1 minutes':60000, 
+        auto_refresh = w.Select(name = 'Auto refresh', options = {'Off':'None',  '1 minutes':60000, 
                                                                             '5 minutes':300000, 
                                                                             '15 minutes':900000, 
                                                                            '30 minutes':1800000}, width = 200)
