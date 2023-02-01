@@ -9,7 +9,7 @@ from driver.compute_server_client import DBLevelObservation, TableLevelObservati
 from driver.collector.collector_factory import get_collector
 from driver.driver_config_builder import DriverConfig
 from driver.exceptions import DbCollectorException
-
+import os_collector
 
 def collect_db_level_observation_for_on_prem(config: DriverConfig) -> DBLevelObservation:
     """
@@ -86,8 +86,11 @@ def collect_db_level_data_from_database(driver_conf: Dict[str, Any]) -> DBLevelO
             "version": version,
             "observation_time": observation_time,
         }
+    
+    os_metrics = os_collector.collect_os_metrics()
 
     observation: DBLevelObservation = {
+        "os_data": os_metrics,
         "knobs_data": knobs,
         "metrics_data": metrics,
         "summary": summary,

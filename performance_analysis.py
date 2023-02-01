@@ -108,7 +108,14 @@ def get_column_pg() -> dict: #metric 종류를 담은 dict을 return
         # 파일 내를 탐색
         text = json.load(f)
 
-    
+    os_metrics = ['cpu']
+    mem_metrics = list(text['os_data']['mem'].keys())
+    mem_metrics = ['mem_'+i for i in mem_metrics]
+    disk_metrics = list(text['os_data']['disk'].keys())
+    disk_metrics = ['disk_'+i for i in disk_metrics]
+    os_metrics += mem_metrics
+    os_metrics += disk_metrics
+
     archiver_metrics = list(text['metrics_data']['global']['pg_stat_archiver'].keys())
     remove_list = []
     for me in archiver_metrics:
@@ -148,7 +155,8 @@ def get_column_pg() -> dict: #metric 종류를 담은 dict을 return
     activity_wait_event_type_metrics = ['Activity','BufferPin','Client','Extension','IO','IPC','Lock','LWLock','Timeout']
     
     column = {}
-
+    
+    column['os_metrics'] = os_metrics
     column['archiver_metrics'] = archiver_metrics
     column['bgwriter_metrics'] = bgwriter_metrics
     column['agg_database_metrics'] = agg_database_metrics
@@ -213,6 +221,20 @@ def import_metrics_mysql(metrics, text, timestamp,col):
 
 def import_metrics_pg(metrics, text, timestamp,col):
     # Timestamp를 활용하자
+    os_data = text['os_data']
+    new_row = {}
+    for m in col['os_metrics']:
+        if 'mem_' in m:
+            new_row[m] = os_data['mem'][m[4:]]
+        elif 'disk_' in m:
+            new_row[m] = os_data['disk'][m[5:]]
+        elif m == 'timestamp':
+            new_row[m] = timestamp
+        else:
+            new_row[m] = os_data[m]
+
+    metrics['os_metrics'] = metrics['os_metrics'].append(new_row,ignore_index=True)
+
     metrics_data = text['metrics_data']
 
     archiver_metrics_data = metrics_data['global']['pg_stat_archiver']
@@ -488,6 +510,83 @@ def update_data_mysql(dic, metrics,all_timestamp, last_import_timestamp, query_n
     print("MINDT : ",min_datetime)
     return dic, metrics, all_timestamp, query_num
 
+def update_data_pg_test():
+    global dic, metrics, all_timestamp, query_num, col, last_import_time
+    print("before update")
+    print(metrics['activity_state_metrics'])
+    new_dic = {}
+    new_timestamp =[]
+    path = get_path()
+    file_list = os.listdir(path)
+    
+    min_datetime = dt.datetime.now()
+
+    count = 0
+    for filename in file_list:
+        file_datetime = dt.datetime.strptime(filename,'%Y%m%d_%H%M%S') 
+        if file_datetime <=last_import_time:
+            continue
+        else:
+            count+=1
+            if count%10 ==0:
+                print(file_datetime)
+            if min_datetime > file_datetime:
+                min_datetime = file_datetime
+        with open(os.path.join(path, filename), 'r') as f:
+            # 같은 파일 내를 탐색
+            new_timestamp.append(file_datetime)
+            text = json.load(f)
+            metrics = import_metrics_pg(metrics, text, file_datetime, col)
+            statements = json.loads(text["metrics_data"]['global']['pg_stat_statements']['statements'])
+
+            digest_list = []
+            for event in statements:
+                digest = event['queryid']
+                if digest is None:
+                    continue
+                
+                digest_text = event['query']
+                count = event['calls']
+                time = event['time_ms']
+                io = event['io']
+                
+                if digest in digest_list: # 같은 쿼리가 같은 시간대에 이미 존재할 경우? time만 합친다.
+                    new_dic[digest].add_time(time)
+                elif digest in new_dic.keys():
+                    new_dic[digest].add_timestamp(time, 0, io, count, file_datetime)
+                elif digest not in new_dic.keys():
+                    new_dic[digest] = digest_query(query_num, digest, digest_text, time, 0, io, count, file_datetime)
+                    #dic[digest] = temp
+                    query_num+=1
+                digest_list.append(digest)                
+    new_timestamp.sort()
+    for query in new_dic:
+        query_id = new_dic[query].query_id
+        new_dic[query].sort_timestamp()
+    
+    add_digest_list = copy.deepcopy(digest_list)
+    
+    for new_query in digest_list: # 새로 추가된 digest = 즉, dict의 key, merge 할때마다 list에서 제거할것
+        if new_query in dic.keys():
+            dic[new_query].merge(new_dic[new_query])
+            add_digest_list.remove(new_query)
+    
+    for new_digest in add_digest_list:
+        dic[new_digest] = new_dic[new_digest]
+   
+    all_timestamp+=new_timestamp
+    for query in dic:
+        dic[query].add_missing_value(all_timestamp)
+
+    print("after update")
+    last_import_time = metrics['os_metrics']['timestamp'].max()
+    
+    #return dic, metrics, all_timestamp, query_num
+
+
+
+
+
 def update_data_pg(dic, metrics,all_timestamp, last_import_timestamp, query_num, col):
     new_dic = {}
     new_timestamp =[]
@@ -558,11 +657,6 @@ def update_data_pg(dic, metrics,all_timestamp, last_import_timestamp, query_num,
         dic[query].add_missing_value(all_timestamp)
         #print(len(dic[query].time_ms))
     print("MINDT : ",min_datetime)
-    for metric in metrics:
-        print(metrics[metric])
-        metrics[metric].fillna(0)
-        print(metrics[metric])
-        quit()
     return dic, metrics, all_timestamp, query_num
     
 
@@ -573,6 +667,7 @@ def Average(lst):
 
 
 def import_data_pg(time_range=dt.timedelta(hours=4)):
+    global dic, metrics, all_timestamp, query_num, col, last_import_time
     realtime = False # for debugging
     dic = {}
     path = get_path()
@@ -581,27 +676,23 @@ def import_data_pg(time_range=dt.timedelta(hours=4)):
     file_list = os.listdir(path)#[:10] # for debug
     max_datetime = dt.datetime.min
     
-    #col = []
     col = get_column_pg()
-    #print(col)
     metrics = create_dataframe(col)
-    #metrics = {}
     count = 0
-    #print(col)
-    
+
     for filename in file_list:
         file_datetime = dt.datetime.strptime(filename,'%Y%m%d_%H%M%S') 
         if realtime == True and file_datetime <= dt.datetime.now() - time_range:
-            print(file_datetime)
+            #print(file_datetime)
             if max_datetime < file_datetime:
                 max_datetime = file_datetime
             continue
         else:
-            print("imported")
+            #print("imported")
             count+=1
             if count%10 ==0:
                 print(file_datetime)
-            print(file_datetime)
+            #print(file_datetime)
             if max_datetime < file_datetime:
                 max_datetime = file_datetime
         with open(os.path.join(path, filename), 'r') as f:
@@ -633,16 +724,15 @@ def import_data_pg(time_range=dt.timedelta(hours=4)):
             digest_list.append(digest)
     all_timestamp.sort()
     print("MAXDT : ",max_datetime)
-    
+  
+    last_import_time = max_datetime
+
     for query in dic:
         query_id = dic[query].query_id
         dic[query].sort_timestamp()
         dic[query].add_missing_value(all_timestamp)
-    for metric in metrics:
-        print(metrics[metric])
-        metrics[metric].fillna(0, inplace = True)
-        print(metrics[metric])
-    return dic, metrics, all_timestamp, query_num, col
+    
+    #return dic, metrics, all_timestamp, query_num, col
 
 
 def import_data_mysql(time_range=dt.timedelta(hours=1)):
@@ -771,7 +861,7 @@ def import_and_update_data():
     db_type = driver_config['db_type']
     import warnings
     warnings.simplefilter(action='ignore', category=FutureWarning)
-    realtime = False
+    realtime = True
     global dic, metrics, all_timestamp, query_num, col, last_import_time
     all_timestamp =[]
     dic={}
@@ -783,35 +873,38 @@ def import_and_update_data():
         print("Loaded Data from Pickle")
         if realtime:
             if db_type =='postgres':
-                dic, metrics, all_timestamp, query_num = update_data_pg(dic, metrics,all_timestamp,last_import_time, query_num, col)
-            
+                #dic, metrics, all_timestamp, query_num = update_data_pg(dic, metrics,all_timestamp,last_import_time, query_num, col)
+                update_data_pg_test()
             elif db_type =='mysql':
                 dic, metrics, all_timestamp, query_num = update_data_mysql(dic, metrics,all_timestamp,last_import_time, query_num, col)
             else:
                 NotImplementedError
 
-        last_import_time = dt.datetime.now()
-        print(last_import_time)
+        #last_import_time = dt.datetime.now()
+        #print(last_import_time)
         pickle_list = [dic, metrics, all_timestamp, query_num, col, last_import_time]
         with open('data.pickle','wb') as fw:
             pickle.dump(pickle_list,fw)
         print("Data Update Complete!")
-        return dic, metrics, all_timestamp, query_num, last_import_time
+        #return dic, metrics, all_timestamp, query_num, last_import_time
     else:
         if db_type == 'postgres':
-            dic, metrics, all_timestamp, query_num, col = import_data_pg()
+            import_data_pg()
         elif db_type == 'mysql':
             dic, metrics, all_timestamp, query_num, col = import_data_mysql()
         
-        last_import_time = dt.datetime.now()
+        #last_import_time = 
+        #dt.datetime.now()
         print(last_import_time)
         print("Data Loading from json Complete!")
         pickle_list = [dic, metrics, all_timestamp, query_num, col, last_import_time]
         with open('data.pickle','wb') as fw:
             pickle.dump(pickle_list,fw)
         print("Saved Data into Pickle")
+    
+    
         #return dic, metrics, all_timestamp, query_num, last_import_time
-    #print(metrics)
+    #print(metrics['os_metrics'])
 
 
 def resample(inp_array,window_size,how='avg'):
@@ -1434,14 +1527,9 @@ def get_metrics_info():
 def get_metric_fig():
     global metrics, all_timestamp, col
 
-def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='line', timerange=[], option_dict = {}):
-    print("panel")
-    print(selected_metrics)
-    print(filter)
-    print(split)
-    #selected_metrics = [m for (e,m) in selected_element if e == 'metric']
-    #print("visualize fun",option_dict)
-    #print(type)
+
+def visualize_metrics_panel_plotly(selected_metrics, filter=None, split=None, type='line', timerange=[], option_dict = {}):
+   
     column_dict = {'Database name':'datname',
                     'State':'state',
                     'Wait event type':'wait_event_type'}
@@ -1459,13 +1547,169 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
             df_temp = metrics['activity_state_metrics'].copy()
         elif selected_metrics[0][0] == 'Waiting Sessions':
             df_temp = metrics['activity_wait_event_type_metrics'].copy()
-        print('copied')
-        display(df_temp)
+        # print('copied')
+        # display(df_temp)
         df_temp.set_index('timestamp', inplace = True)
         if filter != None:
             df_temp = df_temp[filter[2]]
-            print("after filter")
-            display(df_temp)
+            # print("after filter")
+            # display(df_temp)
+        
+        if split == None:
+            df_copy[selected_metrics[0][0]] = df_temp.agg('mean', axis = 1)
+        else:
+            df_copy = df_temp
+
+    else:
+        for (metric, agg) in selected_metrics:
+            if metric in METRIC_DICT.inverse:
+                metric = METRIC_DICT.inverse[metric] # Convert
+            for c in col.keys():
+                if metric in col[c]:
+                    category = c
+            df_temp = metrics[category].copy()
+            df_temp.set_index('timestamp', inplace = True) # column에 없는 경우 발생
+            if filter != None:
+                df_temp = df_temp.loc[df_temp[column_dict[filter[0]]].isin(filter[2])]
+            if split != None:
+                df_copy = df_copy.join(df_temp[[column_dict[split[0]], metric]], how='outer')
+            else:
+                df_copy = df_copy.join(df_temp[metric], how='outer')
+        print("after copy and join")
+        display(df_copy)
+        if split == None:
+            df_copy = df_copy.groupby(level = 0).agg('sum')
+
+    #print(timerange)
+    idx = [i for i in df_copy.index if i >= timerange[0] and i<= timerange[1]]
+    df_copy = df_copy.loc[idx]
+    # print("after slice")
+    # display(df_copy)
+    df_copy.fillna(method ='ffill')
+
+    df_summary = pd.DataFrame()
+    
+    if split != None and is_special_case==False:
+        
+        metric, agg = selected_metrics[0]
+        if metric in METRIC_DICT.inverse:
+            metric = METRIC_DICT.inverse[metric] # Convert  
+        df_copy.dropna(axis=0, inplace = True)
+        #print(df_copy)
+        p_table = df_copy.pivot_table(index = df_copy.index, columns = column_dict[split[0]], values = metric)
+        #print("after pivot")
+        #display(p_table)
+        for i in df_copy[column_dict[split[0]]].dropna().unique():
+            # if metric in METRIC_DICT.inverse:
+            #     metric = METRIC_DICT.inverse[metric] # Convert    
+            if agg == 'Sum':
+                df_summary[i] = p_table[i].resample('1T').sum()
+            elif agg == 'Average':
+                df_summary[i] = p_table[i].resample('1T').mean()
+            elif agg == 'Min':
+                df_summary[i] = p_table[i].resample('1T').min()
+            elif agg == 'Max':
+                df_summary[i] = p_table[i].resample('1T').max()
+            fold.append(i)
+    elif is_special_case:
+        agg = selected_metrics[0][1]
+        
+        for i in df_copy:
+            if agg == 'Sum':
+                df_summary[i] = df_copy[i].resample('1T').sum()
+            elif agg == 'Average':
+                df_summary[i] = df_copy[i].resample('1T').mean()
+            elif agg == 'Min':
+                df_summary[i] = df_copy[i].resample('1T').min()
+            elif agg == 'Max':
+                df_summary[i] = df_copy[i].resample('1T').max()
+            fold.append(i)
+      
+    else:
+        for (metric, agg) in selected_metrics:    
+            if metric in METRIC_DICT.inverse:
+                metric = METRIC_DICT.inverse[metric] # Convert    
+            
+            if agg == 'Sum':
+                df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').sum()
+            elif agg == 'Average':
+                df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').mean()
+            elif agg == 'Min':
+                df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').min()
+            elif agg == 'Max':
+                df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').max()
+            fold.append(metric+'_'+agg)
+            
+    #display(df_summary)
+    df_summary.reset_index(inplace=True)
+    if 'timestamp' in df_summary:
+        df_summary.rename(columns = {'timestamp':'index'}, inplace = True)
+
+    # display(df_summary)
+    import plotly.express as px
+
+    
+    display(df_summary)
+
+    # #print(fold)
+    # chart = alt.Chart(df_summary).transform_fold(fold,)
+    if type == 'line':
+        fig = px.line(df_summary, x='index', y=fold)
+    elif type == 'bar':
+        fig = px.bar(df_summary, x='index', y=fold)
+    elif type == 'area':
+        fig = px.area(df_summary, x='index', y=fold)
+    elif type == 'scatter':
+        fig = px.scatter(df_summary, x='index', y=fold)
+
+    mean_col = df_summary.mean()
+    legend_text = {}
+    for col in df_summary.columns:
+        legend_text[col] = f"<sub>{col}</sub><br><b>{mean_col[col]}"
+
+    for i, trace in enumerate(fig.data):
+        fig.data[i].update(name=legend_text[trace.name])
+
+    fig.update_layout(legend=dict(title ='', font=dict(size=20), x=0, y=-0.3, orientation="h"), template = 'plotly_white')
+    
+    
+   
+    if len(option_dict)>0:
+        if option_dict['y_min']!=option_dict['y_max']:
+            fig.update_layout(xaxis=dict(range=[option_dict['y_min'], option_dict['y_max']]))
+            
+        if option_dict['l_position'] == 'Right':
+            fig.update_layout(legend=dict(title ='', font=dict(size=20), x=1, y=0.5, orientation="v"))
+
+            
+    return fig
+
+def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='line', timerange=[], option_dict = {}):
+   
+    column_dict = {'Database name':'datname',
+                    'State':'state',
+                    'Wait event type':'wait_event_type'}
+
+    global metrics, all_timestamp, col
+    ts = all_timestamp 
+    is_special_case = False
+    df_copy = pd.DataFrame(index = ts)
+    #print(df)
+    fold = []
+
+    if len(selected_metrics) == 1 and selected_metrics[0][0] in ['Sessions','Waiting Sessions'] and (filter != None or split != None):
+        is_special_case = True
+        if selected_metrics[0][0] == 'Sessions':
+            df_temp = metrics['activity_state_metrics'].copy()
+        elif selected_metrics[0][0] == 'Waiting Sessions':
+            df_temp = metrics['activity_wait_event_type_metrics'].copy()
+        # print('copied')
+        # display(df_temp)
+        df_temp.set_index('timestamp', inplace = True)
+        if filter != None:
+            df_temp = df_temp[filter[2]]
+            # print("after filter")
+            # display(df_temp)
         
         if split == None:
             df_copy[selected_metrics[0][0]] = df_temp.agg('mean', axis = 1)
@@ -1495,8 +1739,8 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
     #print(timerange)
     idx = [i for i in df_copy.index if i >= timerange[0] and i<= timerange[1]]
     df_copy = df_copy.loc[idx]
-    print("after slice")
-    display(df_copy)
+    # print("after slice")
+    # display(df_copy)
     
 
     df_summary = pd.DataFrame()
@@ -1525,6 +1769,7 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
             fold.append(i)
     elif is_special_case:
         agg = selected_metrics[0][1]
+        
         for i in df_copy:
             if agg == 'Sum':
                 df_summary[i] = df_copy[i].resample('1T').sum()
@@ -1553,8 +1798,10 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
             
     #display(df_summary)
     df_summary.reset_index(inplace=True)
+    if 'timestamp' in df_summary:
+        df_summary.rename(columns = {'timestamp':'index'}, inplace = True)
 
-    #display(df_summary)
+    # display(df_summary)
 
     #print(fold)
     chart = alt.Chart(df_summary).transform_fold(fold,)
