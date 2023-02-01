@@ -35,6 +35,8 @@ def visualize_panel():
     WAIT_EVENT_TYPE = ['Activity','BufferPin','Client','Extension','IO','IPC','Lock','LWLock','Timeout']
 
     css = '''
+    .modebar { display: none !important; }
+
     .mdc-top-app-bar__section{
         padding: 0px 12px;
     }
@@ -326,31 +328,41 @@ def visualize_panel():
                     return datetime_range_picker.value
     def dashboard():
         dashboard_list = []
-        top_btn_new = AwesomeButton(name="New Dashboard",icon=Icon(name="",value='<i class="fas fa-sticky-note"></i>'))
-        top_btn_new.css_classes= ['btn']
-        def add_dashboard(clicked_button):
-            temp = Dashboard(len(dashboard_list)+1)
-            template.main[0].append(temp.get())
-            for board in dashboard_list:
-                board.update_gridstack()
-            dashboard_list.append(temp)
-            temp.update_gridstack()
+        # top_btn_new = AwesomeButton(name="New Dashboard",icon=Icon(name="",value='<i class="fas fa-sticky-note"></i>'))
+        # top_btn_new.css_classes= ['btn']
+        # def add_dashboard(clicked_button):
+        #     temp = Dashboard(len(dashboard_list)+1)
+        #     template.main[0].append(temp.get())
+        #     for board in dashboard_list:
+        #         board.update_gridstack()
+        #     dashboard_list.append(temp)
+        #     temp.update_gridstack()
 
-        top_btn_new.on_click(add_dashboard)
+        # top_btn_new.on_click(add_dashboard)
 
         def simple_draw_chart(
                         metric='None', aggregate='Average', # metric
-                        type='line', timerange = 'Custom'):
-
-            chart = visualize_metrics_panel([(metric, aggregate)], None, None, type, get_time_range(timerange))
-            chart = chart.properties(width = 280, height = 120)
+                        type='line', timerange = 'Custom', l = None):
+            if l != None:
+                chart = visualize_metrics_panel_plotly(l['metric'], l['filter'], l['split'], l['type'], get_time_range(timerange))
+            else:
+                chart = visualize_metrics_panel_plotly([(metric, aggregate)], None, None, type, get_time_range(timerange))
+            #chart = chart.properties(width = 280, height = 120)
             metric_name = aggregate+' of '+metric.replace('_', ' ') 
-            
-            
+
+            # showing the plot
+            chart.update_layout(
+                margin=dict(l=0, r=0, t=0, b=0),
+                autosize=False,
+                width=300,
+                height=150,
+                showlegend=False,
+            )
+
             title = metric_name
             #pn.pane.Markdown(f"### {metric_name}", margin = [5,10])
 
-            return title, pn.panel(chart)
+            return pn.pane.Plotly(chart)
         
         class Tile:
             def __init__(self, board_obj, title, contents=None):
@@ -425,14 +437,25 @@ def visualize_panel():
             
         
         class MetricTile(Tile):
-            def __init__(self, board_obj, title, contents=None):
+            def __init__(self, board_obj, title, contents=None, dashboard = None):
                 super().__init__(board_obj, title, contents)
-                self.metric = title
-                if contents == None:
-                    contents = simple_draw_chart(self.metric, timerange = board_obj.time_range.value)
-                    self.title = HTML(f"<b><font color='#323130' size='3'>{contents[0]}")
+                self.l = None
+                if dashboard != None:
+                    self.l = dashboard
+                    contents = simple_draw_chart(l=dashboard_chart[dashboard])
                     self.content.clear()
                     self.content.append(contents)
+                    
+             
+                
+                self.metric = title
+                
+                if contents == None and dashboard == None:
+                    contents = simple_draw_chart(self.metric, timerange = board_obj.time_range.value)
+                    self.content.clear()
+                    self.content.append(contents)
+                    #self.title = HTML(f"<b><font color='#323130' size='3'>{contents[0]}")
+                    
                 self.checkbox = w.Checkbox(name='Override the dashboard time settings at the tile level.',value = False)
                 self.s_timespan = w.Select(name='', options=['Last 30 minutes', 'Last hour', 'Last 4 hours'], disabled = True)
                 self.s_granularity = w.Select(name='', options=['Automatic', '1 minute', '5 minutes'], disabled = True)
@@ -440,7 +463,7 @@ def visualize_panel():
                 self.set_setting_box()
 
             def update(self):
-                contents = simple_draw_chart(self.metric, timerange = self.board_obj.time_range.value)
+                contents = simple_draw_chart(self.metric, timerange = self.board_obj.time_range.value, l=dashboard_chart[self.l])
                 self.content.clear()
                 self.content.append(contents)
 
@@ -754,6 +777,15 @@ def visualize_panel():
                 temp = MetricTile(self, "seq_scan")
                 self.gstack[6:9, 5:8] = temp.tile
                 self.gstack_dict[id(temp)] = [(6,5,9,8), temp]
+                size = (3,3)
+                for i in range(len(dashboard_chart)):
+                    i,j = self.find_empty(size)                
+                    key = (i,j,i+size[0],j+size[1])
+                    temp = MetricTile(self, dashboard_chart[i]['name'], dashboard = i)
+                    self.gstack[key[0]:key[2], key[1]:key[3]] = temp.tile
+                    self.gstack_dict[id(temp)] = [key, temp]
+
+
 
                 #print(self.gstack.grid)
                 self.gstack_objects =  self.gstack.objects 
@@ -854,7 +886,7 @@ def visualize_panel():
                 self.metric_bar[0].visible = False
                 self.metric_bar[1].visible = False
                 self.metric_list = []
-                self.chart_list = {'metric':None, 'filter':None, 'split':None, 'type':None}
+                self.chart_dict = {'metric':None, 'filter':None, 'split':None, 'type':None}
 
                 self.select_property = w.Select(name = 'Property', value = 'None', options=['None'], sizing_mode = 'fixed', width = 250)
                 self.select_operator = w.Select(name = 'Operator', value = '=', options=['='], sizing_mode = 'fixed', width = 100)
@@ -938,8 +970,8 @@ def visualize_panel():
                                 self.l_grid, self.btn_apply, width = 300)
             
             def add_dashboard(self, clicked_button):
-                dashboard_chart.append(self.cached_chart)
-                print(dashboard_chart)
+                dashboard_chart.append(self.chart_dict)
+                
 
             def apply_chart_setting(self, clicked_button):
                 #print("APPLY")
@@ -1071,7 +1103,7 @@ def visualize_panel():
                     self.metrics.disabled = True
                     
 
-                if trigger == False and self.chart_list['type'] == type and self.chart_list['metric'] != None and set(self.chart_list['metric'])==set(self.metric_list) and self.chart_list['filter'] == self.chart_filter and self.chart_list['split'] == self.chart_split and auto_refresh.value =='None':
+                if trigger == False and self.chart_dict['type'] == type and self.chart_dict['metric'] != None and set(self.chart_dict['metric'])==set(self.metric_list) and self.chart_dict['filter'] == self.chart_filter and self.chart_dict['split'] == self.chart_split and auto_refresh.value =='None':
                     return pn.Column(self.selected_element_bar, pn.panel(self.cached_chart))
                 
                 if len(self.metric_list) == 0:
@@ -1119,10 +1151,11 @@ def visualize_panel():
                     
                 self.set_selected_element_bar()
                 self.cached_chart = chart
-                self.chart_list['metric'] = copy.deepcopy(self.metric_list)
-                self.chart_list['filter'] = self.chart_filter
-                self.chart_list['split'] = self.chart_split
-                self.chart_list['type'] = type
+                self.chart_dict['metric'] = copy.deepcopy(self.metric_list)
+                self.chart_dict['filter'] = self.chart_filter
+                self.chart_dict['split'] = self.chart_split
+                self.chart_dict['type'] = type
+                self.chart_dict['name'] = self.name
                 
 
                 ml = [m for (m,a) in self.metric_list]
@@ -1228,9 +1261,7 @@ def visualize_panel():
                                                                             '15 minutes':900000, 
                                                                            '30 minutes':1800000}, width = 200)
         #update_func = update_data_pg_test()
-        def happy():
-            print("happy")
-            print(datetime.now())
+      
                                                                            
         def set_auto_refresh(event):
             if auto_refresh.value != 'None':

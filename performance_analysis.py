@@ -225,7 +225,7 @@ def import_metrics_pg(metrics, text, timestamp,col):
     new_row = {}
     for m in col['os_metrics']:
         if 'mem_' in m:
-            new_row[m] = os_data['mem'][m[4:]]
+            new_row[m] = os_data['mem'][m[4:]] / 1024**2 # megabytes
         elif 'disk_' in m:
             new_row[m] = os_data['disk'][m[5:]]
         elif m == 'timestamp':
@@ -513,7 +513,6 @@ def update_data_mysql(dic, metrics,all_timestamp, last_import_timestamp, query_n
 def update_data_pg_test():
     global dic, metrics, all_timestamp, query_num, col, last_import_time
     print("before update")
-    print(metrics['activity_state_metrics'])
     new_dic = {}
     new_timestamp =[]
     path = get_path()
@@ -524,7 +523,8 @@ def update_data_pg_test():
     count = 0
     for filename in file_list:
         file_datetime = dt.datetime.strptime(filename,'%Y%m%d_%H%M%S') 
-        if file_datetime <=last_import_time:
+        if file_datetime < last_import_time:
+            #print(last_import_time, file_datetime,"skip")
             continue
         else:
             count+=1
@@ -902,7 +902,7 @@ def import_and_update_data():
             pickle.dump(pickle_list,fw)
         print("Saved Data into Pickle")
     
-    
+    return metrics
         #return dic, metrics, all_timestamp, query_num, last_import_time
     #print(metrics['os_metrics'])
 
@@ -1583,9 +1583,10 @@ def visualize_metrics_panel_plotly(selected_metrics, filter=None, split=None, ty
     #print(timerange)
     idx = [i for i in df_copy.index if i >= timerange[0] and i<= timerange[1]]
     df_copy = df_copy.loc[idx]
-    # print("after slice")
-    # display(df_copy)
-    df_copy.fillna(method ='ffill')
+    print("after slice")
+    display(df_copy)
+    df_copy.fillna(method ='ffill', inplace = True)
+    df_copy.fillna(0, inplace = True)
 
     df_summary = pd.DataFrame()
     
@@ -1630,15 +1631,16 @@ def visualize_metrics_panel_plotly(selected_metrics, filter=None, split=None, ty
             if metric in METRIC_DICT.inverse:
                 metric = METRIC_DICT.inverse[metric] # Convert    
             
+            display(df_copy)
             if agg == 'Sum':
-                df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').sum()
+                df_summary[metric] = df_copy[metric].resample('1T').sum()
             elif agg == 'Average':
-                df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').mean()
+                df_summary[metric] = df_copy[metric].resample('1T').mean()
             elif agg == 'Min':
-                df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').min()
+                df_summary[metric] = df_copy[metric].resample('1T').min()
             elif agg == 'Max':
-                df_summary[metric+'_'+agg] = df_copy[metric].resample('1T').max()
-            fold.append(metric+'_'+agg)
+                df_summary[metric] = df_copy[metric].resample('1T').max()
+            fold.append(metric)
             
     #display(df_summary)
     df_summary.reset_index(inplace=True)
@@ -1662,15 +1664,23 @@ def visualize_metrics_panel_plotly(selected_metrics, filter=None, split=None, ty
     elif type == 'scatter':
         fig = px.scatter(df_summary, x='index', y=fold)
 
-    mean_col = df_summary.mean()
+    mean_col = df_summary.mean().round(1)
+
+    print(mean_col)
     legend_text = {}
-    for col in df_summary.columns:
-        legend_text[col] = f"<sub>{col}</sub><br><b>{mean_col[col]}"
+    for i in df_summary.columns:
+        if i in mean_col:
+            legend_text[i] = f"<sub>{i}</sub><br><b>{mean_col[i]}"
 
     for i, trace in enumerate(fig.data):
         fig.data[i].update(name=legend_text[trace.name])
 
-    fig.update_layout(legend=dict(title ='', font=dict(size=20), x=0, y=-0.3, orientation="h"), template = 'plotly_white')
+    fig.update_layout(legend=dict(title ='', font=dict(size=20), x=0, y=-0.3, orientation="h"), 
+                        template = 'plotly_white',
+                        xaxis_title = None,
+                        xaxis = dict(showgrid=False),
+                        yaxis_title = None,
+                        )
     
     
    
@@ -1719,7 +1729,8 @@ def visualize_metrics_panel(selected_metrics, filter=None, split=None, type='lin
     else:
         for (metric, agg) in selected_metrics:
             if metric in METRIC_DICT.inverse:
-                metric = METRIC_DICT.inverse[metric] # Convert
+                metric = METRIC_DICT.inverse[metric] # Convert\
+            print(col)
             for c in col.keys():
                 if metric in col[c]:
                     category = c
