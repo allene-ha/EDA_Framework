@@ -1575,16 +1575,16 @@ def visualize_metrics_panel_plotly(selected_metrics, filter=None, split=None, ty
                 df_copy = df_copy.join(df_temp[[column_dict[split[0]], metric]], how='outer')
             else:
                 df_copy = df_copy.join(df_temp[metric], how='outer')
-        print("after copy and join")
-        display(df_copy)
+        #print("after copy and join")
+        #display(df_copy)
         if split == None:
             df_copy = df_copy.groupby(level = 0).agg('sum')
 
     #print(timerange)
     idx = [i for i in df_copy.index if i >= timerange[0] and i<= timerange[1]]
     df_copy = df_copy.loc[idx]
-    print("after slice")
-    display(df_copy)
+    #print("after slice")
+    #display(df_copy)
     df_copy.fillna(method ='ffill', inplace = True)
     df_copy.fillna(0, inplace = True)
 
@@ -1631,7 +1631,7 @@ def visualize_metrics_panel_plotly(selected_metrics, filter=None, split=None, ty
             if metric in METRIC_DICT.inverse:
                 metric = METRIC_DICT.inverse[metric] # Convert    
             
-            display(df_copy)
+            #display(df_copy)
             if agg == 'Sum':
                 df_summary[metric] = df_copy[metric].resample('1T').sum()
             elif agg == 'Average':
@@ -1651,7 +1651,7 @@ def visualize_metrics_panel_plotly(selected_metrics, filter=None, split=None, ty
     import plotly.express as px
 
     
-    display(df_summary)
+    #display(df_summary)
 
     # #print(fold)
     # chart = alt.Chart(df_summary).transform_fold(fold,)
@@ -1666,7 +1666,7 @@ def visualize_metrics_panel_plotly(selected_metrics, filter=None, split=None, ty
 
     mean_col = df_summary.mean().round(1)
 
-    print(mean_col)
+    #print(mean_col)
     legend_text = {}
     for i in df_summary.columns:
         if i in mean_col:

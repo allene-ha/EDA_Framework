@@ -36,6 +36,9 @@ def visualize_panel():
 
     css = '''
     .modebar { display: none !important; }
+    i {
+    color: #800000;
+    }
 
     .mdc-top-app-bar__section{
         padding: 0px 12px;
@@ -107,7 +110,7 @@ def visualize_panel():
         background-color: transparent;
     }
     .btn .bk-btn-group button:focus {
-        background-color: transparent;
+        background-color: rgba(255, 0, 0, 0.2);
         box-shadow: inset 0px 0px 0px ;
     }
     .btn .bk-btn-group button:disabled {
@@ -299,9 +302,34 @@ def visualize_panel():
     template = pn.template.MaterialTemplate(title='DB Experimental Data Analysis Framework')
     template.header_background ='maroon'
   
-    
-    page_name = pn.widgets.RadioButtonGroup(name="Page", options=['🏠 Home','📈 Metrics','🖥️ Dashboard'], css_classes =['btn_radio'], orientation="vertical")
-    template.sidebar.append(page_name)
+    icon1 = Icon(
+            name="icon",
+            value="""<svg xmlns="http://www.w3.org/2000/svg" id="Layer_1" data-name="Layer 1" viewBox="0 0 24 24" width="512" height="512"><path d="M22.849,7.68l-.869-.68h.021V2h-2v3.451L13.849,.637c-1.088-.852-2.609-.852-3.697,0L1.151,7.68c-.731,.572-1.151,1.434-1.151,2.363v13.957H9V15c0-.551,.448-1,1-1h4c.552,0,1,.449,1,1v9h9V10.043c0-.929-.42-1.791-1.151-2.363Zm-.849,14.32h-5v-7c0-1.654-1.346-3-3-3h-4c-1.654,0-3,1.346-3,3v7H2V10.043c0-.31,.14-.597,.384-.788L11.384,2.212c.363-.284,.869-.284,1.232,0l9,7.043c.244,.191,.384,.478,.384,.788v11.957Z"/></svg>
+    """,#"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Pro 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. --><path d="M64 64c0-17.7-14.3-32-32-32S0 46.3 0 64V400c0 44.2 35.8 80 80 80H480c17.7 0 32-14.3 32-32s-14.3-32-32-32H80c-8.8 0-16-7.2-16-16V64zm406.6 86.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L320 210.7l-57.4-57.4c-12.5-12.5-32.8-12.5-45.3 0l-112 112c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L240 221.3l57.4 57.4c12.5 12.5 32.8 12.5 45.3 0l128-128z"/></svg>""",
+            fill_color="#800000",
+        )
+    btn1 = AwesomeButton(name=" Home", icon=icon1)
+
+    icon2 = Icon(
+            name="icon",
+            value="""<svg xmlns="http://www.w3.org/2000/svg" id="Layer_1" data-name="Layer 1" viewBox="0 0 24 24" width="512" height="512"><title>03-Diagram</title><path d="M3,21.976a1,1,0,0,1-1-1V0H0V20.976a3,3,0,0,0,3,3H24v-2Z"/><rect x="5" y="12" width="2" height="7"/><rect x="10" y="10" width="2" height="9"/><rect x="15" y="13" width="2" height="6"/><rect x="20" y="9" width="2" height="10"/><polygon points="11 4.414 16 9.414 23.707 1.707 22.293 0.293 16 6.586 11 1.586 5.293 7.293 6.707 8.707 11 4.414"/></svg>
+    """,#"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Pro 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. --><path d="M64 0C28.7 0 0 28.7 0 64V352c0 35.3 28.7 64 64 64H240l-10.7 32H160c-17.7 0-32 14.3-32 32s14.3 32 32 32H416c17.7 0 32-14.3 32-32s-14.3-32-32-32H346.7L336 416H512c35.3 0 64-28.7 64-64V64c0-35.3-28.7-64-64-64H64zM512 64V288H64V64H512z"/></svg>""",
+            fill_color="#800000",
+        )
+    btn2 = AwesomeButton(name=" Metrics", icon=icon2)
+
+
+    icon3 = Icon(
+            name="icon",
+            value="""<svg xmlns="http://www.w3.org/2000/svg" id="Layer_1" data-name="Layer 1" viewBox="0 0 24 24" width="512" height="512"><path d="M5,6.5c0-.83,.67-1.5,1.5-1.5s1.5,.67,1.5,1.5-.67,1.5-1.5,1.5-1.5-.67-1.5-1.5Zm8,12.5v2h5v2H6v-2h5v-2H0V4C0,2.35,1.35,1,3,1H21c1.65,0,3,1.35,3,3v15H13Zm9-2V7.41l-7,7-4-4-6.59,6.59H22ZM2,4v12.59L11,7.59l4,4,7-7v-.59c0-.55-.45-1-1-1H3c-.55,0-1,.45-1,1Z"/></svg>
+    """,#"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Pro 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. --><path d="M543.8 287.6c17 0 32-14 32-32.1c1-9-3-17-11-24L512 185V64c0-17.7-14.3-32-32-32H448c-17.7 0-32 14.3-32 32v36.7L309.5 7c-6-5-14-7-21-7s-15 1-22 8L10 231.5c-7 7-10 15-10 24c0 18 14 32.1 32 32.1h32v69.7c-.1 .9-.1 1.8-.1 2.8V472c0 22.1 17.9 40 40 40h16c1.2 0 2.4-.1 3.6-.2c1.5 .1 3 .2 4.5 .2H160h24c22.1 0 40-17.9 40-40V448 384c0-17.7 14.3-32 32-32h64c17.7 0 32 14.3 32 32v64 24c0 22.1 17.9 40 40 40h24 32.5c1.4 0 2.8 0 4.2-.1c1.1 .1 2.2 .1 3.3 .1h16c22.1 0 40-17.9 40-40V455.8c.3-2.6 .5-5.3 .5-8.1l-.7-160.2h32z"/></svg>""",
+            fill_color="#800000",
+        )
+    btn3 = AwesomeButton(name=" Dashboard", icon=icon3)
+    #page_name = pn.widgets.RadioButtonGroup(name="Page", options=['🏠 Home','📈 Metrics','🖥️ Dashboard'], css_classes =['btn_radio'], orientation="vertical")
+    template.sidebar.append(btn1)
+    template.sidebar.append(btn2)
+    template.sidebar.append(btn3)
     template.main.append(pn.Column())
     datetime_range_picker = w.DatetimeRangePicker(name='', value=(datetime.now() - timedelta(minutes = 30), datetime.now()), width = 300)
     dashboard_chart = []
@@ -311,7 +339,26 @@ def visualize_panel():
     modal.style = css
     
     def home():
-        return [Markdown("# 🏠"),HTML("<a href='https://bitbucket.org/postech_dblab/eda_framework_visualization/src/main/'>Visit Github!</a>"),]
+        m = pn.pane.image.PNG(
+            'https://cdn-icons-png.flaticon.com/512/2821/2821637.png',
+            width=500,
+        )
+        t =pn.pane.HTML("""<html>
+        <head>
+            <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet">
+            <style>
+            body {
+                font-family: 'Open Sans', sans-serif;
+            
+            }
+            </style>
+        </head>
+        <body>
+            <h2>Streamline your database monitoring and tuning</h2>
+            <h3>within the comfort of your favorite data analytics platform: Jupyter Notebook!</h3></center>
+        </body>
+        </html>""")
+        return [t,m]
     def get_time_range(tr):
                 now = datetime.now()
                 if tr == 'Last 30 minutes':
@@ -370,9 +417,12 @@ def visualize_panel():
                 self.title = HTML(f"<b><font color='#323130' size='3'>{title}")
                 if len(title)==0:
                     self.title.width = 150
-                self.btn_delete = w.Button(name = '🗑', css_classes = ['small-btn'], width = 20, visible = False)
+                self.btn_delete = AwesomeButton(name="",icon=Icon(name="icon",
+            value="""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="512" height="512"><g id="_01_align_center" data-name="01 align center"><path d="M22,4H17V2a2,2,0,0,0-2-2H9A2,2,0,0,0,7,2V4H2V6H4V21a3,3,0,0,0,3,3H17a3,3,0,0,0,3-3V6h2ZM9,2h6V4H9Zm9,19a1,1,0,0,1-1,1H7a1,1,0,0,1-1-1V6H18Z"/><rect x="9" y="10" width="2" height="8"/><rect x="13" y="10" width="2" height="8"/></g></svg>""", fill_color="#800000",), width = 20, visible = False, css_classes = ['small-btn'])
+                self.btn_setting = AwesomeButton(name="",icon=Icon(name="icon",
+            value="""<svg xmlns="http://www.w3.org/2000/svg" id="Outline" viewBox="0 0 24 24" width="512" height="512"><circle cx="2" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="22" cy="12" r="2"/></svg>""", fill_color="#800000",), width = 20, visible = False, css_classes = ['small-btn'])
                 self.btn_delete.on_click(self.delete_tile)
-                self.btn_setting = w.Button(name = '⋯', css_classes = ['small-btn'], width = 20)
+                #self.btn_setting = w.Button(name = '⋯', css_classes = ['small-btn'], width = 20)
                 self.btn_setting.on_click(self.open_setting_modal)
                 self.bar = pn.Row(self.title, self.btn_delete, self.btn_setting, css_classes =['menu_box'])
                 self.content = pn.Column(contents)
@@ -500,18 +550,14 @@ def visualize_panel():
                 self.contents = self.initialize_clock(self.tz.value, self.tf.value)
                 self.done = w.Button(name='Done')
                 self.reset = w.Button(name='Reset')
-                self.done.on_click(self.update_clock)
+                self.done.on_click(self.update)
                 self.set_setting_box()
                 self.content.clear()
                 self.content.append(self.contents)
 
-                pn.state.add_periodic_callback(self._create_callback(), period=60000, count=200)
+                pn.state.add_periodic_callback(self.update, period=60000, count=200)
                 self.tile = pn.Column(self.bar, self.content, modal, css_classes =['tile-box'], width_policy = 'fit', height_policy='fit')
             
-            def _create_callback(self):
-                async def update_clock():
-                    self.update()
-                return update_clock
 
             def update(self, clicked_button=None):
                 self.content.clear()
@@ -569,7 +615,8 @@ def visualize_panel():
                 self.top_btn_refresh = AwesomeButton(name="Refresh",icon=Icon(name="",value="""<i class="fas fa-sync"></i>"""))
                 self.top_btn_refresh.css_classes= ['btn']
                 
-                self.top_btn_edit = AwesomeButton(name="Edit",icon=Icon(name="",value="""<i class="fas fa-pencil"></i>"""))
+                self.top_btn_edit = AwesomeButton(name="Edit",icon=Icon(name="icon",
+            value="""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="512" height="512"><g id="_01_align_center" data-name="01 align center"><path d="M5,19H9.414L23.057,5.357a3.125,3.125,0,0,0,0-4.414,3.194,3.194,0,0,0-4.414,0L5,14.586Zm2-3.586L20.057,2.357a1.148,1.148,0,0,1,1.586,0,1.123,1.123,0,0,1,0,1.586L8.586,17H7Z"/><path d="M23.621,7.622,22,9.243V16H16v6H2V3A1,1,0,0,1,3,2H14.758L16.379.379A5.013,5.013,0,0,1,16.84,0H3A3,3,0,0,0,0,3V24H18.414L24,18.414V7.161A5.15,5.15,0,0,1,23.621,7.622ZM18,21.586V18h3.586Z"/></g></svg>""", fill_color="#800000",))
                 self.top_btn_edit.css_classes= ['btn']
                 self.top_btn_edit.on_click(self.set_tile_gallery)
 
@@ -577,7 +624,8 @@ def visualize_panel():
                 #self.tile_gallery = pn.Column(self.metric_charts, visible= False, css_classes= ['float_box_invisible'])
                 
 
-                self.top_btn_delete = AwesomeButton(name="Delete",icon=Icon(name="",value="""<i class="fas fa-trash"></i>"""))
+                self.top_btn_delete = AwesomeButton(name="Delete",icon=Icon(name="icon",
+            value="""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="512" height="512"><g id="_01_align_center" data-name="01 align center"><path d="M22,4H17V2a2,2,0,0,0-2-2H9A2,2,0,0,0,7,2V4H2V6H4V21a3,3,0,0,0,3,3H17a3,3,0,0,0,3-3V6h2ZM9,2h6V4H9Zm9,19a1,1,0,0,1-1,1H7a1,1,0,0,1-1-1V6H18Z"/><rect x="9" y="10" width="2" height="8"/><rect x="13" y="10" width="2" height="8"/></g></svg>""", fill_color="#800000",))
                 self.top_btn_delete.css_classes= ['btn']
                 self.top_bar = pn.Row(self.title, self.top_btn_edit, self.top_btn_delete, pn.layout.HSpacer(),pn.layout.HSpacer())
 
@@ -809,6 +857,7 @@ def visualize_panel():
                 
                 for i in self.gstack.objects:
                     self.gstack.objects[i][0][1].visible = True
+                    self.gstack.objects[i][0][2].visible = True
                 self.top_space.clear()
                 self.top_space.append(pn.Row(self.add_tile, None, None, self.save_btn, None, height = 100))
             
@@ -861,18 +910,18 @@ def visualize_panel():
                 charts[self.num-1] = self   
                 l = get_metrics_info()
                 self.c = None
-                self.metrics = AwesomeButton(name="Add metric",icon=Icon(name="",value='<i class="fas fa-plus"></i>'))
+                self.metrics = AwesomeButton(name="Add metric",icon=Icon(name="",value='<i class="fas fa-plus"></i>' ,fill_color="#800000",))
                 self.metrics.margin = [15,15]
                 self.metrics.css_classes= ['btn']
                 self.metrics.on_click(self.add_metric)
                 self.trigger = pn.widgets.Checkbox(name='', visible = False, value = False)
 
-                self.filter = AwesomeButton(name="Add filter",icon=Icon(name="",value='<i class="fas fa-filter"></i>'), disabled = True)
+                self.filter = AwesomeButton(name="Add filter",icon=Icon(name="",value='<i class="fas fa-filter"></i>', fill_color="#800000",), disabled = True)
                 self.filter.margin = [15,15]
                 self.filter.css_classes= ['btn']
                 self.filter.on_click(self.add_filter)
 
-                self.splitting = AwesomeButton(name="Add splitting",icon=Icon(name="",value='<i class="fas fa-wrench"></i>'), disabled = True)
+                self.splitting = AwesomeButton(name="Add splitting",icon=Icon(name="",value='<i class="fas fa-wrench"></i>', fill_color="#800000",), disabled = True)
                 self.splitting.margin = [15,15]
                 self.splitting.css_classes= ['btn']
                 self.splitting.on_click(self.add_splitting)
@@ -910,7 +959,7 @@ def visualize_panel():
                 self.chart_filter = None
                 self.chart_split = None
 
-                self.ctop_btn_board = AwesomeButton(name="Pin to dashboard",icon=Icon(name="",value='<i class="fas fa-bookmark"></i>'))
+                self.ctop_btn_board = AwesomeButton(name="Pin to dashboard",icon=Icon(name="",value='<i class="fas fa-bookmark"></i>', fill_color="#800000",))
             
                 self.ctop_btn_board.margin = [15,15]
                 if dashboard:
@@ -920,7 +969,7 @@ def visualize_panel():
                     self.ctop_btn_board.on_click(self.add_dashboard)
                     self.ctop_btn_board.css_classes= ['btn']
 
-                self.chart_setting_btn = AwesomeButton(icon=Icon(name="",value='<i class="fas fa-align-justify"></i>'), sizing_mode = "fixed", width = 40, height = 40)
+                self.chart_setting_btn = AwesomeButton(icon=Icon(name="",value='<i class="fas fa-align-justify"></i>', fill_color="#800000",), sizing_mode = "fixed", width = 40, height = 40)
                 self.chart_setting_btn.css_classes= ['btn']
                 self.chart_setting_btn.margin = [15,15]
                 self.chart_setting_btn.on_click(self.set_chart_setting)
@@ -1088,7 +1137,7 @@ def visualize_panel():
                 
                 print("DRAW")
                
-                timerange = get_time_range(timerange)
+                #timerange = get_time_range(timerange)
                 
                 if not (metric == 'None' or aggregate == 'None'):
                     if len(self.metric_list)==0 or self.metric_list[-1] != (metric,aggregate):
@@ -1226,17 +1275,17 @@ def visualize_panel():
                                                     property = self.select_property, operator = '=', value = self.select_values,
                                                     s_value = self.select_split_values, limit = 10, sort = 'Ascending',
                                                     type = self.chart_type, 
-                                                    timerange = time_range, 
+                                                    timerange = datetime_range_picker, 
                                                     trigger = self.trigger, setting = self.btn_apply))
                 self.c = pn.Card(pn.bind(self.get_title, metric = self.select_metrics, aggregate = self.select_agg, trigger = self.trigger), self.chart_top_bar, self.metric_bar, self.filter_bar, self.split_bar, self.chart_col, collapsible = False, hide_header = True)
 
                 return self.c
         # Top bar
-        top_btn_new = AwesomeButton(name="New chart",icon=Icon(name="",value='<i class="fas fa-sticky-note"></i>'))
+        top_btn_new = AwesomeButton(name="New chart",icon=Icon(name="",value='<i class="fas fa-sticky-note"></i>', fill_color="#800000",))
         top_btn_new.css_classes= ['btn']
         
 
-        top_btn_refresh = AwesomeButton(name="Refresh",icon=Icon(name="",value="""<i class="fas fa-sync"></i>"""))
+        top_btn_refresh = AwesomeButton(name="Refresh",icon=Icon(name="",value="""<i class="fas fa-sync"></i>""", fill_color="#800000",))
         top_btn_refresh.css_classes= ['btn']
 
         time_range = w.Select(name = 'Time range', options=['Last 30 minutes',
@@ -1317,16 +1366,27 @@ def visualize_panel():
             Chart(1, False).chart(),    
         ]
         #)
-        
+    
+
+    from functools import partial
+
+
+   
+
+
     PAGES = {
-        '🏠 Home': home,'📈 Metrics': metrics, '🖥️ Dashboard': dashboard,
+        'home': home,'metrics': metrics, 'dashboard': dashboard,
     }
-    @pn.depends(page_name, watch=True)
-    def change_page(page_name):
+    #@pn.depends(page_name, watch=True)
+    def change_page(event=None, page_name='home'):
         page_func = PAGES[page_name]
         template.main[0][:] = page_func()
     
-    change_page("🏠 Home")
+    btn1.on_click(partial(change_page, page_name = 'home'))
+    btn2.on_click(partial(change_page, page_name = 'metrics'))
+    btn3.on_click(partial(change_page, page_name = 'dashboard'))
+    
+    change_page(page_name = "home")
 
         #return template
     template.show()
