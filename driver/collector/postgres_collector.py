@@ -165,8 +165,8 @@ class PostgresCollector(BaseDbCollector):
         "index": "indexrelid",
     }
     PG_STAT_LOCAL_QUERY: Dict[str, str] = {
-        "pg_stat_database": DATABASE_STAT,
-        "pg_stat_database_conflicts": DATABASE_CONFLICTS_STAT,
+        #"pg_stat_database": DATABASE_STAT,
+        #"pg_stat_database_conflicts": DATABASE_CONFLICTS_STAT,
         "pg_stat_user_tables": TABLE_STAT,
         "pg_statio_user_tables": TABLE_STATIO,
         "pg_stat_user_indexes": INDEX_STAT,
@@ -288,6 +288,90 @@ class PostgresCollector(BaseDbCollector):
             knobs_json[knob_tuple[0]] = val
         knobs["global"]["global"] = knobs_json
         return knobs
+    
+    def collect_metrics_influx(self, metrics):
+        #metrics = []
+        for view in self.PG_STAT_VIEWS: # archiver, bgwriter
+            query = f"SELECT * FROM {view};"
+            rows = self._get_metrics(query)
+            # A global view can only have one row
+            assert len(rows) == 1
+            
+            metric = {}
+            metric['measurement'] = view
+            if 'stats_reset' in rows[0]:
+                del rows[0]['stats_reset']
+            metric['fields'] = rows[0]
+            metrics.append(metric)
+        
+        # database
+       
+
+        views = self.PG_STAT_VIEWS_LOCAL_RAW['database'] # measurement
+        views_key = self.PG_STAT_VIEWS_LOCAL_KEY['database'] # tag (일정)
+        for view in views:
+            query = f"SELECT * FROM {view};"
+            rows = self._get_metrics(query)
+            #data[view]["raw"] = {}
+            for row in rows:
+                metric = {}
+                metric['measurement'] = view
+                metric['tags'] = {views_key : row[views_key]} # PK
+                del row[views_key]
+                if 'stats_reset' in row:
+                    del row['stats_reset']
+                metric['fields'] = row
+                metrics.append(metric)
+        
+        categories = ['table','index']
+        for category in categories:
+            views = self.PG_STAT_VIEWS_LOCAL[category]
+            for view in views:
+                query = self.PG_STAT_LOCAL_QUERY[view]
+                rows = self._get_metrics(query)
+                if len(rows) > 0:
+                    metric = {}
+                    metric['measurement'] = view
+                    metric['fields'] = rows[0]
+                    metrics.append(metric)
+        
+        # activity
+        queries = ["select extract(epoch from (NOW() - min(backend_start))) as oldest_backend_time_sec from pg_stat_activity;"
+                  ,"select extract(epoch from (NOW() - min(query_start))) as longest_query_time_sec from pg_stat_activity where state = 'active';"
+                  ,"select extract(epoch from (NOW() - min(xact_start))) as longest_transaction_time_sec from pg_stat_activity where state = 'active';"
+                  ,"SELECT count(*) as num_sessions FROM pg_stat_activity WHERE state = 'active';"
+                  ,"SELECT count(*) as num_wait_sessions FROM pg_stat_activity WHERE wait_event_type is not null;"]
+        metric = {}
+        metric['measurement'] = 'pg_stat_activity'
+        metric['fields'] = {}
+        for q in queries:
+            res, meta = self._cmd(q)
+            metric['fields'][meta[0]] = int(res[0][0])
+        metrics.append(metric)
+        # ACTIVITY_STAT = ["""select state, count(*) from pg_stat_activity group by state having state is not null;""",
+        # """select wait_event_type, count(*) from pg_stat_activity group by wait_event_type having wait_event_type is not null;"""]
+
+        rows = self._get_metrics("""select state, count(*) from pg_stat_activity group by state having state is not null;""")
+        metric = {}
+        metric['measurement'] = 'pg_stat_activity_state'
+        metric['fields'] = {}
+        for row in rows:
+            metric['fields'][row['state']] = row['count']
+        metrics.append(metric)
+
+        rows = self._get_metrics("""select wait_event_type, count(*) from pg_stat_activity group by wait_event_type having wait_event_type is not null;""")
+        metric = {}
+        metric['measurement'] = 'pg_stat_activity_wait_event_type'
+        metric['fields'] = {}
+        for row in rows:
+            metric['fields'][row['wait_event_type']] = row['count']
+        metrics.append(metric)        
+        return metrics
+       
+
+        
+
+
 
     def collect_metrics(self) -> Dict[str, Any]:
         """Collect database metrics information
@@ -648,7 +732,7 @@ class PostgresCollector(BaseDbCollector):
         """Get Aggregated local metrics by summing all values"""
 
         for category, data in local_metric.items():
-            if category == 'activity':
+            if category == 'activity' :
                 continue
             views = self.PG_STAT_VIEWS_LOCAL[category]
             for view in views:

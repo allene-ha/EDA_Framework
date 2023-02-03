@@ -9,7 +9,7 @@ from ipywidgets import Label, HBox, VBox, Button, HTML, Output, Layout
 import panel as pn
 from panel import widgets as w
 import holoviews as hv
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from awesome_panel_extensions.models.icon import Icon
 from awesome_panel_extensions.widgets.button import AwesomeButton
 from panel.pane import HTML, Markdown
@@ -28,7 +28,7 @@ def visualize_panel():
     #pc['update'] = pn.state.add_periodic_callback
 
 
-    import_and_update_data()
+    import_data_influx()
     DAT_NAMES = get_dat_names()
     #print(DAT_NAMES)
     STATE = ['active','idle','idle in transaction','idle in transaction (aborted)','fastpath function call', 'disabled']
@@ -293,6 +293,32 @@ def visualize_panel():
 
     }
     '''
+    def get_time_range(tr):
+        #from dateutil.tz import tzlocal
+        if tz.value == 'UTC/GMT':
+            tz_now = datetime.now(pytz.timezone('UTC'))
+            timezone = pytz.timezone('UTC')
+        else: 
+            tz_now = datetime.now().astimezone()
+            timezone_abbr = datetime.now().astimezone().strftime('%Z')
+            if timezone_abbr == 'KST':
+                timezone_name = 'Asia/Seoul'
+            else:
+                timezone_name = timezone_abbr
+            timezone = pytz.timezone(timezone_name)
+        #now = datetime.now().replace(tzinfo=timezone.utc)
+        if tr == 'Last 30 minutes':
+            return (tz_now - timedelta(minutes = 30), tz_now)
+        elif tr == 'Last hour':
+            return (tz_now - timedelta(hours = 30), tz_now)
+        elif tr == 'Last 4 hours':
+            return (tz_now - timedelta(hours = 4), tz_now)
+        elif tr == 'Last 12 hours':
+            return (tz_now - timedelta(hours = 12), tz_now)
+        elif tr == 'Last 24 hours':
+            return (tz_now - timedelta(hours = 24), tz_now)
+        elif tr == 'Custom':
+            return (i.replace(tzinfo=timezone) for i in datetime_range_picker.value)
     pn.extension('plotly','gridstack','ace',comms = 'ipywidgets', sizing_mode = 'stretch_width', raw_css = [css], notifications = True)
     
     pn.config.js_files["fontawesome"]="https://kit.fontawesome.com/121cf5990e.js"
@@ -332,6 +358,8 @@ def visualize_panel():
     template.sidebar.append(btn3)
     template.main.append(pn.Column())
     datetime_range_picker = w.DatetimeRangePicker(name='', value=(datetime.now() - timedelta(minutes = 30), datetime.now()), width = 300)
+    tz = w.RadioBoxGroup(name = 'Show time as', options = ['UTC/GMT','Local'], value='Local')
+    tz.param.watch(get_time_range, 'value')
     dashboard_chart = []
     template.modal.append(pn.Column()) 
     modal_area = template.modal[0]
@@ -359,20 +387,7 @@ def visualize_panel():
         </body>
         </html>""")
         return [t,m]
-    def get_time_range(tr):
-                now = datetime.now()
-                if tr == 'Last 30 minutes':
-                    return (now - timedelta(minutes = 30), now)
-                elif tr == 'Last hour':
-                    return (now - timedelta(hours = 30), now)
-                elif tr == 'Last 4 hours':
-                    return (now - timedelta(hours = 4), now)
-                elif tr == 'Last 12 hours':
-                    return (now - timedelta(hours = 12), now)
-                elif tr == 'Last 24 hours':
-                    return (now - timedelta(hours = 24), now)
-                elif tr == 'Custom':
-                    return datetime_range_picker.value
+    
     def dashboard():
         dashboard_list = []
         # top_btn_new = AwesomeButton(name="New Dashboard",icon=Icon(name="",value='<i class="fas fa-sticky-note"></i>'))
@@ -391,9 +406,9 @@ def visualize_panel():
                         metric='None', aggregate='Average', # metric
                         type='line', timerange = 'Custom', l = None):
             if l != None:
-                chart = visualize_metrics_panel_plotly(l['metric'], l['filter'], l['split'], l['type'], get_time_range(timerange))
+                chart = visualize_metrics_panel_plotly(l['metric'], l['filter'], l['split'], l['type'], datetime_range_picker.value, {}, tz.value)
             else:
-                chart = visualize_metrics_panel_plotly([(metric, aggregate)], None, None, type, get_time_range(timerange))
+                chart = visualize_metrics_panel_plotly([(metric, aggregate)], None, None, type, datetime_range_picker.value, {}, tz.value)
             #chart = chart.properties(width = 280, height = 120)
             metric_name = aggregate+' of '+metric.replace('_', ' ') 
 
@@ -825,6 +840,15 @@ def visualize_panel():
                 temp = MetricTile(self, "seq_scan")
                 self.gstack[6:9, 5:8] = temp.tile
                 self.gstack_dict[id(temp)] = [(6,5,9,8), temp]
+
+                temp = MetricTile(self, "cpu_percent")
+                self.gstack[0:3, 5:8] = temp.tile
+                self.gstack_dict[id(temp)] = [(0,5,3,8), temp]
+
+                temp = MetricTile(self, "mem_percent")
+                self.gstack[0:3, 8:11] = temp.tile
+                self.gstack_dict[id(temp)] = [(0,8,3,11), temp]
+
                 size = (3,3)
                 for i in range(len(dashboard_chart)):
                     i,j = self.find_empty(size)                
@@ -946,7 +970,13 @@ def visualize_panel():
                 self.select_operator.visible = False
                 self.select_values_name.vislbie = False
                 self.select_values.visible = False
-                
+                def set_value_options(event):
+                    if self.select_property.value != 'None':
+                        self.select_values.options = get_value_options(self.select_property.value)
+                        self.select_values.value = get_value_options(self.select_property.value)
+                    
+                self.select_property.param.watch(set_value_options,'value')
+
                 self.select_split_values = w.Select(name = 'Values', value = 'None', options=['None'], sizing_mode = 'fixed')
                 self.select_limit = w.input.NumberInput(name = 'Limit', value = 10, start = 1, stop = 50, step = 1, width = 100, sizing_mode = 'fixed', disabled = True)
                 self.select_sort = w.Select(name = 'Sort', value = 'Ascending', options=['Ascending', 'Descending'], sizing_mode = 'fixed', width = 200, disabled = True)
@@ -1057,7 +1087,6 @@ def visualize_panel():
                     self.select_values_name.vislbie = False
                     self.select_values.visible = False
                 else:
-                    print("ADD filter visible?")
                     self.filter_bar.css_classes = ['float_box']
                     for i in self.filter_bar:
                         i.visible = True
@@ -1103,29 +1132,47 @@ def visualize_panel():
                     self.split_container.append(pn.Row(name,temp, sizing_mode = 'fixed', width=200, css_classes = ['float_box']))
 
             def remove_metric(self, event):
-                print("REMOVE")
+                #print("REMOVE")
                 e = event.obj.message # (숫자, metric or filter or split)
                 if e[0] == 0:
                     for m in self.metric_container: # Row
-                        print("Remove metric")
-                        print("m",m)
-                        print("e",e)
-                        print(m[1].message)
                         if m[1].message == e:
-                            print("RERE")
-                            print(m)
-                            print(self.metric_container)
+                            if len(self.metric_container) == 1:
+                                self.filter_container.clear()
+                                self.chart_filter = None
+                                self.select_property.value = 'None'
+                                self.filter_bar.css_classes = ['float_box_invisible']
+                                for i in self.filter_bar:
+                                    i.visible = False
+                                self.select_values_name.vislbie = False
+                                self.select_values.visible = False
+                                self.split_container.clear()
+                                self.chart_split = None
+                                self.select_split_values.value = 'None'
+                                self.metrics.disabled = False
+                                self.split_bar.css_classes = ['float_box_invisible']
+                                for i in self.split_bar:
+                                    i.visible = False
                             self.metric_container.remove(m)
                             self.metric_list.remove(e[1])
+                            
                 elif e[0] == 1:
                     self.filter_container.clear()
                     self.chart_filter = None
                     self.select_property.value = 'None'
+                    self.filter_bar.css_classes = ['float_box_invisible']
+                    for i in self.filter_bar:
+                        i.visible = False
+                    self.select_values_name.vislbie = False
+                    self.select_values.visible = False
                 elif e[0] == 2:
                     self.split_container.clear()
                     self.chart_split = None
                     self.select_split_values.value = 'None'
                     self.metrics.disabled = False
+                    self.split_bar.css_classes = ['float_box_invisible']
+                    for i in self.split_bar:
+                        i.visible = False
                 
                 self.trigger.value = True
 
@@ -1166,7 +1213,7 @@ def visualize_panel():
                 
                 print(option_dict)
 
-                chart = visualize_metrics_panel_plotly(self.metric_list, self.chart_filter, self.chart_split, self.chart_type.value, timerange, option_dict)
+                chart = visualize_metrics_panel_plotly(self.metric_list, self.chart_filter, self.chart_split, self.chart_type.value, timerange, option_dict, tz.value)
                 self.trigger.value = False
                 # Chart setting widget value 설정해야함!!!
                 
@@ -1210,7 +1257,7 @@ def visualize_panel():
                 ml = [m for (m,a) in self.metric_list]
                 if len(ml)>0:
                     MULTI_DIM_METRICS = [
-                        ["Sessions"], ["Waiting Sessions"],
+                        ["Backends"], ["Waiting Sessions"],
                         ["Backends", 
                         "Deadlocks",
                         "Disk Blocks Hit",
@@ -1303,7 +1350,7 @@ def visualize_panel():
                                                                             '6 hours',
                                                                             '12 hours', 
                                                                             '1 day'], width = 200)
-        tz = w.RadioBoxGroup(name = 'Show time as', options = ['UTC/GMT','Local'], value='Local')
+        
 
         auto_refresh = w.Select(name = 'Auto refresh', options = {'Off':'None',  '1 minutes':60000, 
                                                                             '5 minutes':300000, 

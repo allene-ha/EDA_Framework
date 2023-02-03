@@ -75,30 +75,31 @@ def collect_db_level_data_from_database(driver_conf: Dict[str, Any]) -> DBLevelO
         MysqlCollectorException: unable to connect to MySQL database or get version.
         PostgresCollectorException: unable to connect to Postgres database or get version.
     """
-
+    metrics = []
     with get_collector(driver_conf) as collector:
-        observation_time = int(time.time())
-        knobs = collector.collect_knobs()
-        metrics = collector.collect_metrics()
-        row_num_stats = collector.collect_table_row_number_stats()
-        version = collector.get_version()
-        summary: Dict[str, Any] = {
-            "version": version,
-            "observation_time": observation_time,
-        }
+        #observation_time = int(time.time())
+        #knobs = collector.collect_knobs()
+        
+        metrics = collector.collect_metrics_influx(metrics)
+        #row_num_stats = collector.collect_table_row_number_stats()
+        #version = collector.get_version()
+        #summary: Dict[str, Any] = {
+        #    "version": version,
+        #    "observation_time": observation_time,
+        #}
     
-    os_metrics = os_collector.collect_os_metrics()
+    metrics.append(os_collector.collect_os_metrics())
 
-    observation: DBLevelObservation = {
-        "os_data": os_metrics,
-        "knobs_data": knobs,
-        "metrics_data": metrics,
-        "summary": summary,
-        "row_num_stats": row_num_stats,
-        "db_key": driver_conf["db_key"],
-        "organization_id": driver_conf["organization_id"],
-    }
-    return observation
+    # observation: DBLevelObservation = {
+    #     #"os_data": os_metrics,
+    #     #"knobs_data": knobs,
+    #     "metrics_data": metrics,
+    #     #"summary": summary,
+    #     "row_num_stats": row_num_stats,
+    #     #"db_key": driver_conf["db_key"],
+    #     #"organization_id": driver_conf["organization_id"],
+    # }
+    return metrics
 
 
 def collect_table_level_data_from_database(driver_conf: Dict[str, Any]) -> TableLevelObservation:

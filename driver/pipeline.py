@@ -13,7 +13,7 @@ from driver.database import (
     collect_table_level_observation_for_on_prem,
 )
 from datetime import datetime
-
+from influxdb import InfluxDBClient
 
 TUNE_JOB_ID = "tune_job"
 DB_LEVEL_MONITOR_JOB_ID = "db_level_monitor_job"
@@ -57,14 +57,27 @@ def _db_level_monitor_driver_pipeline_for_on_prem(
         Exception: Other unknown exceptions that are not caught as DriverException.
     """
     logging.debug("Collecting db level observation data.")
-    db_level_observation = collect_db_level_observation_for_on_prem(config)
-    now = datetime.now()
-    file_name = now.strftime('%Y%m%d_%H%M%S')
-    f_path = open('path.txt' , 'r' )
-    path = f_path.readline()
-    path.rstrip('\n')
-    with open(path+'/'+file_name, 'w') as outfile:
-        json.dump(db_level_observation, outfile)
+    db_level_observation = collect_db_level_observation_for_on_prem(config) # list
+    # 여기서 influx에 넣으면 돼
+    
+
+    # Connect to the InfluxDB instance
+    client = InfluxDBClient(host='localhost', port=8086)
+
+    # Choose the database you want to write to
+    client.switch_database('eda')
+
+    # Write the data to InfluxDB
+    client.write_points(db_level_observation)
+
+
+    # now = datetime.now()
+    # file_name = now.strftime('%Y%m%d_%H%M%S')
+    # f_path = open('path.txt' , 'r' )
+    # path = f_path.readline()
+    # path.rstrip('\n')
+    # with open(path+'/'+file_name, 'w') as outfile:
+    #     json.dump(db_level_observation, outfile)
     logging.debug("Saving db level observation data to the server.")
 
     #compute_server_client.post_db_level_observation(db_level_observation)
