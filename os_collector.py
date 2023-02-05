@@ -52,6 +52,12 @@ def collect_os_metrics(): # influx
     field['mem_shared'] = memory_info.shared
     field['mem_slab'] = memory_info.slab
     
+    # Get the disk usage information
+    disk_usage = psutil.disk_usage("/")
+
+    # Calculate the disk usage percentage
+    field['disk_percent'] = disk_usage.percent
+
     disk_io = psutil.disk_io_counters()
 
     field['disk_read_count'] = disk_io.read_count

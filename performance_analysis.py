@@ -751,8 +751,9 @@ def import_data_influx():
         metrics
 #        dt.datetime.strptime(filename,'%Y%m%d_%H%M%S') 
         for measurement in measurements:
-            query = f"SELECT * FROM {measurement} WHERE time > '{last_import_time}'"
-            result = client.query(query)
+            query = f"SELECT * FROM {measurement} WHERE time > '{last_import_time.strftime('%Y-%m-%dT%H:%M:%SZ')}'"
+            
+            result = client.query(query)#, bind_params = bind_params)
             metrics[measurement] = pd.concat([metrics[measurement], pd.DataFrame(list(result.get_points()))])   
             metrics[measurement]['time'] = pd.to_datetime(metrics[measurement]['time'])
             col[measurement] = list(metrics[measurement].columns)

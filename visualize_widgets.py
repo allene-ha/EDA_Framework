@@ -58,6 +58,12 @@ def visualize_panel():
     .none {
         display: none;
     }
+    .bk.top-box{
+	    flex: 1 1 0;       
+        justify-content: space-between;
+        
+    }
+
     .small-btn .bk-btn-group button {
         border: 0px;
         background-color: transparent;
@@ -67,25 +73,22 @@ def visualize_panel():
         font-size: 100%;
     }
     .btn .bk-btn-group button, .btn-focus .bk-btn-group button:hover, .btn-focus .bk-btn-group button:focus {
-
+        flex-grow: 0
         border: 0px;
         background-color: transparent;
         border-radius: 10px;
         height: 30px;
         width: 100px;
         box-shadow: inset 0px 0px 0px ;
-        font-size: 100%;
         text-align: left; 
     }
     .btn-focus .bk-btn-group button {
 
         border: 0px;
-        background-color: rgba(255, 0, 0, 0.2);
-        border-radius: 10px;
+        background-color: lightgray !important;
+        border-radius: 10px !important;
         height: 30px;
         width: 100px;
-
-        font-size: 100%;
         text-align: left; 
     }
     .small-btn .bk-btn-group button:hover {
@@ -108,9 +111,11 @@ def visualize_panel():
     }
     .btn .bk-btn-group button:hover {
         background-color: transparent;
+       
     }
     .btn .bk-btn-group button:focus {
-        background-color: rgba(255, 0, 0, 0.2);
+        background-color: lightgray;
+        border-radius: 10px;
         box-shadow: inset 0px 0px 0px ;
     }
     .btn .bk-btn-group button:disabled {
@@ -124,6 +129,15 @@ def visualize_panel():
         height: 35px;
         margin: 15px 0 0 0;
         font-size: 100%;
+        text-align: center !important; 
+    }
+    .btn_round_both_margin .bk-btn-group button {
+        border: 1px maroon solid !important;
+        background-color: white !important;
+        border-radius: 15px !important;
+        height: 35px;
+        font-size: 100%;
+        margin: 15px 0;
         text-align: center !important; 
     }
     .btn-board .bk-btn-group button {
@@ -156,7 +170,7 @@ def visualize_panel():
     }
     .bk.bk-btn.bk-btn-default.bk-active{
         display: inline-block;
-        background-color: lightgray;
+        background-color: lightgray !important;
         border: 0px;
         text-align: start;
         vertical-align: middle;
@@ -292,6 +306,22 @@ def visualize_panel():
         cursor: move;
 
     }
+
+    .floating-box {
+        position: absolute;
+        display: block;
+        left: 1421px;
+        background: white;
+        border-radius: 10px;
+        border: lightgray 2px solid;
+        top: 0px;
+        width: 540px;
+        height: 120px;
+        z-index: 2;
+        transform: translate(0%, +108%);
+    }
+    
+
     '''
     def get_time_range(tr):
         #from dateutil.tz import tzlocal
@@ -310,7 +340,7 @@ def visualize_panel():
         if tr == 'Last 30 minutes':
             return (tz_now - timedelta(minutes = 30), tz_now)
         elif tr == 'Last hour':
-            return (tz_now - timedelta(hours = 30), tz_now)
+            return (tz_now - timedelta(hours = 1), tz_now)
         elif tr == 'Last 4 hours':
             return (tz_now - timedelta(hours = 4), tz_now)
         elif tr == 'Last 12 hours':
@@ -335,7 +365,7 @@ def visualize_panel():
             fill_color="#800000",
         )
     btn1 = AwesomeButton(name=" Home", icon=icon1)
-
+    
     icon2 = Icon(
             name="icon",
             value="""<svg xmlns="http://www.w3.org/2000/svg" id="Layer_1" data-name="Layer 1" viewBox="0 0 24 24" width="512" height="512"><title>03-Diagram</title><path d="M3,21.976a1,1,0,0,1-1-1V0H0V20.976a3,3,0,0,0,3,3H24v-2Z"/><rect x="5" y="12" width="2" height="7"/><rect x="10" y="10" width="2" height="9"/><rect x="15" y="13" width="2" height="6"/><rect x="20" y="9" width="2" height="10"/><polygon points="11 4.414 16 9.414 23.707 1.707 22.293 0.293 16 6.586 11 1.586 5.293 7.293 6.707 8.707 11 4.414"/></svg>
@@ -352,6 +382,9 @@ def visualize_panel():
             fill_color="#800000",
         )
     btn3 = AwesomeButton(name=" Dashboard", icon=icon3)
+    btn1.css_classes = ['btn-focus']
+    btn2.css_classes = ['btn']
+    btn3.css_classes = ['btn']
     #page_name = pn.widgets.RadioButtonGroup(name="Page", options=['🏠 Home','📈 Metrics','🖥️ Dashboard'], css_classes =['btn_radio'], orientation="vertical")
     template.sidebar.append(btn1)
     template.sidebar.append(btn2)
@@ -367,6 +400,9 @@ def visualize_panel():
     modal.style = css
     
     def home():
+        btn1.css_classes = ['btn-focus']
+        btn2.css_classes = ['btn']
+        btn3.css_classes = ['btn']
         m = pn.pane.image.PNG(
             'https://cdn-icons-png.flaticon.com/512/2821/2821637.png',
             width=500,
@@ -389,6 +425,9 @@ def visualize_panel():
         return [t,m]
     
     def dashboard():
+        btn1.css_classes =  ['btn']
+        btn2.css_classes =['btn']
+        btn3.css_classes = ['btn-focus']
         dashboard_list = []
         # top_btn_new = AwesomeButton(name="New Dashboard",icon=Icon(name="",value='<i class="fas fa-sticky-note"></i>'))
         # top_btn_new.css_classes= ['btn']
@@ -746,7 +785,7 @@ def visualize_panel():
                 self.box = pn.Column(self.top_bar,pn.Row(self.auto_refresh, self.time, pn.layout.HSpacer(width=1500)), self.top_space, pn.layout.VSpacer(height = 20), modal, self.gstack)
 
             def update_objects(self):
-                update_data_pg_test()
+                import_data_influx()
                 for i in self.gstack_dict:
                     self.gstack_dict[i][1].update()
 
@@ -927,6 +966,9 @@ def visualize_panel():
     #     #)
     charts = [None for i in range(5)]
     def metrics():
+        btn1.css_classes =  ['btn']
+        btn2.css_classes =['btn-focus']
+        btn3.css_classes = ['btn']
         class Chart():
             def __init__(self, num, dashboard):
                 self.name = ''
@@ -1012,9 +1054,10 @@ def visualize_panel():
                 self.filter_container = pn.Row()
                 self.split_container = pn.Row()
                 self.selected_element_bar = pn.Row(self.metric_container, self.filter_container, self.split_container) # metric, filter, split
+                self.metric_changed = False
                 self.cached_chart = None
             #     self.initialize_chart_setting()
-                
+                datetime_range_picker.param.watch(self.apply, 'value')
             # def initialize_chart_setting(self):
                 self.y_min = w.FloatInput(name = 'Min value', placeholder='Enter your value...', width = 200)
                 self.y_max = w.FloatInput(name = 'Max value', placeholder='Enter your value...', width = 200)
@@ -1036,7 +1079,7 @@ def visualize_panel():
                     'Size',self.l_size,
                     ncols=2, align = 'center')
                 self.btn_apply = w.Button(name = 'Apply', button_type = 'default', width = 90)
-                self.btn_apply.on_click(self.apply_chart_setting)
+                self.btn_apply.on_click(self.apply)
                 self.box = pn.WidgetBox('<font size="5em">⚙️ Chart settings</font>',
                                 #'<hr width="300px"><b>Chart type<b/>', 
                                 #r_type, 
@@ -1052,7 +1095,7 @@ def visualize_panel():
                 dashboard_chart.append(self.chart_dict)
                 
 
-            def apply_chart_setting(self, clicked_button):
+            def apply(self, clicked_button=None):
                 #print("APPLY")
                 self.trigger.value = True
 
@@ -1109,15 +1152,17 @@ def visualize_panel():
             
             def set_selected_element_bar(self): #for visualize
                 #self.selected_element_bar.clear()
-                self.metric_container.clear()
+                if self.metric_changed:
+                    self.metric_container.clear()
                 self.filter_container.clear()
                 self.split_container.clear()
-
-                for metric in self.metric_list:
-                    name = pn.pane.HTML("<center>"+metric[1]+' of '+metric[0], align = 'center',width=200)
-                    temp = w.Button(name = '✖', message = (0,metric), css_classes = ['small-btn'], width = 20, margin=[-3,0])
-                    temp.on_click(self.remove_metric)
-                    self.metric_container.append(pn.Row(name,temp, sizing_mode = 'fixed', width=250, css_classes = ['float_box']))
+                if self.metric_changed:
+                    for metric in self.metric_list:
+                        name = pn.pane.HTML("<center>"+metric[1]+' of '+metric[0], align = 'center',width=200)
+                        temp = w.Button(name = '✖', message = (0,metric), css_classes = ['small-btn'], width = 20, margin=[-3,0])
+                        temp.on_click(self.remove_metric)
+                        self.metric_container.append(pn.Row(name,temp, sizing_mode = 'fixed', width=250, css_classes = ['float_box']))
+                    self.metric_changed = False
                     
                 if self.chart_filter != None:
                     name = pn.pane.HTML("<center>"+self.chart_filter[0]+self.chart_filter[1]+', '.join(self.chart_filter[2]), align = 'center',width=200)
@@ -1155,6 +1200,8 @@ def visualize_panel():
                                     i.visible = False
                             self.metric_container.remove(m)
                             self.metric_list.remove(e[1])
+                            self.metric_changed = True
+                    
                             
                 elif e[0] == 1:
                     self.filter_container.clear()
@@ -1189,6 +1236,7 @@ def visualize_panel():
                 if not (metric == 'None' or aggregate == 'None'):
                     if len(self.metric_list)==0 or self.metric_list[-1] != (metric,aggregate):
                         self.metric_list.append((metric,aggregate))
+                        self.metric_changed = True
 
                 if not (property == 'None' or len(value)==0):
                     self.chart_filter = (property, operator, value)
@@ -1330,10 +1378,12 @@ def visualize_panel():
         # Top bar
         top_btn_new = AwesomeButton(name="New chart",icon=Icon(name="",value='<i class="fas fa-sticky-note"></i>', fill_color="#800000",))
         top_btn_new.css_classes= ['btn']
+        top_btn_new.width = 100
         
 
         top_btn_refresh = AwesomeButton(name="Refresh",icon=Icon(name="",value="""<i class="fas fa-sync"></i>""", fill_color="#800000",))
-        top_btn_refresh.css_classes= ['btn']
+        top_btn_refresh.css_classes=  ['btn']
+        top_btn_refresh.width = 100
 
         time_range = w.Select(name = 'Time range', options=['Last 30 minutes',
                                                             'Last hour',
@@ -1357,7 +1407,11 @@ def visualize_panel():
                                                                             '15 minutes':900000, 
                                                                            '30 minutes':1800000}, width = 200)
         #update_func = update_data_pg_test()
-      
+        time_box = pn.Row(pn.Column(time_range,datetime_range_picker), pn.Column(time_granularity,auto_refresh), css_classes=['float_box'])
+
+        time_btn = w.Button(name = f'Local Time: {time_range.value} ({time_granularity.value})', css_classes = ['btn_round_both_margin'])
+        top_bar = pn.Column(pn.Row(pn.Row(top_btn_new, top_btn_refresh),pn.layout.HSpacer(),pn.layout.HSpacer(),pn.layout.HSpacer(), time_btn, css_classes = ['top-box']))
+
                                                                            
         def set_auto_refresh(event):
             if auto_refresh.value != 'None':
@@ -1376,14 +1430,22 @@ def visualize_panel():
             if time_range.value != 'Custom':
                 datetime_range_picker.disabled = True
                 datetime_range_picker.value = get_time_range(time_range.value)
+                time_btn.name = f'Local Time: {time_range.value} ({time_granularity.value})'
             else:
                 datetime_range_picker.disabled = False
+                time_btn.name = f'Local Time: {time_range.value} ({time_granularity.value})'
         
         time_range.param.watch(custom_time, 'value')
+        
+        def show_time_box(btn):
+            if time_btn.clicks%2==1:
+                template.main[0][0].append(pn.Row(pn.layout.HSpacer(),pn.layout.HSpacer(),pn.layout.HSpacer(),time_box))
+            else:
+                template.main[0][0]=pn.Column(pn.Row(pn.Row(top_btn_new, top_btn_refresh),pn.layout.HSpacer(),pn.layout.HSpacer(),pn.layout.HSpacer(), time_btn, css_classes = ['top-box']))
 
 
+        time_btn.on_click(show_time_box)
 
-        top_bar = pn.Row(top_btn_new,pn.Column(top_btn_refresh, auto_refresh),pn.layout.HSpacer(), pn.layout.HSpacer(), pn.Column(time_granularity, tz),pn.Column(time_range,datetime_range_picker))
 
         def new_chart(clicked_button):
             num = len(template.main[0])
@@ -1394,7 +1456,7 @@ def visualize_panel():
             print('refresh')
             #asyncio.run(update_func)
             print("before update", datetime.now())
-            update_data_pg_test()
+            import_data_influx()
             print("after update", datetime.now())
             if time_range.value != 'Custom':
                 datetime_range_picker.value = get_time_range(time_range.value)
