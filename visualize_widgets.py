@@ -18,13 +18,18 @@ from panel_modal import Modal
 import pytz
 
 import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
+
 plt.style.use('seaborn-notebook')
 #DATE_BOUNDS = (datetime(2023, 1, 19, 12, 30, 0), datetime(2023, 1, 19, 13, 30, 0)) # default 15
 pc = {}
 
 def visualize_panel():    
     print('start')
+    warnings.simplefilter(action='ignore', category=FutureWarning)
+    import sys
+    stdout = sys.stdout
+
+    sys.stdout = stdout
     #pc['update'] = pn.state.add_periodic_callback
 
 
@@ -1290,7 +1295,7 @@ def visualize_panel():
                     self.filter_bar.css_classes = ['float_box_invisible']
                     self.select_property.value = "None"
                     self.select_operator.value = '='
-                    self.select_value.value = ()
+                    self.select_values.value = ()
                     
                     
                 self.set_selected_element_bar()
@@ -1325,15 +1330,15 @@ def visualize_panel():
                         if len(set(ml)-set(c))==0:
                             if i == 0:
                                 self.select_property.options = ['None','State']
-                                self.select_values.options = STATE
+                                #self.select_values.options = STATE
                                 self.select_split_values.options = ['None','State']
                             elif i == 1:
                                 self.select_property.options = ['None','Wait event type']
-                                self.select_values.options = WAIT_EVENT_TYPE
+                                #self.select_values.options = WAIT_EVENT_TYPE
                                 self.select_split_values.options = ['None','Wait event type']
                             elif i == 2:
                                 self.select_property.options = ['None','Database name']
-                                self.select_values.options = DAT_NAMES
+                                #self.select_values.options = DAT_NAMES
                                 self.select_split_values.options= ['None','Database name']
                                 
                             self.filter.disabled =False

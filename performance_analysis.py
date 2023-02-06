@@ -783,8 +783,9 @@ def import_data_influx():
         print(f'time: {dt.datetime.now()-now}') # 4000 건 2초
     last_import_time = metrics[measurement]['time'].max()
     all_timestamp = list(metrics[measurement]['time'])
+    #metrics['throughtput'] = 
 
-   # print(metrics)
+    return metrics
 
 
 
@@ -1585,10 +1586,10 @@ def get_metric_fig():
 
 def get_value_options(property):
     if property == 'State':
-        res = metrics['pg_stat_activity_state'].columns
+        res = list(metrics['pg_stat_activity_state'].columns)
         res.remove('time')
     elif property == 'Wait event type':
-        res = metrics['pg_stat_activity_wait_event_type'].columns
+        res = list(metrics['pg_stat_activity_wait_event_type'].columns)
         res.remove('time')
     else:
         res = get_dat_names()
@@ -1643,7 +1644,7 @@ def visualize_metrics_panel_plotly(selected_metrics, filter=None, split=None, ch
         if filter != None:
             df_temp = df_temp[filter[2]]
         if split == None:
-            df_copy[selected_metrics[0][0]] = df_temp.agg('mean', axis = 1)
+            df_copy[selected_metrics[0][0]] = df_temp.agg('sum', axis = 1)
         else:
             df_copy = df_temp
 
@@ -1654,17 +1655,30 @@ def visualize_metrics_panel_plotly(selected_metrics, filter=None, split=None, ch
             for c in col.keys():
                 if metric in col[c]:
                     category = c
+            # if 'category' == 'pg_stat_database':
+            #     df_temp = metrics[category]
             df_temp = metrics[category].copy()
             df_temp.set_index('time', inplace = True) # column에 없는 경우 발생
             if filter != None:
                 df_temp = df_temp.loc[df_temp[column_dict[filter[0]]].isin(filter[2])]
             if split != None:
+                print('join')
+                display(df_copy)
+                display(df_temp)
+                #df_copy.reset_index().concat(df_temp[metric].reset_index())
                 df_copy = df_copy.join(df_temp[[column_dict[split[0]], metric]], how='outer')
             else:
-                df_copy = df_copy.join(df_temp[metric], how='outer')
-        print("after copy and join")
-        display(df_copy)
+                print(df_copy)
+                print(df_temp[metric])
+                df_copy = pd.concat([df_copy.reset_index(drop=True), df_temp[metric].reset_index()], axis = 1).set_index('time')
+                #df_copy = .concat(df_temp[metric].reset_index(), axis = 1)
+                display(df_copy)
+                #df_copy = df_copy.join(df_temp[metric], how='outer')
+        #print("after copy and join")
+        #display(df_copy)
         if split == None:
+            print('aggregate')
+            print(df_copy)
             df_copy = df_copy.groupby(level = 0).agg('sum')
 
     #print(timerange)
@@ -1672,6 +1686,8 @@ def visualize_metrics_panel_plotly(selected_metrics, filter=None, split=None, ch
     #print(type(timerange[0]))
     #timerange = [i.astimezone() for i in timerange]
     #print(timerange)
+    # if len(df_copy.index)>1:
+    #     df_copy.index = 
     idx = [i for i in df_copy.index if i >= timerange[0] and i<= timerange[1]]
     #print(idx)
     df_copy = df_copy.loc[idx]
@@ -1735,7 +1751,7 @@ def visualize_metrics_panel_plotly(selected_metrics, filter=None, split=None, ch
     if 'index' in df_summary:
         df_summary.rename(columns = {'index':'time'}, inplace = True)
 
-    display(df_summary)
+    #display(df_summary)
     import plotly.express as px
     if len(df_summary)>0:
         df_summary['time'] = df_summary['time'].dt.tz_convert(timezone)
@@ -1796,7 +1812,12 @@ def visualize_metrics_panel_plotly(selected_metrics, filter=None, split=None, ch
 
 def get_dat_names():
     global metrics
-    return list(set(metrics["pg_stat_database"]['datname']))
+    res = list(set(metrics["pg_stat_database"]['datname']))
+    
+    print(res)
+    if None in res:
+        res.remove(None)
+    return res
 
 
 def wait_visualizer():

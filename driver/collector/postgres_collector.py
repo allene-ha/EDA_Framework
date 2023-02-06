@@ -366,6 +366,7 @@ class PostgresCollector(BaseDbCollector):
         for row in rows:
             metric['fields'][row['wait_event_type']] = row['count']
         metrics.append(metric)        
+        self._cmd_wo_fetch("select pg_stat_reset();")
         return metrics
        
 
@@ -403,7 +404,7 @@ class PostgresCollector(BaseDbCollector):
         self._aggregated_local_stats(metrics["local"])
         self._raw_local_stats(metrics["local"])
         self._collect_activity_stats(metrics["local"])
-
+        self._cmd_wo_fetch("select pg_stat_reset();")
         return metrics
 
     def collect_table_row_number_stats(self) -> Dict[str, Any]:
