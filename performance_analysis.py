@@ -1807,7 +1807,8 @@ def visualize_metrics_panel_plotly(selected_metrics, filter=None, split=None, ch
         if option_dict['l_position'] == 'Right':
             fig.update_layout(legend=dict(title ='', font=dict(size=20), x=1, y=0.5, orientation="v"))
 
-            
+    
+    print(fig.to_json())
     return fig
 
 def get_dat_names():

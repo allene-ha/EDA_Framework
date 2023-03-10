@@ -71,13 +71,14 @@ def _db_level_monitor_driver_pipeline_for_on_prem(
     client.write_points(db_level_observation)
 
 
-    # now = datetime.now()
-    # file_name = now.strftime('%Y%m%d_%H%M%S')
-    # f_path = open('path.txt' , 'r' )
-    # path = f_path.readline()
-    # path.rstrip('\n')
-    # with open(path+'/'+file_name, 'w') as outfile:
-    #     json.dump(db_level_observation, outfile)
+    now = datetime.now()
+    file_name = now.strftime('%Y%m%d_%H%M%S')
+    f_path = open('path.txt' , 'r' )
+    path = f_path.readline()
+    path.rstrip('\n')
+    with open(path+'/'+file_name, 'w') as outfile:
+        json.dump(db_level_observation, outfile)
+        
     logging.debug("Saving db level observation data to the server.")
 
     #compute_server_client.post_db_level_observation(db_level_observation)
