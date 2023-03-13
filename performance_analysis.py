@@ -736,7 +736,7 @@ def import_data_influx():
     global dic, metrics, all_timestamp, query_num, col, last_import_time
     dic = {}
     query_num = 0
-    
+    schema = {}
     # Initialize a client object
     client = InfluxDBClient(host='localhost', port=8086)
 
@@ -764,14 +764,15 @@ def import_data_influx():
         metrics = {}
         col = {}
         for measurement in measurements:
-            # Get the measurement's structure
-            # query = f'SHOW TAG KEYS FROM {measurement}'
-            # tags_result = client.query(query)
-            # tags = [tag['tagKey'] for tag in tags_result.get_points()]
-
-            # query = f'SHOW FIELD KEYS FROM {measurement}'
-            # fields_result = client.query(query)
-            # fields = [field['fieldKey'] for field in fields_result.get_points()]
+            schema[measurement] = {}
+            #Get the measurement's structure
+            query = f'SHOW TAG KEYS FROM {measurement}'
+            tags_result = client.query(query)
+            tags = [tag['tagKey'] for tag in tags_result.get_points()]
+            
+            #query = f'SHOW FIELD KEYS FROM {measurement}'
+            fields_result = client.query(query)
+            fields = [field['fieldKey'] for field in fields_result.get_points()]
             query = f'SELECT * FROM {measurement}'
             result = client.query(query)
             metrics[measurement] = pd.DataFrame(list(result.get_points()))
@@ -783,7 +784,6 @@ def import_data_influx():
         print(f'time: {dt.datetime.now()-now}') # 4000 건 2초
     last_import_time = metrics[measurement]['time'].max()
     all_timestamp = list(metrics[measurement]['time'])
-    #metrics['throughtput'] = 
 
     return metrics
 

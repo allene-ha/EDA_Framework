@@ -217,7 +217,9 @@ class PostgresCollector(BaseDbCollector):
                 "FROM pg_stat_statements;"
             )
         self.PG_STAT_STATEMENTS_EDA_SQL = (
-            "SELECT queryid, query,  calls, total_exec_time as time_ms, blk_read_time+blk_write_time as io FROM pg_stat_statements order by calls desc limit 10;"
+            """SELECT queryid, query,  calls, total_exec_time as wait_time, mean_exec_time as latency, blk_read_time+blk_write_time as io, 
+            shared_blks_hit,shared_blks_read,shared_blks_dirtied, shared_blks_written, local_blks_hit, local_blks_read, local_blks_dirtied, local_blks_written, 
+            temp_blks_read, temp_blks_written, blk_read_time, blk_write_time FROM pg_stat_statements;"""
             )
         
 
@@ -322,7 +324,11 @@ class PostgresCollector(BaseDbCollector):
             #data[view]["raw"] = {}
             for row in rows:
                 metric = {}
-                metric['measurement'] = view.split('_')[-1]
+                if view == 'pg_stat_database':
+                    metric['measurement'] = 'database_statistics'
+                else:
+                    metric['measurement'] = view.split('_')[-1]
+                
                 metric['tags'] = {views_key : row[views_key]} # PK
                 del row[views_key]
                 if 'stats_reset' in row:
@@ -408,6 +414,18 @@ class PostgresCollector(BaseDbCollector):
         for row in rows:
             metric['fields'][row['wait_event_type']] = row['count']
         metrics.append(metric)        
+
+        
+        rows = self._get_stat_statements()
+        for row in rows:
+            metric = {}
+            metric['measurement'] = "query_statistics"
+            metric['tags'] = {k:v for k,v in row.items() if k == 'queryid'}
+            metric['fields'] = {k:v for k,v in row.items() if k != 'queryid'}
+            metrics.append(metric)
+        
+        print(metrics) 
+
         self._cmd_wo_fetch("select pg_stat_reset();")
 
 

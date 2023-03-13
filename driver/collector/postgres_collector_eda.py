@@ -409,6 +409,14 @@ class PostgresCollector(BaseDbCollector):
         for row in rows:
             metric['fields'][row['wait_event_type']] = row['count']
         metrics.append(metric)        
+
+        metrics["query_statistics"] = {
+            "statements": json.dumps(self._get_stat_statements())
+        }
+        print(metrics['query_statistics'])
+
+
+
         self._cmd_wo_fetch("select pg_stat_reset();")
         return metrics
        

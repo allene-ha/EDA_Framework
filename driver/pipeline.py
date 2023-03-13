@@ -68,7 +68,7 @@ def _db_level_monitor_driver_pipeline_for_on_prem(
     client.switch_database('eda')
 
     # Write the data to InfluxDB
-    #client.write_points(db_level_observation)
+    client.write_points(db_level_observation)
 
 
     now = datetime.now()
@@ -78,7 +78,7 @@ def _db_level_monitor_driver_pipeline_for_on_prem(
     path.rstrip('\n')
     with open(path+'/'+file_name, 'w') as outfile:
         json.dump(db_level_observation, outfile)
-        
+
     logging.debug("Saving db level observation data to the server.")
 
     #compute_server_client.post_db_level_observation(db_level_observation)
