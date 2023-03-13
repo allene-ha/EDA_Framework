@@ -143,65 +143,34 @@ def show_schema(connector=None, metrics=None):
         df = pd.concat([res_field, res_tag], axis = 0)
         table = pn.widgets.Tabulator(df,name = "<i class='fa fa-table'></i> "+ measurement.replace("_"," ").capitalize(),show_index=False, formatters = bokeh_formatters)
         #, buttons={'Search': "<i class='fa fa-search'></i>"}
-        button = pn.widgets.Button(name='Load Table', button_type='primary')
+        #button = pn.widgets.Button(name='Load Table', button_type='primary')
         #button.message = measurement
-        button.on_click(partial(load_table, conn = connector, measurement = measurement))
+        #button.on_click(partial(load_table, conn = connector, measurement = measurement))
         #table.on_click(partial(show_table, conn = connector, measurement = measurement))
-        df_widgets.append(pn.Column(table,button))
+        df_widgets.append(pn.Column(table))#,button))
 
     accordion = pn.Accordion(*df_widgets, sizing_mode = 'stretch_width' )
     
     display(pn.Column(accordion))
 
 
-def load_table(clicked, conn, measurement):
+def load_table(conn, measurement, metric = None):
     
     
+    if metric == None:
+        result = conn.query(f'SELECT * FROM {measurement} ORDER BY time DESC LIMIT 100')
+        df = pd.DataFrame(result.get_points())
+        return df
+    else:
+        df = df[metric]
 
-    result = conn.query(f'SELECT * FROM {measurement} ORDER BY time DESC LIMIT 100')
-    df = pd.DataFrame(result.get_points())
-    df = df.iloc[:,clicked.row]
-
-    table = pn.widgets.Tabulator(df)
-    display(table)
     #print(clicked['row'])
         #print(clicked)
 
 #main = pn.Column("""### Language generation part""",pn.Spacer(height = 300),"""### Visualization part""", pn.Spacer(height = 300), background = 'white', css_classes = ['main'])
 #side = pn.Column(accordion, css_classes = ['side'], width = 400)
 #pn.Row(side, main, css_classes = ['row'])
-from IPython.display import display
-from ipywidgets import Button
-from IPython.core.display import HTML
-import IPython
 
-def test():
-    button = Button(description='Add Cell')
-    button.on_click(lambda b: add_cell())
-    display(button)
-
-def addd_cell():
-
-    code = 'print("Hello, world!")'
-
-    # Create a new code cell and set the code
-    display(IPython.display.Javascript('''
-        var code = "{0}";
-        var cell = Jupyter.notebook.get_selected_cell();
-        var index = Jupyter.notebook.get_cells().indexOf(cell);
-        Jupyter.notebook.insert_cell_below('code', index+1).set_text(code);
-    '''.format(code)))
-
-    # Select the new cell and run it
-    IPython.get_ipython().set_next_input(code)
-
-from IPython.display import display, Javascript
-
-def add_cell(text,  type='code', direct='above'):
-    from IPython.terminal.interactiveshell import InteractiveShell
-
-    shell = InteractiveShell()
-    shell.run_cell('print("Hello, world!")')
 
 
 
