@@ -308,25 +308,44 @@ class PostgresCollector(BaseDbCollector):
         metric['fields'] = rows[0]
         metrics.append(metric)
         
+        # io
+        view = 'io'
+        metric = {}
+        metric['measurement'] = view
+        query = f"SELECT sum(blks_read) AS disk_read, sum(blks_hit) AS buffer_hit FROM pg_stat_database;"
+        rows = self._get_metrics(query)
+        metric['fields'] = rows[0]
+        query = f"""SELECT sum(heap_blks_read) AS heap_blocks_read, 
+                        sum(heap_blks_hit) AS heap_blocks_hit
+                    FROM pg_statio_user_tables;"""
+        rows = self._get_metrics(query)
+        metric['fields'].update(rows[0])
+        query = f"""SELECT sum(idx_blks_read) AS index_blocks_read, 
+                        sum(idx_blks_hit) AS index_blocks_hit
+                    FROM pg_statio_user_indexes;"""
+        rows = self._get_metrics(query)
+        metric['fields'].update(rows[0])
+
+        query = f"""SELECT sum(toast_blks_read) AS toast_blocks_read, 
+                    sum(toast_blks_hit) AS toast_blocks_hit,
+                    sum(tidx_blks_read) AS toast_index_blocks_read,
+                    sum(tidx_blks_hit) AS toast_index_blocks_hit
+                    FROM pg_statio_user_tables;"""
+        rows = self._get_metrics(query)
+        metric['fields'].update(rows[0])
+        print(metric)
+        metrics.append(metric)
         
+
+        # db
+        view = 'db'
+        query = f"SELECT COUNT(*) FROM pg_database;"
+        rows = self._get_metrics(query)
+        metric = {}
+        metric['measurement'] = view
+        metric['fields'] = rows[0]
+        metrics.append(metric)
         
-        
-        
-        
-        
-        
-        for view in self.PG_STAT_VIEWS: # archiver, bgwriter
-            query = f"SELECT * FROM {view};"
-            rows = self._get_metrics(query)
-            # A global view can only have one row
-            assert len(rows) == 1
-            
-            metric = {}
-            metric['measurement'] = view
-            if 'stats_reset' in rows[0]:
-                del rows[0]['stats_reset']
-            metric['fields'] = rows[0]
-            metrics.append(metric)
         
         # database
        
@@ -366,7 +385,7 @@ class PostgresCollector(BaseDbCollector):
                   ,"SELECT count(*) as num_sessions FROM pg_stat_activity WHERE state = 'active';"
                   ,"SELECT count(*) as num_wait_sessions FROM pg_stat_activity WHERE wait_event_type is not null;"]
         metric = {}
-        metric['measurement'] = 'pg_stat_activity'
+        metric['measurement'] = 'sessions'
         metric['fields'] = {}
         for q in queries:
             res, meta = self._cmd(q)

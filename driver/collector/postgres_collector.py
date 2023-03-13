@@ -156,6 +156,11 @@ class PostgresCollector(BaseDbCollector):
         "table": ["pg_stat_user_tables", "pg_statio_user_tables"],
         "index": ["pg_stat_user_indexes", "pg_statio_user_indexes"],
     }
+    # PG_STAT_VIEWS_LOCAL = {
+    #     "database": ["pg_stat_database", "pg_stat_database_conflicts"],
+    #     "table": ["pg_stat_user_tables", "pg_statio_user_tables"],
+    #     "index": ["pg_stat_user_indexes", "pg_statio_user_indexes"],
+    # }
     PG_STAT_VIEWS_LOCAL_RAW = {
         "database": ["pg_stat_database", "pg_stat_database_conflicts"],
     }
@@ -291,18 +296,20 @@ class PostgresCollector(BaseDbCollector):
     
     def collect_metrics_influx(self, metrics):
         #metrics = []
-        for view in self.PG_STAT_VIEWS: # archiver, bgwriter
-            query = f"SELECT * FROM {view};"
-            rows = self._get_metrics(query)
-            # A global view can only have one row
-            assert len(rows) == 1
-            
-            metric = {}
-            metric['measurement'] = view
-            if 'stats_reset' in rows[0]:
-                del rows[0]['stats_reset']
-            metric['fields'] = rows[0]
-            metrics.append(metric)
+
+        # bgwriter
+        view = 'bgwriter'
+        query = f"SELECT * FROM pg_stat_bgwriter;"
+        rows = self._get_metrics(query)
+        # A global view can only have one row
+        assert len(rows) == 1
+        
+        metric = {}
+        metric['measurement'] = view
+        if 'stats_reset' in rows[0]:
+            del rows[0]['stats_reset']
+        metric['fields'] = rows[0]
+        metrics.append(metric)
         
         # database
        
@@ -315,7 +322,7 @@ class PostgresCollector(BaseDbCollector):
             #data[view]["raw"] = {}
             for row in rows:
                 metric = {}
-                metric['measurement'] = view
+                metric['measurement'] = view.split('_')[-1]
                 metric['tags'] = {views_key : row[views_key]} # PK
                 del row[views_key]
                 if 'stats_reset' in row:
@@ -323,18 +330,53 @@ class PostgresCollector(BaseDbCollector):
                 metric['fields'] = row
                 metrics.append(metric)
         
-        categories = ['table','index']
-        for category in categories:
-            views = self.PG_STAT_VIEWS_LOCAL[category]
-            for view in views:
-                query = self.PG_STAT_LOCAL_QUERY[view]
-                rows = self._get_metrics(query)
-                if len(rows) > 0:
-                    metric = {}
-                    metric['measurement'] = view
-                    metric['fields'] = rows[0]
-                    metrics.append(metric)
+        # categories = ['table','index']
+        # for category in categories:
+        #     views = self.PG_STAT_VIEWS_LOCAL[category]
+        #     for view in views:
+        #         query = self.PG_STAT_LOCAL_QUERY[view]
+        #         rows = self._get_metrics(query)
+        #         if len(rows) > 0:
+        #             metric = {}
+        #             metric['measurement'] = view
+        #             metric['fields'] = rows[0]
+        #             metrics.append(metric)
         
+        # access
+        view = 'access'
+        query = TABLE_STAT
+        rows = self._get_metrics(query)
+
+        metric = {}
+        metric['measurement'] = view
+        if 'stats_reset' in rows[0]:
+            del rows[0]['stats_reset']
+        metric['fields'] = rows[0]
+
+        query = INDEX_STAT
+        rows = self._get_metrics(query)
+        metric['fields'].update(rows[0])
+
+        metrics.append(metric)
+
+        # io
+
+        view = 'io'
+        query = TABLE_STATIO
+        rows = self._get_metrics(query)
+        
+        metric = {}
+        metric['measurement'] = view
+        if 'stats_reset' in rows[0]:
+            del rows[0]['stats_reset']
+        metric['fields'] = rows[0]
+
+        query = INDEX_STATIO
+        rows = self._get_metrics(query)
+        metric['fields'].update(rows[0])
+
+        metrics.append(metric)
+
         # activity
         queries = ["select extract(epoch from (NOW() - min(backend_start))) as oldest_backend_time_sec from pg_stat_activity;"
                   ,"select extract(epoch from (NOW() - min(query_start))) as longest_query_time_sec from pg_stat_activity where state = 'active';"
@@ -342,7 +384,7 @@ class PostgresCollector(BaseDbCollector):
                   ,"SELECT count(*) as num_sessions FROM pg_stat_activity WHERE state = 'active';"
                   ,"SELECT count(*) as num_wait_sessions FROM pg_stat_activity WHERE wait_event_type is not null;"]
         metric = {}
-        metric['measurement'] = 'pg_stat_activity'
+        metric['measurement'] = 'sessions'
         metric['fields'] = {}
         for q in queries:
             res, meta = self._cmd(q)
@@ -353,7 +395,7 @@ class PostgresCollector(BaseDbCollector):
 
         rows = self._get_metrics("""select state, count(*) from pg_stat_activity group by state having state is not null;""")
         metric = {}
-        metric['measurement'] = 'pg_stat_activity_state'
+        metric['measurement'] = 'active_sessions'
         metric['fields'] = {}
         for row in rows:
             metric['fields'][row['state']] = row['count']
@@ -361,12 +403,14 @@ class PostgresCollector(BaseDbCollector):
 
         rows = self._get_metrics("""select wait_event_type, count(*) from pg_stat_activity group by wait_event_type having wait_event_type is not null;""")
         metric = {}
-        metric['measurement'] = 'pg_stat_activity_wait_event_type'
+        metric['measurement'] = 'waiting_sessions'
         metric['fields'] = {}
         for row in rows:
             metric['fields'][row['wait_event_type']] = row['count']
         metrics.append(metric)        
         self._cmd_wo_fetch("select pg_stat_reset();")
+
+
         return metrics
        
 

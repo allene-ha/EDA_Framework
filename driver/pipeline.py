@@ -68,7 +68,7 @@ def _db_level_monitor_driver_pipeline_for_on_prem(
     client.switch_database('eda')
 
     # Write the data to InfluxDB
-    client.write_points(db_level_observation)
+    #client.write_points(db_level_observation)
 
 
     now = datetime.now()
