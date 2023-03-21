@@ -54,8 +54,8 @@ css = '''
         border: 0px;
     }
 
-    .task_box{
-        border: 1px lightgray;
+    .bk.task_box{
+        border: 1px solid  lightgray;
     }
     '''
 pn.extension('tabulator',sizing_mode = 'stretch_width', css_files=[pn.io.resources.CSS_URLS['font-awesome']], raw_css = [css])
@@ -118,7 +118,7 @@ def collect(connector, metrics=None):
 
     return metrics
 
-def show_schema(connector=None, metrics=None):
+def get_sidebar(connector=None, metrics=None):
     # Get all measurements
     result = connector.get_list_measurements()
     measurements = [m['name'] for m in result]
@@ -150,16 +150,11 @@ def show_schema(connector=None, metrics=None):
         df = pd.concat([res_field, res_tag], axis = 0)
         #print(measurement)
         table = pn.widgets.Tabulator(df,name = "<i class='fa fa-table'></i> "+ measurement.replace("_"," ").capitalize(),show_index=False, formatters = bokeh_formatters)
-        #, buttons={'Search': "<i class='fa fa-search'></i>"}
-        #button = pn.widgets.Button(name='Load Table', button_type='primary')
-        #button.message = measurement
-        #button.on_click(partial(load_table, conn = connector, measurement = measurement))
-        #table.on_click(partial(show_table, conn = connector, measurement = measurement))
+
         df_widgets.append(table)#,button))
 
-    accordion = pn.Accordion(*df_widgets, sizing_mode = 'stretch_width' )
-    
-    display(pn.Column(accordion))
+    accordion = pn.Accordion(*df_widgets)
+    return pn.Column("### Performance Tables",accordion, width = 350)
 
 def get_schema(conn):
     result = conn.get_list_measurements()
@@ -208,7 +203,7 @@ def visualize(conn = None, data = None):
     if conn is not None:
     #     # 어떤 데이터를 시각화할지도 결정해야함
         schema = get_schema(conn)
-        w_measurement = w.Select(name = 'Measurements', options = list(schema.keys()), value = list(schema.keys())[0])
+        w_measurement = w.Select(name = 'Measurements', options = list(schema.keys()), value = list(schema.keys())[0], width = 300)
     print(type(schema))
     # elif data is not None:
     #     # 해당 dataframe을 이용하여 시각화
@@ -228,15 +223,7 @@ def visualize(conn = None, data = None):
                                                                             'Every 15 minutes':900000, 
                                                                            'Every 30 minutes':1800000}, width = 300)
 
-    w_task = w.Select(name = 'Task', options = ['metrics', 
-                                                'historical comparisons', 
-                                                'query analysis', 
-                                                'distribution', 
-                                                'correlation', 
-                                                'query ranking', 
-                                                'cause analysis', 
-                                                'anomaly detection', 
-                                                'delta between predicted and actual value'], width = 300)
+    
     
     class task_widget():
         def __init__(self):
@@ -251,29 +238,83 @@ def visualize(conn = None, data = None):
                                                 'delta between predicted and actual value'], width = 300)
             if conn is not None:
                 self.w_data = w.MultiSelect(name = 'Data', options = schema[w_measurement.value], width = 300)
-
+                self.w_color = w.Select(name = 'Color', options = ['None'] + schema[w_measurement.value], width = 300)
+                self.w_shape = w.Select(name = 'Shape', options = ['None'] + schema[w_measurement.value], width = 300)
+            
             self.w_type = w.Select(name = 'Type', options = ['stacked bar', 'bar', 'line', 'area'], width = 300)
 
-            self.widget = pn.Column(pn.Row(self.w_task), css_classes = ['task_box'])
+            def set_options(event):
+                for widget in self.widget[2][0]:
+                    widget.options = self.w_data.value
+                #self.w_shape.options = self.w_data.value
+            self.w_data.param.watch(set_options, ['value'], onlychanged=True)
+     
+            
+            self.widget = pn.Column(pn.Row(self.w_task),pn.Row(), pn.Row(), css_classes = ['task_box'])
             ## color, shape, pattern, size, row, col, tab, legend, label
             def fill_widget(event):
+                self.w_data.options = schema[w_measurement.value]
                 if self.w_task.value == 'metrics':
                     
-                    self.widget.append(pn.Row(self.w_data, self.w_type))
-                    self.widget.append(pn.Card("Happy", collapsible = True, collapsed = True, title = 'Options'))
+                    self.widget[1].objects = [pn.Row(self.w_data, self.w_type)]
+                    self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
 
+                elif self.w_task.value == 'query analysis':
+                    
+                    self.widget[1].objects = [pn.Row(self.w_data, self.w_type)]
+                    self.widget[2].objects = [pn.Card(pn.Row(self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
+                    self.w_color.value = 'queryid'
+                
+                elif self.w_task.value == 'query ranking':
+                    
+                    self.widget[1].objects = [pn.Row(self.w_data)]
+                    self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
+                
 
             self.w_task.param.watch(fill_widget, ['value'], onlychanged=True)
+            
 
 
-
-    widgets = pn.Column(w_title, w_time, w_refresh, )
+    widgets = pn.Row(w_title, w_measurement, w_time, w_refresh, )
     w_add_task = w.Button(name = 'Add task', width = 100)
+    
     # task = pn.Row(w_task, w_data, w_type, w_add_task)
-    c_task = pn.Card(pn.Row(task_widget().widget, w_add_task), title = 'Task')
-    #def add_task(button,):
+    tasks = []
+    def set_data(event):
 
-    display(pn.Column(widgets,c_task))
+        for row in c_task: # row = object의 widget이 담긴 Row
+            if len(row[0]) > 1 and len(row[0][1])!=0: #row[0] = widget
+                row[0][1][0].options = schema[w_measurement.value] # data
+                for c_row in row[0][2]: # card
+                    for widget in c_row:
+                        widget.options = schema[w_measurement.value]
+    w_measurement.param.watch(set_data, ['value'], onlychanged=True)
+    
+    def add_task(button):
+        task = task_widget()
+        tasks.append(task)
+        task.w_data.param.watch(set_split, ['value'], onlychanged =True)
+        c_task.append(pn.Row(task.widget))
+
+    w_add_task.on_click(add_task)
+    task = task_widget()
+    tasks.append(task)
+    c_task = pn.Card(pn.Row(task.widget, w_add_task), title = 'Task', width = 1200)
+    w_split = w.Select(name = 'Split', options = ['None','column', 'row', 'tab'], width = 300)
+    w_split_basis = w.Select(name = 'Split basis', options = {}, width = 300)
+    c_split = pn.Card(pn.Row(w_split, w_split_basis), title = 'Split', width = 1200)
+    def set_split(event):
+        dict = {}
+        for task in tasks:
+            dict[', '.join(task.w_data.value)] = task.w_data.value
+        w_split_basis.options = dict
+    for task in tasks:
+        task.w_data.param.watch(set_split, ['value'], onlychanged =True)
+
+    
+    w_draw = w.Button(name='Draw', width = 100)
+
+    display(pn.Row(get_sidebar(conn), pn.Column("### Visualization Language Generation", widgets, c_task, c_split, w_draw)))
 
 
     
