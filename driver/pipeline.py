@@ -5,7 +5,7 @@ import logging
 from requests import Session
 import json
 from apscheduler.schedulers.background import BlockingScheduler
-
+import psycopg2
 from driver.driver_config_builder import DriverConfig
 from driver.compute_server_client import ComputeServerClient
 from driver.database import (
@@ -13,7 +13,7 @@ from driver.database import (
     collect_table_level_observation_for_on_prem,
 )
 from datetime import datetime
-from influxdb import InfluxDBClient
+#from influxdb import InfluxDBClient
 
 TUNE_JOB_ID = "tune_job"
 DB_LEVEL_MONITOR_JOB_ID = "db_level_monitor_job"
@@ -23,7 +23,7 @@ TABLE_LEVEL_MONITOR_JOB_ID = "table_level_monitor_job"
 
 def driver_pipeline(
     config: DriverConfig,
-    job_id: str,  # pylint: disable=unused-argument
+    job_id: str, db_id # pylint: disable=unused-argument
 ) -> None:
     """
     Run the core pipeline for the driver deployment
@@ -36,14 +36,14 @@ def driver_pipeline(
     #)
 
     if job_id == DB_LEVEL_MONITOR_JOB_ID:
-        _db_level_monitor_driver_pipeline_for_on_prem(config)
+        _db_level_monitor_driver_pipeline_for_on_prem(config, db_id)
     elif job_id == TABLE_LEVEL_MONITOR_JOB_ID:
         _table_level_monitor_driver_pipeline_for_on_prem(config)
     # elif job_id == LINUX
 
 
 def _db_level_monitor_driver_pipeline_for_on_prem(
-    config: DriverConfig,
+    config: DriverConfig, db_id
     #compute_server_client: ComputeServerClient,
 ) -> None:
     """
@@ -57,31 +57,127 @@ def _db_level_monitor_driver_pipeline_for_on_prem(
         Exception: Other unknown exceptions that are not caught as DriverException.
     """
     logging.debug("Collecting db level observation data.")
+    # get metrics from on-premise database
     db_level_observation = collect_db_level_observation_for_on_prem(config) # list
-    # 여기서 influx에 넣으면 돼
     
+    
+    # # Connect to the InfluxDB instance
+    # client = InfluxDBClient(host='localhost', port=8086)
 
-    # Connect to the InfluxDB instance
-    client = InfluxDBClient(host='localhost', port=8086)
+    # # Choose the database you want to write to
+    # client.switch_database('eda')
 
-    # Choose the database you want to write to
-    client.switch_database('eda')
+    # # Write the data to InfluxDB
+    # client.write_points(db_level_observation)
 
-    # Write the data to InfluxDB
-    client.write_points(db_level_observation)
-
+    # postgresql
+    _insert_db_level_observation_to_postgresql(db_level_observation, db_id)
 
     now = datetime.now()
     file_name = now.strftime('%Y%m%d_%H%M%S')
     f_path = open('path.txt' , 'r' )
     path = f_path.readline()
     path.rstrip('\n')
-    with open(path+'/'+file_name, 'w') as outfile:
-        json.dump(db_level_observation, outfile)
+    import csv
+    server_conn = psycopg2.connect(
+    host='localhost',
+    database='eda',
+    user='postgres',
+    password='postgres'
+    )
+    # 커서 생성
+    now = datetime.now()
+    cur = server_conn.cursor()
+    cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public';")
+    table_names = cur.fetchall()
+    for table_name in table_names:
+        cur.execute(f"SELECT * FROM {table_name[0]}")
+        rows = cur.fetchall()
+        with open(path+"/" + file_name+ f"{table_name[0]}.csv", "w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerows(rows)
+
+    # 커넥션 종료
+    cur.close()
+    server_conn.close()
+
 
     logging.debug("Saving db level observation data to the server.")
 
     #compute_server_client.post_db_level_observation(db_level_observation)
+def _insert_db_level_observation_to_postgresql(db_level_observation, db_id):
+    server_conn = psycopg2.connect(
+        host='localhost',
+        database='eda',
+        user='postgres',
+        password='postgres'
+    )
+    # 커서 생성
+    now = datetime.now()
+    timestamp = now.strftime('%Y-%m-%d %H:%M:%S')
+
+    cur = server_conn.cursor()
+    def insert_data(data_dict, table_name):
+        # 딕셔너리에 저장된 키를 컬럼으로 하여 테이블에 컬럼 추가
+        cur.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table_name}'")
+        existing_columns = [col[0] for col in cur.fetchall()]
+
+        for col in data_dict.keys():
+            if col.lower() not in existing_columns:
+                col_type = type(data_dict[col]).__name__
+                if col_type == 'str':
+                    col_type = 'VARCHAR'
+                elif col_type == 'int':
+                    col_type = 'numeric'
+                print(col, col_type)
+                cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {col} {col_type};")
+                server_conn.commit()
+
+        # 데이터를 삽입
+        keys = data_dict.keys()
+        values = [data_dict[k] for k in keys]
+        #placeholders = ",".join(["%s"]*len(data_dict))
+        #print(values)
+        #print(f"INSERT INTO {table_name} ({keys}) VALUES ({placeholders})", values)
+        
+        
+        query = "INSERT INTO {}  ({}) VALUES ({});".format(table_name,
+            ','.join(keys),
+            ','.join(['%s'] * len(values))
+        )
+        print(table_name, query, values)
+        cur.execute(query, values)
+
+    for observation in db_level_observation:
+        #print(observation)
+        table_name = observation['table']
+        data = observation['data']
+        print(data)
+        # 테이블이 존재하는지 확인하고 없으면 생성
+        cur.execute(f"SELECT EXISTS(SELECT relname FROM pg_class WHERE relname='{table_name}')")
+        exists = cur.fetchone()[0]
+        if not exists:
+            # 새로운 테이블 생성
+            cur.execute(f"CREATE TABLE {table_name} (timestamp TIMESTAMP);")
+            server_conn.commit()
+
+        if type(data) == list:
+            for data_dict in data:
+                print(data_dict)
+                data_dict['timestamp'] = timestamp
+                data_dict['dbid'] = db_id
+                insert_data(data_dict, table_name)
+        else:
+            data['timestamp'] = timestamp
+            data['dbid'] = db_id
+            insert_data(data, table_name)
+        
+        
+    server_conn.commit()
+
+    # 커넥션 닫기
+    cur.close()
+    server_conn.close()
 
 def _table_level_monitor_driver_pipeline_for_on_prem(
     config: DriverConfig,
@@ -116,7 +212,7 @@ def _get_interval(config: DriverConfig, job_id: str) -> int:
 
 
 def _start_job(
-    scheduler: BlockingScheduler, config: DriverConfig, job_id: str, interval: int
+    scheduler: BlockingScheduler, config: DriverConfig, job_id: str, interval: int, db_id
 ) -> None:
     "Helper to start new job"
     logging.info("Initializing driver pipeline (job %s)...", job_id)
@@ -129,7 +225,7 @@ def _start_job(
         driver_pipeline,
         "interval",
         seconds=interval,
-        args=[config, job_id],
+        args=[config, job_id, db_id],
         id=job_id,
         **kwargs,
     )
@@ -156,7 +252,7 @@ def _update_job(
 
 
 def schedule_or_update_job(
-    scheduler: BlockingScheduler, config: DriverConfig, job_id: str
+    scheduler: BlockingScheduler, config: DriverConfig, job_id: str, db_id: int
 ) -> None:
     """
     Apply configuration change to the job. If the configuration does not change, it will do nothing.
@@ -174,7 +270,7 @@ def schedule_or_update_job(
 
     if not job:
         # NB: first invocation is at current_time + interval
-        _start_job(scheduler=scheduler, config=config, job_id=job_id, interval=interval)
+        _start_job(scheduler=scheduler, config=config, job_id=job_id, interval=interval, db_id=0)
     else:
         old_config = job.args[0]
         if old_config != config:

@@ -80,7 +80,7 @@ def collect_db_level_data_from_database(driver_conf: Dict[str, Any]) -> DBLevelO
         #observation_time = int(time.time())
         #knobs = collector.collect_knobs()
         
-        metrics = collector.collect_metrics_influx(metrics)
+        metrics = collector.collect_metrics_pg(metrics)
         #row_num_stats = collector.collect_table_row_number_stats()
         #version = collector.get_version()
         #summary: Dict[str, Any] = {

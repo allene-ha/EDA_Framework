@@ -34,9 +34,9 @@ import psutil
 def collect_os_metrics(): # influx
     
     res = {}
-    res['measurement'] = 'os_metric'
-    res['fields'] = {}
-    field = res['fields']
+    res['table'] = 'os_metric'
+    res['data'] = {}
+    field = res['data']
     field['cpu_percent'] = psutil.cpu_percent()
 
     memory_info = psutil.virtual_memory()

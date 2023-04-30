@@ -431,7 +431,138 @@ class PostgresCollector(BaseDbCollector):
 
         return metrics
        
+    def collect_metrics_pg(self, metrics):
+        #metrics = []
 
+        # bgwriter
+        view = 'bgwriter'
+        query = f"SELECT * FROM pg_stat_bgwriter;"
+        rows = self._get_metrics(query)
+        # A global view can only have one row
+        assert len(rows) == 1
+        
+        metric = {}
+        
+        if 'stats_reset' in rows[0]:
+            del rows[0]['stats_reset']
+        metric['table'] = view
+        metric['data'] = rows[0]
+        metrics.append(metric)
+        
+        # database
+       
+
+        views = self.PG_STAT_VIEWS_LOCAL_RAW['database'] # measurement
+        #views_key = self.PG_STAT_VIEWS_LOCAL_KEY['database'] # tag (일정)
+        for view in views:
+            query = f"SELECT * FROM {view};"
+            rows = self._get_metrics(query)
+            metric = {}
+            #data[view]["raw"] = {}
+            if view == 'pg_stat_database':
+                metric['table'] = 'database_statistics'
+            else:
+                metric['table'] = view.split('_')[-1]
+            
+            for row in rows:
+                if 'stats_reset' in row:
+                    del row['stats_reset']
+            metric['data'] = rows
+            metrics.append(metric)
+        
+        # categories = ['table','index']
+        # for category in categories:
+        #     views = self.PG_STAT_VIEWS_LOCAL[category]
+        #     for view in views:
+        #         query = self.PG_STAT_LOCAL_QUERY[view]
+        #         rows = self._get_metrics(query)
+        #         if len(rows) > 0:
+        #             metric = {}
+        #             metric['measurement'] = view
+        #             metric['fields'] = rows[0]
+        #             metrics.append(metric)
+        
+        # access
+        view = 'access'
+        query = TABLE_STAT
+        rows = self._get_metrics(query)
+
+        metric = {}
+        metric['table'] = view
+        if 'stats_reset' in rows[0]:
+            del rows[0]['stats_reset']
+        metric['data'] = rows[0]
+
+        query = INDEX_STAT
+        rows = self._get_metrics(query)
+        metric['data'].update(rows[0])
+
+        metrics.append(metric)
+
+        # io
+
+        view = 'io'
+        query = TABLE_STATIO
+        rows = self._get_metrics(query)
+        
+        metric = {}
+        metric['table'] = view
+        if 'stats_reset' in rows[0]:
+            del rows[0]['stats_reset']
+        metric['data'] = rows[0]
+
+        query = INDEX_STATIO
+        rows = self._get_metrics(query)
+        metric['data'].update(rows[0])
+
+        metrics.append(metric)
+
+        # activity
+        queries = ["select extract(epoch from (NOW() - min(backend_start))) as oldest_backend_time_sec from pg_stat_activity;"
+                  ,"select extract(epoch from (NOW() - min(query_start))) as longest_query_time_sec from pg_stat_activity where state = 'active';"
+                  ,"select extract(epoch from (NOW() - min(xact_start))) as longest_transaction_time_sec from pg_stat_activity where state = 'active';"
+                  ,"SELECT count(*) as num_sessions FROM pg_stat_activity WHERE state = 'active';"
+                  ,"SELECT count(*) as num_wait_sessions FROM pg_stat_activity WHERE wait_event_type is not null;"]
+        metric = {}
+        metric['table'] = 'sessions'
+        metric['data'] = {}
+        for q in queries:
+            res, meta = self._cmd(q)
+            metric['data'][meta[0]] = int(res[0][0])
+        metrics.append(metric)
+        # ACTIVITY_STAT = ["""select state, count(*) from pg_stat_activity group by state having state is not null;""",
+        # """select wait_event_type, count(*) from pg_stat_activity group by wait_event_type having wait_event_type is not null;"""]
+
+        rows = self._get_metrics("""select state, count(*) from pg_stat_activity group by state having state is not null;""")
+        metric = {}
+        metric['table'] = 'active_sessions'
+        metric['data'] = {}
+        for row in rows:
+            metric['data'][row['state']] = row['count']
+        metrics.append(metric)
+
+        rows = self._get_metrics("""select wait_event_type, count(*) from pg_stat_activity group by wait_event_type having wait_event_type is not null;""")
+        metric = {}
+        metric['table'] = 'waiting_sessions'
+        metric['data'] = {}
+        for row in rows:
+            metric['data'][row['wait_event_type']] = row['count']
+        metrics.append(metric)        
+
+        
+        rows = self._get_stat_statements()
+    
+        metric = {}
+        metric['table'] = "query_statistics"
+        metric['data'] = rows
+        metrics.append(metric)
+        
+        print(metrics) 
+
+        self._cmd_wo_fetch("select pg_stat_reset();")
+
+
+        return metrics
         
 
 
@@ -897,7 +1028,8 @@ class PostgresCollector(BaseDbCollector):
         Returns:
             True if module is loaded successfully, otherwise return False.
         """
-
+        self._cmd_wo_fetch("ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements'")
+    
         check_module_sql = (
             "SELECT count(*) FROM pg_extension where extname='pg_stat_statements';"
         )
@@ -924,12 +1056,13 @@ class PostgresCollector(BaseDbCollector):
             try:
                 res = self._get_metrics(self.PG_STAT_STATEMENTS_EDA_SQL)
                 #res = self._get_metrics(self.PG_STAT_STATEMENTS_SQL)
+                self._cmd_wo_fetch("select pg_stat_statements_reset();")
             except PostgresCollectorException as ex:
                 logging.error(
                     "Failed to load pg_stat_statements module, you need to add "
                     "pg_stat_statements in parameter shared_preload_libraries: %s",
                     ex,
                 )
-        self._cmd_wo_fetch("select pg_stat_statements_reset();")
+        
         return res
 
