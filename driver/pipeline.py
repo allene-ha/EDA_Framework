@@ -129,7 +129,7 @@ def _insert_db_level_observation_to_postgresql(db_level_observation, db_id):
                     col_type = 'VARCHAR'
                 elif col_type == 'int':
                     col_type = 'numeric'
-                print(col, col_type)
+                #print(col, col_type)
                 cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {col} {col_type};")
                 server_conn.commit()
 
@@ -145,14 +145,14 @@ def _insert_db_level_observation_to_postgresql(db_level_observation, db_id):
             ','.join(keys),
             ','.join(['%s'] * len(values))
         )
-        print(table_name, query, values)
+        #print(table_name, query, values)
         cur.execute(query, values)
 
     for observation in db_level_observation:
         #print(observation)
         table_name = observation['table']
         data = observation['data']
-        print(data)
+        #print(data)
         # 테이블이 존재하는지 확인하고 없으면 생성
         cur.execute(f"SELECT EXISTS(SELECT relname FROM pg_class WHERE relname='{table_name}')")
         exists = cur.fetchone()[0]
@@ -163,7 +163,7 @@ def _insert_db_level_observation_to_postgresql(db_level_observation, db_id):
 
         if type(data) == list:
             for data_dict in data:
-                print(data_dict)
+                #print(data_dict)
                 data_dict['timestamp'] = timestamp
                 data_dict['dbid'] = db_id
                 insert_data(data_dict, table_name)

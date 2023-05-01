@@ -86,7 +86,7 @@ def get_config():
     else:
         # If the input DB configuration does not exist in the database, generate a new ID
         db_id = str(uuid.uuid4())
-        print(db_id, db_type, db_host, db_port, db_name, db_user, db_password)
+        #print(db_id, db_type, db_host, db_port, db_name, db_user, db_password)
         # Store the new DB ID and configuration in the database
         cur.execute("""
             INSERT INTO db_config (id, db_type, db_host, db_port, db_name, db_user, db_password)
@@ -133,7 +133,7 @@ def collect_metrics(db_id, db_type, db_host, db_port, db_name, db_user, db_passw
         "organization_id": "test_organization"
     }
 
-    print(driver_config)
+    #print(driver_config)
     schedule_db_level_monitor_job(driver_config, db_id)
     #if not config.disable_table_level_stats or not config.disable_index_stats:
     #    schedule_table_level_monitor_job(config)
@@ -193,15 +193,10 @@ def get_data(config):
     return json.dumps(data)
 
 
-      
-        
-
-
-
-@app.route('/schema')
+@app.route('/schema', methods=['GET'])
 def get_schema():
-    args = request.args.to_dict()
-    db_id = get_dbid(args['config'])
+    config = request.args.to_dict()
+    db_id = get_dbid(config)
     # 커서 생성
     cur = server_conn.cursor()
     schema = {}
@@ -227,17 +222,22 @@ def get_schema():
         table_columns = cur.fetchall()
         # primary key 확인
         cur.execute(f"""
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_name = '{table_name}' AND column_key = 'PRI'
+            SELECT CC.COLUMN_NAME AS COLUMN_NAME
+            FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS       TC
+                ,INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE CC
+            WHERE TC.TABLE_CATALOG   = 'eda'
+            AND TC.TABLE_NAME      = '{table_name}'
+            AND TC.CONSTRAINT_TYPE = 'PRIMARY KEY'
+            AND TC.TABLE_CATALOG   = CC.TABLE_CATALOG
+            AND TC.TABLE_SCHEMA    = CC.TABLE_SCHEMA
+            AND TC.TABLE_NAME      = CC.TABLE_NAME
+            AND TC.CONSTRAINT_NAME = CC.CONSTRAINT_NAME
+            ;
         """)
         primary_key_columns = cur.fetchall()
-        # primary key 열 이름 출력
-        for column in primary_key_columns:
-            print(column[0])
 
         if 'dbid' in [column[0] for column in table_columns]:
-            cur.execute(f"SELECT * FROM public.{table_name} WHERE dbid = {db_id}")
+            cur.execute(f"SELECT * FROM public.{table_name} WHERE dbid = '{db_id}'")
             if cur.fetchone():
                 print(f"Table Name: {table_name}")
                 for column in table_columns:

@@ -424,7 +424,7 @@ class PostgresCollector(BaseDbCollector):
             metric['fields'] = {k:v for k,v in row.items() if k != 'queryid'}
             metrics.append(metric)
         
-        print(metrics) 
+        #print(metrics) 
 
         self._cmd_wo_fetch("select pg_stat_reset();")
 
@@ -557,7 +557,7 @@ class PostgresCollector(BaseDbCollector):
         metric['data'] = rows
         metrics.append(metric)
         
-        print(metrics) 
+        #print(metrics) 
 
         self._cmd_wo_fetch("select pg_stat_reset();")
 
@@ -948,7 +948,7 @@ class PostgresCollector(BaseDbCollector):
         activity['aggregated'] = {}
         for q in queries:
             res, meta = self._cmd(q)
-            print(res[0][0], meta[0])
+            #print(res[0][0], meta[0])
             activity['aggregated'][meta[0]] = int(res[0][0])
         
         # ACTIVITY_STAT = ["""select state, count(*) from pg_stat_activity group by state having state is not null;""",
