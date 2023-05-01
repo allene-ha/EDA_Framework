@@ -9,7 +9,7 @@ from datetime import datetime, date, timedelta, timezone
 import plotly.graph_objs as go
 import plotly.express as px
 import requests
-
+import json
 from functools import partial
 
 from IPython.display import display, clear_output
@@ -73,8 +73,8 @@ def get_sidebar(schema, sidebar_content):
         #'float': NumberFormatter(format='0.00000'),
         'key': BooleanFormatter(icon = 'check-circle-o'),
     }
-
     for table_name in schema.keys():
+        
         df_filtered = sidebar_content.loc[sidebar_content['table'] == table_name]
         df_filtered = df_filtered.drop('table', axis=1)
         table = pn.widgets.Tabulator(df_filtered,name = "<i class='fa fa-table'></i> "+ table_name.replace("_"," ").capitalize(),show_index=False, formatters = bokeh_formatters)
@@ -92,24 +92,53 @@ def load_table(conn, measurement, metric = None):
     else:
         df = df[metric]
 
-   
-def get_widgets(schema):
+
+def get_data(config, table, metrics, task, start_time=None, end_time=None, interval=None):
+    url = "http://eda:80/"
+    print("get_data", config)
+    params = {
+        'table':table,
+        'metric':metrics,
+        'start_time':start_time.strftime("%Y-%m-%d %H:%M:%S"),
+        'end_time':end_time.strftime("%Y-%m-%d %H:%M:%S"),
+        'interval':interval,
+        'task':task,
+        'config':config
+    }
+    response = requests.get(url+"data", params ={'params': json.dumps(params)})
+    # Check the response status code
+    if response.status_code == 200:
+        data = response.json() 
+    else:
+        print(f"Error sending configuration data. Status code: {response.status_code}")
     
+    return data
+
+   
+def get_widgets(schema, config):
+    for k in schema.keys():
+        for c in schema[k]:
+            if c[0] == 'timestamp' or c[0] == 'dbid':
+                schema[k].remove(c)   
+        
+
+
     w_measurement = w.Select(name = 'Measurements', options = list(schema.keys()), value = list(schema.keys())[0], width = 300)
-    print(type(schema))
+    #print(type(schema))
     # elif data is not None:
     #     # 해당 dataframe을 이용하여 시각화
     # else:
     #     NotImplementedError
 
     w_title = w.TextInput(name='Title', placeholder='Enter a string for title of visualization', width = 300)
-    w_time = w.Select(name = 'Time range', options={'Last 30 minutes':30,
-                                                    'Last hour':60,
-                                                    'Last 4 hours':240,
-                                                    'Last 12 hours':720,
-                                                    'Last 24 hours':1440, 'Custom':-1}, width = 300)
+    w_time = w.Select(name = 'Time range', options={'Last 30 minutes':'30 minutes',
+                                                    'Last hour':'1 hour',
+                                                    'Last 4 hours':'4 hours',
+                                                    'Last 12 hours':'12 hours',
+                                                    'Last 24 hours':'1 day', 'Custom':-1}, width = 300)
     # custom 선택되면 time range 선택하는 위젯 visible하게 변경
     w_time_custom = w.DatetimeRangePicker(name='', value=(datetime.now() - timedelta(minutes = 30), datetime.now()), width = 300)
+    w_time_custom.disabled = True
     w_refresh = w.Select(name = 'Auto refresh', options = {'Off':'None',  'Every 5 minutes':300000, 
                                                                             'Every 10 minutes': 600000, 
                                                                             'Every 15 minutes':900000, 
@@ -129,9 +158,9 @@ def get_widgets(schema):
                                                 'anomaly detection', 
                                                 'delta between predicted and actual value'], width = 300)
             
-            self.w_data = w.MultiSelect(name = 'Data', options = schema[w_measurement.value], width = 300)
-            self.w_color = w.Select(name = 'Color', options = ['None'] + schema[w_measurement.value], width = 300)
-            self.w_shape = w.Select(name = 'Shape', options = ['None'] + schema[w_measurement.value], width = 300)
+            self.w_data = w.MultiSelect(name = 'Data', options = [i[0] for i in schema[w_measurement.value]], width = 300)
+            self.w_color = w.Select(name = 'Color', options = ['None'] + [i[0] for i in schema[w_measurement.value]], width = 300)
+            self.w_shape = w.Select(name = 'Shape', options = ['None'] + [i[0] for i in schema[w_measurement.value]], width = 300)
         
             self.w_type = w.Select(name = 'Type', options = ['stacked bar', 'bar', 'line', 'area'], width = 300)
             self.w_order = w.Select(name = 'Order', options = ["ASC", "DESC"], width = 300)
@@ -146,9 +175,10 @@ def get_widgets(schema):
             self.widget = pn.Column(pn.Row(self.w_task),pn.Row(), pn.Row(), css_classes = ['task_box'])
             ## color, shape, pattern, size, row, col, tab, legend, label
             def fill_widget(event):
-                self.w_data.options = schema[w_measurement.value]
+                print("fillwidget")
+                self.w_data.options = [i[0] for i in schema[w_measurement.value]]
                 if self.w_task.value == 'metrics':
-                    
+                    print("HERE")
                     self.widget[1].objects = [pn.Row(self.w_data, self.w_type, self.w_order)]
                     self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
 
@@ -168,13 +198,19 @@ def get_widgets(schema):
             
 
 
-    widgets = pn.Row(w_title, w_measurement, w_time, w_refresh, )
+    widgets = pn.Row(w_title, w_measurement, pn.Column(w_time, w_time_custom), w_refresh, )
+    def custom_time(event):
+        if w_time.value == -1:
+            w_time_custom.disabled = False
+        else:
+            w_time_custom.disabled = True
+    w_time.param.watch(custom_time, ['value'], onlychanged=True)
+    
     w_add_task = w.Button(name = 'Add task', width = 100)
     
     # task = pn.Row(w_task, w_data, w_type, w_add_task)
     tasks = []
     def set_data(event):
-
         for row in c_task: # row = object의 widget이 담긴 Row
             if len(row[0]) > 1 and len(row[0][1])!=0: #row[0] = widget
                 row[0][1][0].options = schema[w_measurement.value] # data
@@ -207,15 +243,20 @@ def get_widgets(schema):
     def tasks_to_elements(clicked_button, tasks):
         for task in tasks:
             if task.w_task.value == "metrics":
-                df = load_table(conn, w_measurement.value)
+                result = get_data(config, w_measurement.value, task.w_data.value, task.w_task.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                df = pd.DataFrame(result['metric'])
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+                #df = load_table(conn, w_measurement.value)
                 fig = MetricsElement(y=task.w_data.value,chart_type = 'line').plot(df)
-                print(fig)
-                ui[1].append(pn.pane.Plotly(fig))
+                #print(fig)
+                main.append(pn.pane.Plotly(fig))
         NotImplemented
     w_draw = w.Button(name='Draw', width = 100)
     import functools
     w_draw.on_click(functools.partial(tasks_to_elements, tasks=tasks))
-    return pn.Column("### Visualization Language Generation", widgets, c_task, c_split, w_draw)
+    main = pn.Column("### Visualization Language Generation", widgets, c_task, c_split, w_draw)
+    return main
     #display(ui)
 
 
@@ -277,7 +318,7 @@ class Element:
 class MetricsElement(Element):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
-        self.x = 'time'
+        self.x = 'timestamp'
         self.y = y
         self.chart_type = chart_type
 

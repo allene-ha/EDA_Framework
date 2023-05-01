@@ -23,10 +23,7 @@ def connect_db(db_type='postgres', host='eda-client', database='test_cli', user=
     return config
 
 
-def visualize(config):
-    #schema, sidebar_content = get_schema(config)
-    
-    
+def visualize(config):    
     url = "http://eda:80/"
 
     response = requests.get(url+"schema", params = config)
@@ -35,11 +32,13 @@ def visualize(config):
         data = response.json() # sidebar_content, schema
     else:
         print(f"Error sending configuration data. Status code: {response.status_code}")
-    schema =data['schema']
-    sidebar_content = pd.read_json(data['sidebar_content'])
+    schema = data['schema']
+    #print(data['sidebar_content'])
+    sidebar_content = pd.DataFrame(data['sidebar_content'])
     sidebar = get_sidebar(schema, sidebar_content)
-    main = get_widgets(schema)
+    main = get_widgets(schema, config)
     display(pn.Row(sidebar, main))
 
+    
 
     
