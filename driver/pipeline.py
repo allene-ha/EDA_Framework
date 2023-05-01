@@ -73,33 +73,33 @@ def _db_level_monitor_driver_pipeline_for_on_prem(
     # postgresql
     _insert_db_level_observation_to_postgresql(db_level_observation, db_id)
 
-    now = datetime.now()
-    file_name = now.strftime('%Y%m%d_%H%M%S')
-    f_path = open('path.txt' , 'r' )
-    path = f_path.readline()
-    path.rstrip('\n')
-    import csv
-    server_conn = psycopg2.connect(
-    host='localhost',
-    database='eda',
-    user='postgres',
-    password='postgres'
-    )
-    # 커서 생성
-    now = datetime.now()
-    cur = server_conn.cursor()
-    cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public';")
-    table_names = cur.fetchall()
-    for table_name in table_names:
-        cur.execute(f"SELECT * FROM {table_name[0]}")
-        rows = cur.fetchall()
-        with open(path+"/" + file_name+ f"{table_name[0]}.csv", "w", newline="") as file:
-            writer = csv.writer(file)
-            writer.writerows(rows)
+    # now = datetime.now()
+    # file_name = now.strftime('%Y%m%d_%H%M%S')
+    # f_path = open('path.txt' , 'r' )
+    # path = f_path.readline()
+    # path.rstrip('\n')
+    # import csv
+    # server_conn = psycopg2.connect(
+    # host='localhost',
+    # database='eda',
+    # user='postgres',
+    # password='postgres'
+    # )
+    # # 커서 생성
+    # now = datetime.now()
+    # cur = server_conn.cursor()
+    # cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public';")
+    # table_names = cur.fetchall()
+    # for table_name in table_names:
+    #     cur.execute(f"SELECT * FROM {table_name[0]}")
+    #     rows = cur.fetchall()
+    #     with open(path+"/" + file_name+ f"{table_name[0]}.csv", "w", newline="") as file:
+    #         writer = csv.writer(file)
+    #         writer.writerows(rows)
 
     # 커넥션 종료
-    cur.close()
-    server_conn.close()
+    # cur.close()
+    # server_conn.close()
 
 
     logging.debug("Saving db level observation data to the server.")

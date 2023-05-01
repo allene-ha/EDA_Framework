@@ -65,71 +65,8 @@ pn.extension('plotly','tabulator',sizing_mode = 'stretch_width', css_files=[pn.i
 ui = None
 
 
-
-# def connect(dbtype = 'posgres', host = 'localhost', port = '5432', dbname = 'eda', user = 'username', password = None):
-#     NotImplemented
-#     # schema, metrics = import_data_influx()
-#     client = InfluxDBClient(host='localhost', port=8086)
-
-#     # Switch to a specific database
-#     client.switch_database('eda')
-#     return client
-
-# def collect(connector, metrics=None):
-#     dic = {}
-#     query_num = 0
-#     schema = {}
+def get_sidebar(schema, sidebar_content):
     
-#     # Get all measurements
-#     result = connector.get_list_measurements()
-#     measurements = [m['name'] for m in result]
-#     now = dt.datetime.now()
-#     try:
-#         metrics
-# #        dt.datetime.strptime(filename,'%Y%m%d_%H%M%S') 
-#         for measurement in measurements:
-#             query = f"SELECT * FROM {measurement} WHERE time > '{last_import_time.strftime('%Y-%m-%dT%H:%M:%SZ')}'"
-            
-#             result = connector.query(query)#, bind_params = bind_params)
-#             metrics[measurement] = pd.concat([metrics[measurement], pd.DataFrame(list(result.get_points()))])   
-#             metrics[measurement]['time'] = pd.to_datetime(metrics[measurement]['time'])
-#             col[measurement] = list(metrics[measurement].columns)
-#             col[measurement].remove('time')
-#         print('update complete')
-#         print(f'time: {dt.datetime.now()-now}') 
-#     except NameError:
-#         metrics = {}
-#         col = {}
-#         for measurement in measurements:
-#             schema[measurement] = {}
-#             #Get the measurement's structure
-#             query = f'SHOW TAG KEYS FROM {measurement}'
-#             tags_result = connector.query(query)
-#             tags = [tag['tagKey'] for tag in tags_result.get_points()]
-            
-#             #query = f'SHOW FIELD KEYS FROM {measurement}'
-#             fields_result = connector.query(query)
-#             fields = [field['fieldKey'] for field in fields_result.get_points()]
-#             query = f'SELECT * FROM {measurement}'
-#             result = connector.query(query)
-#             metrics[measurement] = pd.DataFrame(list(result.get_points()))
-#             metrics[measurement]['time'] = pd.to_datetime(metrics[measurement]['time'])
-
-#             col[measurement] = list(metrics[measurement].columns)
-#             col[measurement].remove('time')
-#         print('import complete') 
-#         print(f'time: {dt.datetime.now()-now}') # 4000 건 2초
-#     last_import_time = metrics[measurement]['time'].max()
-#     all_timestamp = list(metrics[measurement]['time'])
-
-#     return metrics
-
-def get_sidebar(connector=None, metrics=None):
-    # Get all measurements
-    result = connector.get_list_measurements()
-    measurements = [m['name'] for m in result]
-    #print(measurements)
-    schema = {}
     df_widgets = []
 
     bokeh_formatters = {
@@ -137,61 +74,17 @@ def get_sidebar(connector=None, metrics=None):
         'key': BooleanFormatter(icon = 'check-circle-o'),
     }
 
-    for measurement in measurements:
-        schema[measurement] = {}
+    for table_name in schema.keys():
+        df_filtered = sidebar_content.loc[sidebar_content['table'] == table_name]
+        df_filtered = df_filtered.drop('table', axis=1)
+        table = pn.widgets.Tabulator(df_filtered,name = "<i class='fa fa-table'></i> "+ table_name.replace("_"," ").capitalize(),show_index=False, formatters = bokeh_formatters)
 
-        query = f"SHOW FIELD KEYS from {measurement}"   
-        result = connector.query(query)
-        res_field = pd.DataFrame(list(result.get_points()))
-        res_field.columns = ['column','type']
-        res_field['key'] = False
-         
-        query = f"SHOW TAG KEYS from {measurement}"   
-        result = connector.query(query)
-        res_tag = pd.DataFrame(list(result.get_points()))
-        if len(res_tag)>0:
-            res_tag.columns = ['column']
-            res_tag['type'] = 'string'
-            res_tag['key'] = True
-        df = pd.concat([res_field, res_tag], axis = 0)
-        #print(measurement)
-        table = pn.widgets.Tabulator(df,name = "<i class='fa fa-table'></i> "+ measurement.replace("_"," ").capitalize(),show_index=False, formatters = bokeh_formatters)
-
-        df_widgets.append(table)#,button))
+        df_widgets.append(table)
 
     accordion = pn.Accordion(*df_widgets)
     return pn.Column("### Performance Tables",accordion, width = 350)
 
-def get_schema(conn):
-    result = conn.get_list_measurements()
-    measurements = [m['name'] for m in result]
-    #print(measurements)
-    schema = {}
-
-    for measurement in measurements:
-        schema[measurement] = []
-
-        query = f"SHOW FIELD KEYS from {measurement}"   
-        result = conn.query(query)
-        result = list(result.get_points())
-        #print(result)
-        fieldkey = [m['fieldKey'] for m in result]
-         
-        query = f"SHOW TAG KEYS from {measurement}"   
-        result = conn.query(query)
-        result = list(result.get_points())
-        #print(result)
-        tagKey = [m['tagKey'] for m in result]
-        
-        
-        schema[measurement]= fieldkey+tagKey
-
-    return schema
-
-
 def load_table(conn, measurement, metric = None):
-    
-    
     if metric == None:
         result = conn.query(f'SELECT * FROM {measurement} ORDER BY time DESC LIMIT 100')
         df = pd.DataFrame(result.get_points())
@@ -199,17 +92,10 @@ def load_table(conn, measurement, metric = None):
     else:
         df = df[metric]
 
-    #print(clicked['row'])
-        #print(clicked)
-
-#main = pn.Column("""### Language generation part""",pn.Spacer(height = 300),"""### Visualization part""", pn.Spacer(height = 300), background = 'white', css_classes = ['main'])
-#side = pn.Column(accordion, css_classes = ['side'], width = 400)
-#pn.Row(side, main, css_classes = ['row'])
-def visualize(conn = None, data = None):
-    if conn is not None:
-    #     # 어떤 데이터를 시각화할지도 결정해야함
-        schema = get_schema(conn)
-        w_measurement = w.Select(name = 'Measurements', options = list(schema.keys()), value = list(schema.keys())[0], width = 300)
+   
+def get_widgets(schema):
+    
+    w_measurement = w.Select(name = 'Measurements', options = list(schema.keys()), value = list(schema.keys())[0], width = 300)
     print(type(schema))
     # elif data is not None:
     #     # 해당 dataframe을 이용하여 시각화
@@ -242,11 +128,11 @@ def visualize(conn = None, data = None):
                                                 'cause analysis', 
                                                 'anomaly detection', 
                                                 'delta between predicted and actual value'], width = 300)
-            if conn is not None:
-                self.w_data = w.MultiSelect(name = 'Data', options = schema[w_measurement.value], width = 300)
-                self.w_color = w.Select(name = 'Color', options = ['None'] + schema[w_measurement.value], width = 300)
-                self.w_shape = w.Select(name = 'Shape', options = ['None'] + schema[w_measurement.value], width = 300)
             
+            self.w_data = w.MultiSelect(name = 'Data', options = schema[w_measurement.value], width = 300)
+            self.w_color = w.Select(name = 'Color', options = ['None'] + schema[w_measurement.value], width = 300)
+            self.w_shape = w.Select(name = 'Shape', options = ['None'] + schema[w_measurement.value], width = 300)
+        
             self.w_type = w.Select(name = 'Type', options = ['stacked bar', 'bar', 'line', 'area'], width = 300)
             self.w_order = w.Select(name = 'Order', options = ["ASC", "DESC"], width = 300)
 
@@ -329,8 +215,8 @@ def visualize(conn = None, data = None):
     w_draw = w.Button(name='Draw', width = 100)
     import functools
     w_draw.on_click(functools.partial(tasks_to_elements, tasks=tasks))
-    ui = pn.Row(get_sidebar(conn), pn.Column("### Visualization Language Generation", widgets, c_task, c_split, w_draw))
-    display(ui)
+    return pn.Column("### Visualization Language Generation", widgets, c_task, c_split, w_draw)
+    #display(ui)
 
 
     
