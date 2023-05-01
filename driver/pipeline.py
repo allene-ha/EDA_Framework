@@ -252,7 +252,7 @@ def _update_job(
 
 
 def schedule_or_update_job(
-    scheduler: BlockingScheduler, config: DriverConfig, job_id: str, db_id: int
+    scheduler: BlockingScheduler, config: DriverConfig, job_id: str, db_id: str
 ) -> None:
     """
     Apply configuration change to the job. If the configuration does not change, it will do nothing.
@@ -270,7 +270,7 @@ def schedule_or_update_job(
 
     if not job:
         # NB: first invocation is at current_time + interval
-        _start_job(scheduler=scheduler, config=config, job_id=job_id, interval=interval, db_id=0)
+        _start_job(scheduler=scheduler, config=config, job_id=job_id, interval=interval, db_id=db_id)
     else:
         old_config = job.args[0]
         if old_config != config:
