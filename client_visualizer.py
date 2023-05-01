@@ -175,10 +175,8 @@ def get_widgets(schema, config):
             self.widget = pn.Column(pn.Row(self.w_task),pn.Row(), pn.Row(), css_classes = ['task_box'])
             ## color, shape, pattern, size, row, col, tab, legend, label
             def fill_widget(event):
-                print("fillwidget")
                 self.w_data.options = [i[0] for i in schema[w_measurement.value]]
                 if self.w_task.value == 'metrics':
-                    print("HERE")
                     self.widget[1].objects = [pn.Row(self.w_data, self.w_type, self.w_order)]
                     self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
 
