@@ -132,8 +132,6 @@ def collect_metrics(db_id, db_type, db_host, db_port, db_name, db_user, db_passw
         "db_key": "test_key",
         "organization_id": "test_organization"
     }
-
-    #print(driver_config)
     schedule_db_level_monitor_job(driver_config, db_id)
     #if not config.disable_table_level_stats or not config.disable_index_stats:
     #    schedule_table_level_monitor_job(config)
@@ -141,16 +139,22 @@ def collect_metrics(db_id, db_type, db_host, db_port, db_name, db_user, db_passw
     # Run queries to collect metrics and store them in a file or database
 
 
-@app.route('/get', methods=['GET'])
-def get_data(config):
-    args = request.args.to_dict()
+@app.route('/data', methods=['GET'])
+def get_data():
+    
+    params_json = request.args.get('params')
+    args = json.loads(params_json)
+
+    print(args)
+
     table = args['table']
     metrics = args['metric']
     start_time = args['start_time']
     end_time = args['end_time']
     interval = args['interval']
     task = args['task']
-    subtask = args['subtask']
+    #subtask = args['subtask']
+    print("server",args['config'])
     db_id = get_dbid(args['config'])
     
 
@@ -159,16 +163,22 @@ def get_data(config):
     if end_time is not None:
         sql_query = f"""SELECT timestamp, {','.join(metrics)} FROM {table} 
                         WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
-                        AND db_id = {db_id}
+                        AND dbid = '{db_id}'
                         ORDER BY timestamp ASC;"""
     else:
         sql_query = f"""SELECT timestamp, {','.join(metrics)} FROM {table}  
                         WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
-                        AND db_id = {db_id}
+                        AND dbid = '{db_id}'
                         ORDER BY timestamp ASC;"""
 
         # Pandas DataFrame으로 변환
     df_metrics = pd.read_sql_query(sql_query, server_conn)
+    df_metrics['timestamp'] = df_metrics['timestamp'].astype(str)
+
+    if task == 'metrics':
+        data['metric'] = df_metrics.to_dict()
+        print(data)
+        return json.dumps(data)
     
     for metric in metrics:
         if task == 'load_prediction':
@@ -176,12 +186,12 @@ def get_data(config):
             
             if end_time is not None:
                 sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
-                                AND db_id = {db_id}
+                                AND dbid = '{db_id}'
                                 AND metric = '{metric}'
                                 ORDER BY timestamp ASC;"""
             else:
                 sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
-                                AND db_id = {db_id}
+                                AND dbid = '{db_id}'
                                 AND metric = '{metric}'
                                 ORDER BY timestamp ASC;"""
 
@@ -190,6 +200,8 @@ def get_data(config):
             df_result = pd.merge(df, df_task, on='timestamp', how='outer')
             data['metric'] = df_result.to_dict()
     
+    print(data)
+    print(data['metric'])
     return json.dumps(data)
 
 
@@ -220,6 +232,7 @@ def get_schema():
             continue
         cur.execute(f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{table_name}'")
         table_columns = cur.fetchall()
+        #print(table_columns)
         # primary key 확인
         cur.execute(f"""
             SELECT CC.COLUMN_NAME AS COLUMN_NAME
@@ -235,17 +248,20 @@ def get_schema():
             ;
         """)
         primary_key_columns = cur.fetchall()
+        #print(primary_key_columns)
 
         if 'dbid' in [column[0] for column in table_columns]:
             cur.execute(f"SELECT * FROM public.{table_name} WHERE dbid = '{db_id}'")
+            
             if cur.fetchone():
-                print(f"Table Name: {table_name}")
+                #print(f"Table Name: {table_name}")
                 for column in table_columns:
-                    print(f"Column Name: {column[0]}, Data Type: {column[1]}")
+                    #print(f"Column Name: {column[0]}, Data Type: {column[1]}")
                     key = False
                     if column in primary_key_columns:
                         key = True
-                    result.append(pd.DataFrame({'table': table_name, 'column':column[0], 'type':column[1], 'key':key}),axis = 0)
+                    new_df = pd.DataFrame({'table': [table_name], 'column':[column[0]], 'type':[column[1]], 'key':[key]})
+                    result = pd.concat([result, new_df],ignore_index=True)
                 schema[table_name] = table_columns
 
     # 커서와 연결 닫기
@@ -253,7 +269,7 @@ def get_schema():
     response = {}
     response['sidebar_content'] = result.to_dict()
     response['schema'] =  schema
-    
+    #print(response)
     return json.dumps(response)
 
 if __name__ == '__main__':
