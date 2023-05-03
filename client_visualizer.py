@@ -93,7 +93,7 @@ def load_table(conn, measurement, metric = None):
         df = df[metric]
 
 
-def get_data(config, table, metrics, task, start_time=None, end_time=None, interval=None):
+def get_data(config, table, metrics, task, type = None, start_time=None, end_time=None, interval=None):
     url = "http://eda:80/"
     print("get_data", config)
     params = {
@@ -153,11 +153,15 @@ def get_widgets(schema, config):
                                                 'query analysis', 
                                                 'distribution', 
                                                 'correlation', 
+                                                'load prediction',
                                                 'query ranking', 
-                                                'cause analysis', 
+                                                'performance anomaly diagnosis', 
                                                 'anomaly detection', 
                                                 'delta between predicted and actual value'], width = 300)
-            
+            self.w_task_type = w.Select(name = 'Task type', options = ['anomaly time interval', 
+                                                'anomaly scorer', 
+                                                'anomaly detector'], width = 300)
+            self.w_show_bound = w.Select(name = 'Show bounds', options = ['y','n'], width = 300)
             self.w_data = w.MultiSelect(name = 'Data', options = [i[0] for i in schema[w_measurement.value]], width = 300)
             self.w_color = w.Select(name = 'Color', options = ['None'] + [i[0] for i in schema[w_measurement.value]], width = 300)
             self.w_shape = w.Select(name = 'Shape', options = ['None'] + [i[0] for i in schema[w_measurement.value]], width = 300)
@@ -191,6 +195,15 @@ def get_widgets(schema, config):
                     self.widget[1].objects = [pn.Row(self.w_data)]
                     self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
                 
+                elif self.w_task.value =='anomaly detection':
+                    self.widget[1].objects = [pn.Row(self.w_data, self.w_type, self.w_task_type)]
+                    self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
+
+                elif self.w_task.value =='load prediction':
+                    self.widget[1].objects = [pn.Row(self.w_data)]
+                    self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
+
+
 
             self.w_task.param.watch(fill_widget, ['value'], onlychanged=True)
             
@@ -249,6 +262,37 @@ def get_widgets(schema, config):
                 fig = MetricsElement(y=task.w_data.value,chart_type = 'line').plot(df)
                 #print(fig)
                 main.append(pn.pane.Plotly(fig))
+            elif task.w_task.value == 'load prediction':
+                result = get_data(config, w_measurement.value, task.w_data.value, task.w_task.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                
+                df = pd.DataFrame(result['metric'])
+                df_task = pd.DataFrame(result['task'])
+
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                df_task['timestamp'] = pd.to_datetime(df_task['timestamp'])
+                fig = LoadPredictionElement(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
+                #print(fig)
+                main.append(pn.pane.Plotly(fig))
+            elif task.w_task.value == 'anomaly detection':
+                result = get_data(config, w_measurement.value, task.w_data.value, task.w_task.value, type = task.w_task_type.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                
+                df = pd.DataFrame(result['metric'])
+                df_task = pd.DataFrame(result['task'])
+
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                df_task['timestamp'] = pd.to_datetime(df_task['timestamp'])
+
+                if task.w_task_type.value == 'anomaly scorer':
+                    fig = AnomalyScorerElement(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
+                elif task.w_task_type.value == 'anomaly time interval':
+                    fig = AnomalyTimeIntervalElement(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
+                elif task.w_task_type.value == 'anomaly detector':
+                    fig = AnomalyDetectorElement(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
+                else:
+                    raise AssertionError
+                
+                #print(fig)
+                main.append(pn.pane.Plotly(fig))
         NotImplemented
     w_draw = w.Button(name='Draw', width = 100)
     import functools
@@ -293,7 +337,7 @@ class Element:
         #self.legend = legend
         self.label = label
         
-    def plot(self, df, title = ""):
+    def plot(self, df, derived_df = None, title = ""):
         # implementation of plot method for the base class
         if self.chart_type == 'scatter':
             fig = px.scatter(df, x=self.x, y=self.y, color=self.color, symbol = self.shape, size = self.size, facet_col=self.col, facet_row = self.row)
@@ -318,6 +362,29 @@ class MetricsElement(Element):
         super().__init__(chart_type)
         self.x = 'timestamp'
         self.y = y
+        self.chart_type = chart_type
+
+class AnomalyScorerElement(Element):
+    def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
+        super().__init__(chart_type)
+       
+class AnomalyDetectorElement(Element):
+    def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
+        super().__init__(chart_type)
+
+class AnomalyTimeIntervalElement(Element):
+    def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
+        super().__init__(chart_type)
+
+class LoadPredictionElement(Element):
+    def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
+        super().__init__(chart_type)
+        self.x = 'timestamp'
+        self.y = y
+        self.predicted_x = 'timestamp'
+        self.predicted_y = 'predicted'
+        self.lower_bound = 'lower_bound'
+        self.upper_bound = 'upper_bound'
         self.chart_type = chart_type
 
 class CorrelationElement(Element):

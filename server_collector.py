@@ -145,7 +145,7 @@ def get_data():
     params_json = request.args.get('params')
     args = json.loads(params_json)
 
-    print(args)
+    # print(args)
 
     table = args['table']
     metrics = args['metric']
@@ -160,7 +160,7 @@ def get_data():
 
     data = {}
     # SQL 쿼리문 작성
-    if end_time is not None:
+    if interval == '':
         sql_query = f"""SELECT timestamp, {','.join(metrics)} FROM {table} 
                         WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                         AND dbid = '{db_id}'
