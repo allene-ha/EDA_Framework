@@ -17,8 +17,8 @@ import pickle
 # )
 
 metric_tables = ['bgwriter', 'access', 'io', 'os_metric', 'sessions', 'active_sessions', 'waiting_sessions', 'database_statistics', 'conflicts', 'query_statistics']
-non_default_table = ['sessions', 'active_sessions', 'waiting_sessions']
-erived_metric_tables = ['load_prediction', 'anomaly_time_interval', 'anomaly_scorer', 'anomaly_detector']
+non_default_table = ['sessions', 'active_sessions', 'waiting_sessions','query_statistics']
+derived_metric_tables = ['load_prediction', 'anomaly_time_interval', 'anomaly_scorer', 'anomaly_detector']
 db_statistics_tables = ['database_statistics', 'conflicts']
 
 """
@@ -400,10 +400,16 @@ def fetch_metrics_within_time_range(config=None, start_time='-infinity', end_tim
                 query += f"AND timestamp BETWEEN '{start_time}' AND '{end_time}'"
         cur.execute(query, (db_id,))
         results = cur.fetchall()
+        #result_df.set_index('timestamp', inplace=True)
+        
+
         temp_df = pd.DataFrame(results, columns=['timestamp'] + column_names)
-        print(temp_df)
+        temp_df.set_index('timestamp', inplace=True)
         result_df = pd.concat([result_df, temp_df], axis=1)
-    
+        print(result_df.head)
+        print(result_df.columns)
+    result_df = result_df.reset_index()
+
     result_df['timestamp'] = result_df['timestamp'].astype(str)
     # DataFrame을 pickle로 직렬화
     serialized_df = pickle.dumps(result_df)
