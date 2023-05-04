@@ -14,7 +14,9 @@ from driver.database import (
     collect_table_level_data_from_database,
 )
 
-
+metric_tables = ['bgwriter', 'access', 'io', 'os_metric', 'sessions', 'active_sessions', 'waiting_sessions', 'database_statistics', 'conflicts', 'query_statistics']
+derived_metric_tables = ['load_prediction', 'anomaly_time_interval', 'anomaly_scorer', 'anomaly_detector']
+db_statistics_tables = ['database_statistics', 'conflicts']
 
 """
 The main entrypoint for the driver. The driver will poll for new configurations and schedule
@@ -140,7 +142,7 @@ def collect_metrics(db_id, db_type, db_host, db_port, db_name, db_user, db_passw
 
 
 @app.route('/data', methods=['GET'])
-def get_data():
+def perform_data_query():
     
     params_json = request.args.get('params')
     args = json.loads(params_json)
@@ -154,7 +156,7 @@ def get_data():
     interval = args['interval']
     task = args['task']
     #subtask = args['subtask']
-    print("server",args['config'])
+    print("server",args)
     db_id = get_dbid(args['config'])
     
 
@@ -176,32 +178,92 @@ def get_data():
     df_metrics['timestamp'] = df_metrics['timestamp'].astype(str)
 
     if task == 'metrics':
-        data['metric'] = df_metrics.to_dict()
-        print(data)
+        data['metrics'] = df_metrics.to_dict()
         return json.dumps(data)
-    
-    for metric in metrics:
-        if task == 'load_prediction':
-            sql_query = f"""SELECT timestamp, predicted, lower_bound, upper_bound FROM load_prediction """
-            
-            if end_time is not None:
-                sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
-                                AND dbid = '{db_id}'
-                                AND metric = '{metric}'
-                                ORDER BY timestamp ASC;"""
-            else:
-                sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
-                                AND dbid = '{db_id}'
-                                AND metric = '{metric}'
-                                ORDER BY timestamp ASC;"""
+    elif task == 'load prediction':
+        
+        assert len(metrics) == 1
+        data['metrics'] = df_metrics.to_dict()
 
-            df_task = pd.read_sql_query(sql_query, server_conn)
-            df = df_metrics[['timestamp', metric]]
-            df_result = pd.merge(df, df_task, on='timestamp', how='outer')
-            data['metric'] = df_result.to_dict()
-    
-    print(data)
-    print(data['metric'])
+        metric = metrics[0]
+        sql_query = f"""SELECT timestamp, predicted, lower_bound, upper_bound, analysis_time FROM load_prediction """
+        
+        if interval == '':
+            sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
+                            AND dbid = '{db_id}'
+                            AND metric = '{metric}'
+                            ORDER BY timestamp ASC;"""
+        else:
+            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
+                            AND dbid = '{db_id}'
+                            AND metric = '{metric}'
+                            ORDER BY timestamp ASC;"""
+
+        df_task = pd.read_sql_query(sql_query, server_conn)
+        #df = df_metrics[['timestamp', metric]]
+        #df_result = pd.merge(df, df_task, on='timestamp', how='outer')
+        data['task'] = df_task.to_dict()
+    elif task == 'anomaly time interval':
+        assert len(metrics) == 1
+
+        data['metrics'] = df_metrics.to_dict()
+        metric = metrics[0]
+        sql_query = f"""SELECT analysis_time, start, end, severity FROM anomaly_time_interval"""
+        
+        if interval == '':
+            sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
+                            AND dbid = '{db_id}'
+                            AND (metric = '{metric}' OR metric IS NULL)
+                            ORDER BY timestamp ASC;"""
+        else:
+            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
+                            AND dbid = '{db_id}'
+                            AND metric = '{metric}'
+                            ORDER BY timestamp ASC;"""
+
+        df_task = pd.read_sql_query(sql_query, server_conn)
+        data['task'] = df_task.to_dict()
+    elif task == 'anomaly scorer':
+        assert len(metrics) == 1
+
+        data['metrics'] = df_metrics.to_dict()
+        metric = metrics[0]
+        sql_query = f"""SELECT timestamp, anomaly_score, analysis_time FROM anomaly_scorer"""
+        
+        if interval == '':
+            sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
+                            AND dbid = '{db_id}'
+                            AND (metric = '{metric}' OR metric IS NULL)
+                            ORDER BY timestamp ASC;"""
+        else:
+            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
+                            AND dbid = '{db_id}'
+                            AND metric = '{metric}'
+                            ORDER BY timestamp ASC;"""
+
+        df_task = pd.read_sql_query(sql_query, server_conn)
+        data['task'] = df_task.to_dict()
+    elif task == 'anomaly detector':
+        assert len(metrics) == 1
+
+        data['metrics'] = df_metrics.to_dict()
+        metric = metrics[0]
+        sql_query = f"""SELECT timestamp, anomaly_label, analysis_time FROM anomaly_scorer"""
+        
+        if interval == '':
+            sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
+                            AND dbid = '{db_id}'
+                            AND (metric = '{metric}' OR metric IS NULL)
+                            ORDER BY timestamp ASC;"""
+        else:
+            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
+                            AND dbid = '{db_id}'
+                            AND metric = '{metric}'
+                            ORDER BY timestamp ASC;"""
+
+        df_task = pd.read_sql_query(sql_query, server_conn)
+        data['task'] = df_task.to_dict()
+
     return json.dumps(data)
 
 
@@ -271,6 +333,96 @@ def get_schema():
     response['schema'] =  schema
     #print(response)
     return json.dumps(response)
+
+
+@app.route('/all_metrics', methods=['GET'])
+def fetch_metrics_within_time_range(config={}, start_time='-infinity', end_time='infinity'):
+    if request.args:
+        config = request.args.to_dict()
+    
+    db_id = get_dbid(config)
+
+    # 조회된 결과를 저장할 빈 DataFrame 생성
+    result_df = pd.DataFrame()
+
+    # DB 쿼리문
+    db_statistics_query = """
+    SELECT 
+        timestamp, {} 
+    FROM 
+        {} 
+    WHERE 
+        dbid = %s
+    AND timestamp BETWEEN '{}' AND '{}'
+    GROUP BY timestamp;
+    """
+
+    # 모든 컬럼 이름 가져오기
+    columns_query = """
+    SELECT 
+        COLUMN_NAME 
+    FROM 
+        INFORMATION_SCHEMA.COLUMNS 
+    WHERE 
+        TABLE_NAME = '{}' ;
+    """
+    
+    cur = server_conn.cursor()
+    # metric table들을 순회하며 조회 쿼리를 실행하고 결과를 DataFrame에 추가
+    for table_name in metric_tables:
+        if table_name in db_statistics_tables:
+            
+            cur.execute(columns_query.format(table_name))
+            column_names = [row[0] for row in cur.fetchall()]
+            column_names = [col for col in column_names if col not in ['timestamp', 'dbid', 'datid']]
+            
+            # 컬럼들의 합을 계산하고 datid로 groupby
+            query = db_statistics_query.format(", ".join(["SUM({}) AS {}".format(col, col) for col in column_names]), table_name, start_time, end_time)
+        else:
+            cur.execute(columns_query.format(table_name))
+            column_names = [row[0] for row in cur.fetchall()]
+            column_names = [col for col in column_names if col not in ['timestamp', 'dbid', 'datid']]
+            
+            query = f"""
+                SELECT timestamp, {", ".join([col for col in column_names])}
+                FROM {table_name}
+                WHERE dbid = %s
+            """
+            if start_time is not None and end_time is not None:
+                query += f"AND timestamp BETWEEN '{start_time}' AND '{end_time}'"
+        cur.execute(query, (db_id,))
+        results = cur.fetchall()
+        temp_df = pd.DataFrame(results, columns=['timestamp'] + column_names)
+        result_df = pd.concat([result_df, temp_df], axis=1)
+    
+    data = {}
+    data['task'] = result_df.to_dict()
+    return json.dumps(data)
+
+    # 결과 확인
+    
+def run_anomaly_detector(config, model_name, metric=''):
+
+    # 모델 초기화
+    model = IsolationForest()
+
+    # 데이터 전처리
+    # ...
+
+    # 학습 데이터와 테스트 데이터 분리
+    train_data, test_data = train_test_split(data, test_size=0.2)
+
+    # 모델 학습
+    model.fit(train_data)
+
+    # 이상치 검출
+    results = pd.DataFrame(model.predict(test_data))
+    results['dbid'] = get_dbid(config)
+
+    # 결과 데이터베이스에 저장
+    results.to_sql(name='anomaly_detector', con=server_conn, if_exists='append')
+
+
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=80)

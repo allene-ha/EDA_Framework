@@ -92,10 +92,31 @@ def load_table(conn, measurement, metric = None):
     else:
         df = df[metric]
 
-
-def get_data(config, table, metrics, task, type = None, start_time=None, end_time=None, interval=None):
+def load_all_metrics(config):
     url = "http://eda:80/"
-    print("get_data", config)
+  
+    params = {
+        'config':config
+    }
+
+
+    response = requests.get(url+"all_metrics", params ={'params': json.dumps(params)})
+    # Check the response status code
+    if response.status_code == 200:
+        data = response.json() 
+    else:
+        print(f"Error sending configuration data. Status code: {response.status_code}")
+    
+    df = pd.DataFrame(data['metric'])
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+
+    return df
+
+def query_performance_data(config, table='all', metrics='all', task='metrics', type = None, start_time=None, end_time=None, interval=None):
+    url = "http://eda:80/"
+    print("query_performance_data", config)
+    
     params = {
         'table':table,
         'metric':metrics,
@@ -105,12 +126,22 @@ def get_data(config, table, metrics, task, type = None, start_time=None, end_tim
         'task':task,
         'config':config
     }
+
+    # if start_time == None and end_time == None:
+    #     params['start_time'] = None
+    #     params['end_time'] = None
+    # if interval == None:
+    #     params['interval'] = None
+    
+
+
     response = requests.get(url+"data", params ={'params': json.dumps(params)})
     # Check the response status code
     if response.status_code == 200:
         data = response.json() 
     else:
         print(f"Error sending configuration data. Status code: {response.status_code}")
+    
     
     return data
 
@@ -135,7 +166,7 @@ def get_widgets(schema, config):
                                                     'Last hour':'1 hour',
                                                     'Last 4 hours':'4 hours',
                                                     'Last 12 hours':'12 hours',
-                                                    'Last 24 hours':'1 day', 'Custom':-1}, width = 300)
+                                                    'Last 24 hours':'1 day', 'Custom':''}, width = 300)
     # custom 선택되면 time range 선택하는 위젯 visible하게 변경
     w_time_custom = w.DatetimeRangePicker(name='', value=(datetime.now() - timedelta(minutes = 30), datetime.now()), width = 300)
     w_time_custom.disabled = True
@@ -211,7 +242,7 @@ def get_widgets(schema, config):
 
     widgets = pn.Row(w_title, w_measurement, pn.Column(w_time, w_time_custom), w_refresh, )
     def custom_time(event):
-        if w_time.value == -1:
+        if w_time.value == '':
             w_time_custom.disabled = False
         else:
             w_time_custom.disabled = True
@@ -232,13 +263,13 @@ def get_widgets(schema, config):
     
     def add_task(button):
         task = task_widget()
-        tasks.append(task)
+        tasks.append(base_task)
         task.w_data.param.watch(set_split, ['value'], onlychanged =True)
         c_task.append(pn.Row(task.widget))
 
     w_add_task.on_click(add_task)
     task = task_widget()
-    tasks.append(task)
+    tasks.append(base_task)
     c_task = pn.Card(pn.Row(task.widget, w_add_task), title = 'Task', width = 1200)
     w_split = w.Select(name = 'Split', options = ['None','column', 'row', 'tab'], width = 300)
     w_split_basis = w.Select(name = 'Split basis', options = {}, width = 300)
@@ -251,30 +282,30 @@ def get_widgets(schema, config):
     for task in tasks:
         task.w_data.param.watch(set_split, ['value'], onlychanged =True)
 
-    def tasks_to_elements(clicked_button, tasks):
+    def tasks_to_charts(clicked_button, tasks):
         for task in tasks:
             if task.w_task.value == "metrics":
-                result = get_data(config, w_measurement.value, task.w_data.value, task.w_task.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                result = query_performance_data(config, w_measurement.value, task.w_data.value, task.w_task.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
                 df = pd.DataFrame(result['metric'])
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
 
                 #df = load_table(conn, w_measurement.value)
-                fig = MetricsElement(y=task.w_data.value,chart_type = 'line').plot(df)
+                fig = metrics_task(y=task.w_data.value,chart_type = 'line').plot(df)
                 #print(fig)
                 main.append(pn.pane.Plotly(fig))
             elif task.w_task.value == 'load prediction':
-                result = get_data(config, w_measurement.value, task.w_data.value, task.w_task.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                result = query_performance_data(config, w_measurement.value, task.w_data.value, task.w_task.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
                 
                 df = pd.DataFrame(result['metric'])
                 df_task = pd.DataFrame(result['task'])
 
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
                 df_task['timestamp'] = pd.to_datetime(df_task['timestamp'])
-                fig = LoadPredictionElement(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
+                fig = load_prediction_task(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
                 #print(fig)
                 main.append(pn.pane.Plotly(fig))
             elif task.w_task.value == 'anomaly detection':
-                result = get_data(config, w_measurement.value, task.w_data.value, task.w_task.value, type = task.w_task_type.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                result = query_performance_data(config, w_measurement.value, task.w_data.value, task.w_task.value, type = task.w_task_type.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
                 
                 df = pd.DataFrame(result['metric'])
                 df_task = pd.DataFrame(result['task'])
@@ -283,11 +314,11 @@ def get_widgets(schema, config):
                 df_task['timestamp'] = pd.to_datetime(df_task['timestamp'])
 
                 if task.w_task_type.value == 'anomaly scorer':
-                    fig = AnomalyScorerElement(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
+                    fig = anomaly_scorer_task(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
                 elif task.w_task_type.value == 'anomaly time interval':
-                    fig = AnomalyTimeIntervalElement(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
+                    fig = anomaly_time_interval_task(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
                 elif task.w_task_type.value == 'anomaly detector':
-                    fig = AnomalyDetectorElement(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
+                    fig = anomaly_detector_task(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
                 else:
                     raise AssertionError
                 
@@ -296,7 +327,7 @@ def get_widgets(schema, config):
         NotImplemented
     w_draw = w.Button(name='Draw', width = 100)
     import functools
-    w_draw.on_click(functools.partial(tasks_to_elements, tasks=tasks))
+    w_draw.on_click(functools.partial(tasks_to_charts, tasks=tasks))
     main = pn.Column("### Visualization Language Generation", widgets, c_task, c_split, w_draw)
     return main
     #display(ui)
@@ -306,7 +337,7 @@ def get_widgets(schema, config):
 
 
 
-class Element:
+class base_task:
     """
     A class representing a template for visualizing chart.
 
@@ -357,26 +388,26 @@ class Element:
         return fig
 
 
-class MetricsElement(Element):
+class metrics_task(base_task):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
         self.x = 'timestamp'
         self.y = y
         self.chart_type = chart_type
 
-class AnomalyScorerElement(Element):
+class anomaly_scorer_task(base_task):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
        
-class AnomalyDetectorElement(Element):
+class anomaly_detector_task(base_task):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
 
-class AnomalyTimeIntervalElement(Element):
+class anomaly_time_interval_task(base_task):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
 
-class LoadPredictionElement(Element):
+class load_prediction_task(base_task):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
         self.x = 'timestamp'
@@ -387,7 +418,7 @@ class LoadPredictionElement(Element):
         self.upper_bound = 'upper_bound'
         self.chart_type = chart_type
 
-class CorrelationElement(Element):
+class correlation_task(base_task):
     def __init__(self, x, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
         self.x = x
@@ -395,7 +426,7 @@ class CorrelationElement(Element):
         self.chart_type = chart_type
 
 
-class QueryAnalysisElement(Element):
+class query_analysis_task(base_task):
     def __init__(self, y, chart_type, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
         self.x = 'time'
@@ -404,15 +435,7 @@ class QueryAnalysisElement(Element):
         self.chart_type = chart_type
 
 
-class DeltaPredictedActualElement(Element):
-    def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
-        super().__init__(chart_type, color=color)
-        self.x = 'time'
-        self.y = y
-        self.chart_type = chart_type
-
-
-class QueryRankingElement(Element):
+class query_ranking_task(base_task):
     def __init__(self, data, max_row=None):
         super().__init__()
         self.chart_type = 'table'

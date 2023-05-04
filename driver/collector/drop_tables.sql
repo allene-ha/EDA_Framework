@@ -8,3 +8,7 @@ DROP TABLE database_statistics;
 DROP TABLE conflicts;
 DROP TABLE query_statistics;
 DROP TABLE os_metric;
+DROP TABLE load_prediction;
+DROP TABLE anomaly_time_interval;
+DROP TABLE anomaly_scorer;
+DROP TABLE anomaly_detector;

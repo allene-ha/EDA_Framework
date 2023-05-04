@@ -1,3 +1,4 @@
+-- metric table creation
 CREATE TABLE bgwriter (
     timestamp TIMESTAMP,
     dbid varchar(36),
@@ -54,4 +55,41 @@ CREATE TABLE query_statistics (
     queryid varchar,
    
     PRIMARY KEY (timestamp, queryid)
+);
+
+-- derived metric table creation
+CREATE TABLE load_prediction (
+    dbid varchar(36) NOT NULL,
+    analysis_time TIMESTAMP NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    metric varchar(200),
+    predicted FLOAT NOT NULL,
+    upper_bound FLOAT,
+    lower_bound FLOAT,
+    PRIMARY KEY (dbid, timestamp)
+);
+CREATE TABLE anomaly_time_interval (
+    dbid varchar(36) NOT NULL,
+    analysis_time TIMESTAMP NOT NULL,
+    metric varchar(200),
+    start TIMESTAMP NOT NULL,
+    end TIMESTAMP NOT NULL,
+    severity FLOAT,
+    PRIMARY KEY (dbid, timestamp)
+);
+CREATE TABLE anomaly_scorer (
+    dbid varchar(36) NOT NULL,
+    analysis_time TIMESTAMP NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    metric varchar(200),
+    anomaly_score FLOAT NOT NULL,
+    PRIMARY KEY (dbid, timestamp)
+);
+CREATE TABLE anomaly_detector (
+    dbid varchar(36) NOT NULL,
+    analysis_time TIMESTAMP NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    metric varchar(200),
+    anomaly_label FLOAT NOT NULL,
+    PRIMARY KEY (dbid, timestamp)
 );

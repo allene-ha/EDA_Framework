@@ -22,7 +22,6 @@ def connect_db(db_type='postgres', host='eda-client', database='test_cli', user=
     
     return config
 
-
 def visualize(config):    
     url = "http://eda:80/"
 
