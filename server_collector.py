@@ -1,21 +1,24 @@
 import os
 import psycopg2
-from flask import Flask, request
+from flask import Flask, request, Response
 from apscheduler.schedulers.background import BackgroundScheduler
 import uuid
 
 import json
 import pandas as pd
 from typing import Dict, Any, Union
+#import simplejson as json
+import pickle
 
-from driver.collector.collector_factory import get_collector
-from driver.database import (
-    collect_db_level_data_from_database,
-    collect_table_level_data_from_database,
-)
+#from driver.collector.collector_factory import get_collector
+# from driver.database import (
+#     collect_db_level_data_from_database,
+#     collect_table_level_data_from_database,
+# )
 
 metric_tables = ['bgwriter', 'access', 'io', 'os_metric', 'sessions', 'active_sessions', 'waiting_sessions', 'database_statistics', 'conflicts', 'query_statistics']
-derived_metric_tables = ['load_prediction', 'anomaly_time_interval', 'anomaly_scorer', 'anomaly_detector']
+non_default_table = ['sessions', 'active_sessions', 'waiting_sessions']
+erived_metric_tables = ['load_prediction', 'anomaly_time_interval', 'anomaly_scorer', 'anomaly_detector']
 db_statistics_tables = ['database_statistics', 'conflicts']
 
 """
@@ -26,7 +29,7 @@ import logging
 
 from apscheduler.schedulers.background import BlockingScheduler
 
-from driver.driver_config_builder import DriverConfigBuilder, Overrides
+#from driver.driver_config_builder import DriverConfigBuilder, Overrides
 from driver.pipeline import (
     schedule_or_update_job,
     DB_LEVEL_MONITOR_JOB_ID,
@@ -336,10 +339,13 @@ def get_schema():
 
 
 @app.route('/all_metrics', methods=['GET'])
-def fetch_metrics_within_time_range(config={}, start_time='-infinity', end_time='infinity'):
+def fetch_metrics_within_time_range(config=None, start_time='-infinity', end_time='infinity'):
     if request.args:
-        config = request.args.to_dict()
-    
+        print("HHHHHHHHHHHHHHH")
+        params_json = request.args.get('params')
+        args = json.loads(params_json)
+        config = args['config']
+    print(config)
     db_id = get_dbid(config)
 
     # 조회된 결과를 저장할 빈 DataFrame 생성
@@ -371,17 +377,19 @@ def fetch_metrics_within_time_range(config={}, start_time='-infinity', end_time=
     # metric table들을 순회하며 조회 쿼리를 실행하고 결과를 DataFrame에 추가
     for table_name in metric_tables:
         if table_name in db_statistics_tables:
-            
+            continue
             cur.execute(columns_query.format(table_name))
             column_names = [row[0] for row in cur.fetchall()]
-            column_names = [col for col in column_names if col not in ['timestamp', 'dbid', 'datid']]
+            column_names = [col for col in column_names if col not in ['timestamp', 'dbid', 'datid','datname']]
             
             # 컬럼들의 합을 계산하고 datid로 groupby
             query = db_statistics_query.format(", ".join(["SUM({}) AS {}".format(col, col) for col in column_names]), table_name, start_time, end_time)
+        elif table_name in non_default_table:
+            continue
         else:
             cur.execute(columns_query.format(table_name))
             column_names = [row[0] for row in cur.fetchall()]
-            column_names = [col for col in column_names if col not in ['timestamp', 'dbid', 'datid']]
+            column_names = [col for col in column_names if col not in ['timestamp', 'dbid', 'datid','datname']]
             
             query = f"""
                 SELECT timestamp, {", ".join([col for col in column_names])}
@@ -393,14 +401,19 @@ def fetch_metrics_within_time_range(config={}, start_time='-infinity', end_time=
         cur.execute(query, (db_id,))
         results = cur.fetchall()
         temp_df = pd.DataFrame(results, columns=['timestamp'] + column_names)
+        print(temp_df)
         result_df = pd.concat([result_df, temp_df], axis=1)
     
-    data = {}
-    data['task'] = result_df.to_dict()
-    return json.dumps(data)
+    result_df['timestamp'] = result_df['timestamp'].astype(str)
+    # DataFrame을 pickle로 직렬화
+    serialized_df = pickle.dumps(result_df)
 
-    # 결과 확인
-    
+    # Response 객체에 직렬화된 데이터와 MIME 타입을 지정하여 담기
+    response = Response(serialized_df, mimetype='application/octet-stream')
+
+    return response
+
+        
 def run_anomaly_detector(config, model_name, metric=''):
 
     # 모델 초기화

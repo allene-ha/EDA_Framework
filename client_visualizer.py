@@ -8,6 +8,7 @@ import datetime as dt
 from datetime import datetime, date, timedelta, timezone
 import plotly.graph_objs as go
 import plotly.express as px
+import pickle
 import requests
 import json
 from functools import partial
@@ -102,12 +103,9 @@ def load_all_metrics(config):
 
     response = requests.get(url+"all_metrics", params ={'params': json.dumps(params)})
     # Check the response status code
-    if response.status_code == 200:
-        data = response.json() 
-    else:
-        print(f"Error sending configuration data. Status code: {response.status_code}")
-    
-    df = pd.DataFrame(data['metric'])
+    data = pickle.loads(response.content)
+
+    df = pd.DataFrame(data)
     df['timestamp'] = pd.to_datetime(df['timestamp'])
 
 
