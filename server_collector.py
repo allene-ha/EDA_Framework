@@ -17,8 +17,8 @@ import pickle
 # )
 
 metric_tables = ['bgwriter', 'access', 'io', 'os_metric', 'sessions', 'active_sessions', 'waiting_sessions', 'database_statistics', 'conflicts', 'query_statistics']
-non_default_table = ['sessions', 'active_sessions', 'waiting_sessions']
-erived_metric_tables = ['load_prediction', 'anomaly_time_interval', 'anomaly_scorer', 'anomaly_detector']
+non_default_table = ['sessions', 'active_sessions', 'waiting_sessions','query_statistics']
+derived_metric_tables = ['load_prediction', 'anomaly_time_interval', 'anomaly_scorer', 'anomaly_detector']
 db_statistics_tables = ['database_statistics', 'conflicts']
 
 """
@@ -62,8 +62,49 @@ def schedule_table_level_monitor_job(config) -> None:
 app = Flask(__name__)
 scheduler = BackgroundScheduler()
 
-@app.route('/config', methods=['POST'])
-def get_config():
+@app.route('/connect', methods=['POST'])
+def connect_user_database():
+    # Get database configuration data from the client request
+    data = request.get_json()
+    db_type = data['db_type']
+    db_host = data['db_host']
+    db_port = data['db_port']
+    db_name = data['db_name']
+    db_user = data['db_user']
+    db_password = data['db_password']
+    
+    
+    
+    # Add collect_metrics function to the scheduler
+    # Check if the input DB configuration already exists in the database
+    cur = server_conn.cursor()
+    cur.execute("""
+        SELECT id
+        FROM db_config
+        WHERE db_type = %s AND db_host = %s AND db_port = %s AND db_name = %s AND db_user = %s;
+    """, (db_type, db_host, db_port, db_name, db_user))
+    result = cur.fetchone()
+
+    if result:
+        # If the input DB configuration already exists in the database, use the existing ID
+        db_id = result[0]
+    else:
+        # If the input DB configuration does not exist in the database, generate a new ID
+        db_id = str(uuid.uuid4())
+        #print(db_id, db_type, db_host, db_port, db_name, db_user, db_password)
+        # Store the new DB ID and configuration in the database
+        cur.execute("""
+            INSERT INTO db_config (id, db_type, db_host, db_port, db_name, db_user, db_password)
+            VALUES (%s, %s, %s, %s, %s, %s, %s);
+        """, (db_id, db_type, db_host, db_port, db_name, db_user, db_password))
+        server_conn.commit()
+
+    # Return a success response
+    return f"{db_id}Database configuration data received successfully!"
+
+
+@app.route('/collect', methods=['POST'])
+def collect_performance_data():
     # Get database configuration data from the client request
     data = request.get_json()
     db_type = data['db_type']
@@ -164,14 +205,18 @@ def perform_data_query():
     
 
     data = {}
+    if type(metrics) == str:
+        metric_string = metrics
+    else:
+        metric_string = ','.join(metrics)
     # SQL 쿼리문 작성
     if interval == '':
-        sql_query = f"""SELECT timestamp, {','.join(metrics)} FROM {table} 
+        sql_query = f"""SELECT timestamp, {metric_string} FROM {table} 
                         WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                         AND dbid = '{db_id}'
                         ORDER BY timestamp ASC;"""
     else:
-        sql_query = f"""SELECT timestamp, {','.join(metrics)} FROM {table}  
+        sql_query = f"""SELECT timestamp, {metric_string} FROM {table}  
                         WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
                         AND dbid = '{db_id}'
                         ORDER BY timestamp ASC;"""
@@ -181,14 +226,13 @@ def perform_data_query():
     df_metrics['timestamp'] = df_metrics['timestamp'].astype(str)
 
     if task == 'metrics':
-        data['metrics'] = df_metrics.to_dict()
+        data['metric'] = df_metrics.to_dict()
         return json.dumps(data)
     elif task == 'load prediction':
         
         assert len(metrics) == 1
-        data['metrics'] = df_metrics.to_dict()
+        data['metric'] = df_metrics.to_dict()
 
-        metric = metrics[0]
         sql_query = f"""SELECT timestamp, predicted, lower_bound, upper_bound, analysis_time FROM load_prediction """
         
         if interval == '':
@@ -209,8 +253,8 @@ def perform_data_query():
     elif task == 'anomaly time interval':
         assert len(metrics) == 1
 
-        data['metrics'] = df_metrics.to_dict()
-        metric = metrics[0]
+        data['metric'] = df_metrics.to_dict()
+      
         sql_query = f"""SELECT analysis_time, start, end, severity FROM anomaly_time_interval"""
         
         if interval == '':
@@ -229,8 +273,7 @@ def perform_data_query():
     elif task == 'anomaly scorer':
         assert len(metrics) == 1
 
-        data['metrics'] = df_metrics.to_dict()
-        metric = metrics[0]
+        data['metric'] = df_metrics.to_dict()
         sql_query = f"""SELECT timestamp, anomaly_score, analysis_time FROM anomaly_scorer"""
         
         if interval == '':
@@ -249,8 +292,7 @@ def perform_data_query():
     elif task == 'anomaly detector':
         assert len(metrics) == 1
 
-        data['metrics'] = df_metrics.to_dict()
-        metric = metrics[0]
+        data['metric'] = df_metrics.to_dict()
         sql_query = f"""SELECT timestamp, anomaly_label, analysis_time FROM anomaly_scorer"""
         
         if interval == '':
@@ -400,10 +442,16 @@ def fetch_metrics_within_time_range(config=None, start_time='-infinity', end_tim
                 query += f"AND timestamp BETWEEN '{start_time}' AND '{end_time}'"
         cur.execute(query, (db_id,))
         results = cur.fetchall()
+        #result_df.set_index('timestamp', inplace=True)
+        
+
         temp_df = pd.DataFrame(results, columns=['timestamp'] + column_names)
-        print(temp_df)
+        temp_df.set_index('timestamp', inplace=True)
         result_df = pd.concat([result_df, temp_df], axis=1)
-    
+        print(result_df.head)
+        print(result_df.columns)
+    result_df = result_df.reset_index()
+
     result_df['timestamp'] = result_df['timestamp'].astype(str)
     # DataFrame을 pickle로 직렬화
     serialized_df = pickle.dumps(result_df)
