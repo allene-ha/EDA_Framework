@@ -4,7 +4,7 @@ import json
 
 def connect_db(db_type='postgres', host='eda-client', database='test_cli', user='postgres', password='postgres', port='5432', interval ='10'):
 
-    url = "http://eda:80/config"
+    url = "http://eda:80/connect"
     config = {'db_type': db_type,
               'db_host': host,
               'db_name':database,
@@ -17,6 +17,26 @@ def connect_db(db_type='postgres', host='eda-client', database='test_cli', user=
     # Check the response status code
     if response.status_code == 200:
         print("Configuration data sent successfully.")
+    else:
+        print(f"Error sending configuration data. Status code: {response.status_code}")
+    
+    return config
+
+def collect_performance_data(config):
+
+    url = "http://eda:80/collect"
+    # config = {'db_type': db_type,
+    #           'db_host': host,
+    #           'db_name':database,
+    #           'db_user':user,
+    #           'db_password':password,
+    #           'db_port':port,
+    #           'interval':interval}
+
+    response = requests.post(url, json=config)
+    # Check the response status code
+    if response.status_code == 200:
+        print("Performance data is being collected.")
     else:
         print(f"Error sending configuration data. Status code: {response.status_code}")
     

@@ -6,13 +6,14 @@ from panel import widgets as w
 from bokeh.models.widgets.tables import NumberFormatter, BooleanFormatter
 import datetime as dt
 from datetime import datetime, date, timedelta, timezone
-import plotly.graph_objs as go
+
 import plotly.express as px
 import pickle
 import requests
 import json
 from functools import partial
-
+import plotly.graph_objs as go
+from plotly.subplots import make_subplots
 from IPython.display import display, clear_output
 
 css = '''
@@ -64,6 +65,7 @@ css = '''
     '''
 pn.extension('plotly','tabulator',sizing_mode = 'stretch_width', css_files=[pn.io.resources.CSS_URLS['font-awesome']], raw_css = [css])
 ui = None
+px.defaults.template = "plotly_white"
 
 
 def get_sidebar(schema, sidebar_content):
@@ -131,7 +133,7 @@ def query_performance_data(config, table='all', metrics='all', task='metrics', t
     # if interval == None:
     #     params['interval'] = None
     
-
+    print(params)
 
     response = requests.get(url+"data", params ={'params': json.dumps(params)})
     # Check the response status code
@@ -152,7 +154,7 @@ def get_widgets(schema, config):
         
 
 
-    w_measurement = w.Select(name = 'Measurements', options = list(schema.keys()), value = list(schema.keys())[0], width = 300)
+    w_measurement = w.Select(name = 'Tables', options = list(schema.keys()), value = list(schema.keys())[0], width = 300)
     #print(type(schema))
     # elif data is not None:
     #     # 해당 dataframe을 이용하여 시각화
@@ -177,63 +179,90 @@ def get_widgets(schema, config):
     
     class task_widget():
         def __init__(self):
-            self.w_task = w.Select(name = 'Task', options = ["Choose a task",'metrics', 
-                                                'historical comparisons', 
-                                                'query analysis', 
-                                                'distribution', 
-                                                'correlation', 
-                                                'load prediction',
-                                                'query ranking', 
-                                                'performance anomaly diagnosis', 
-                                                'anomaly detection', 
-                                                'delta between predicted and actual value'], width = 300)
+            self.w_task = w.Select(name = 'Task', options = ["Choose a task",
+                                                            'metrics', # ok
+                                                            'historical comparison', 
+                                                            'query analysis', 
+                                                            'distribution', #ok
+                                                            'correlation', #ok
+                                                            'load prediction',
+                                                            'query ranking', 
+                                                            'performance anomaly diagnosis', 
+                                                            'anomaly detection', 
+                                                            'delta between predicted and actual value'], width = 300)
             self.w_task_type = w.Select(name = 'Task type', options = ['anomaly time interval', 
                                                 'anomaly scorer', 
                                                 'anomaly detector'], width = 300)
             self.w_show_bound = w.Select(name = 'Show bounds', options = ['y','n'], width = 300)
-            self.w_data = w.MultiSelect(name = 'Data', options = [i[0] for i in schema[w_measurement.value]], width = 300)
+            # 중복 허용
+            self.w_data_multi = w.MultiSelect(name = 'Data', options = [i[0] for i in schema[w_measurement.value]], width = 300)
+            # 중복 비허용
+            self.w_data_x = w.Select(name = 'Data', options = [i[0] for i in schema[w_measurement.value]], width = 300)
+            self.w_data_y = w.Select(name = 'Data', options = [i[0] for i in schema[w_measurement.value]], width = 300)
             self.w_color = w.Select(name = 'Color', options = ['None'] + [i[0] for i in schema[w_measurement.value]], width = 300)
             self.w_shape = w.Select(name = 'Shape', options = ['None'] + [i[0] for i in schema[w_measurement.value]], width = 300)
-        
+            self.w_dis_type = w.Select(name = 'Type', options = ['histogram', 'box', 'violin'], width = 300)
+            self.w_cor_type = w.Select(name = 'Type', options = ['scatter', 'kernel density estimation', ], width = 300)
             self.w_type = w.Select(name = 'Type', options = ['stacked bar', 'bar', 'line', 'area'], width = 300)
             self.w_order = w.Select(name = 'Order', options = ["ASC", "DESC"], width = 300)
+            self.w_time_interval = w.Select(name = 'time interval', options = {'10 minutes':[10,'min'],
+                                                                                '30 minutes':[30,'min'],
+                                                                                '1 hour':[1,'H'],
+                                                                                '4 hours':[4,'H'],
+                                                                                '12 hours':[12,'H'],
+                                                                                '1 day':[1,'D']}, width = 300)
 
+            
             def set_options(event):
                 for widget in self.widget[2][0]:
-                    widget.options = self.w_data.value
+                    widget.options = self.w_data_multi.value
                 #self.w_shape.options = self.w_data.value
-            self.w_data.param.watch(set_options, ['value'], onlychanged=True)
+            self.w_data_multi.param.watch(set_options, ['value'], onlychanged=True)
      
             
             self.widget = pn.Column(pn.Row(self.w_task),pn.Row(), pn.Row(), css_classes = ['task_box'])
             ## color, shape, pattern, size, row, col, tab, legend, label
             def fill_widget(event):
-                self.w_data.options = [i[0] for i in schema[w_measurement.value]]
-                if self.w_task.value == 'metrics':
-                    self.widget[1].objects = [pn.Row(self.w_data, self.w_type, self.w_order)]
-                    self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
 
+                self.w_data_multi.options = [i[0] for i in schema[w_measurement.value]]
+                self.w_data_x.options = [i[0] for i in schema[w_measurement.value]]
+                self.w_data_y.options = [i[0] for i in schema[w_measurement.value]]
+                if self.w_task.value == 'metrics':
+                    self.widget[1].objects = [pn.Row(self.w_data_multi, self.w_type, self.w_order)]
+                    self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
+                elif self.w_task.value == 'distribution':
+                    self.widget[1].objects = [pn.Row(self.w_data_x, self.w_dis_type)]
+                    self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
+                
+                elif self.w_task.value == 'correlation':
+                    self.widget[1].objects = [pn.Row(self.w_data_y, self.w_data_x, self.w_cor_type)]
+                    self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
+                
                 elif self.w_task.value == 'query analysis':
                     
-                    self.widget[1].objects = [pn.Row(self.w_data, self.w_type, self.w_order)]
+                    self.widget[1].objects = [pn.Row(self.w_data_x, self.w_type, self.w_order)]
                     self.widget[2].objects = [pn.Card(pn.Row(self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
                     self.w_color.value = 'queryid'
-                
+
+                elif self.w_task.value == 'historical comparison':
+                    self.widget[1].objects = [pn.Row(self.w_data_y, self.w_type, self.w_time_interval)]
+                    self.widget[2].objects = [pn.Card(pn.Row(self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
+                    
                 elif self.w_task.value == 'query ranking':
                     
-                    self.widget[1].objects = [pn.Row(self.w_data)]
+                    self.widget[1].objects = [pn.Row(self.w_data_x)]
                     self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
                 
                 elif self.w_task.value =='anomaly detection':
-                    self.widget[1].objects = [pn.Row(self.w_data, self.w_type, self.w_task_type)]
+                    self.widget[1].objects = [pn.Row(self.w_data_x, self.w_type, self.w_task_type)]
                     self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
 
                 elif self.w_task.value =='load prediction':
-                    self.widget[1].objects = [pn.Row(self.w_data)]
+                    self.widget[1].objects = [pn.Row(self.w_data_x)]
                     self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
 
 
-
+            w_measurement.param.watch(fill_widget, ['value'], onlychanged=True)
             self.w_task.param.watch(fill_widget, ['value'], onlychanged=True)
             
 
@@ -261,13 +290,13 @@ def get_widgets(schema, config):
     
     def add_task(button):
         task = task_widget()
-        tasks.append(base_task)
-        task.w_data.param.watch(set_split, ['value'], onlychanged =True)
+        tasks.append(task)
+        task.w_data_multi.param.watch(set_split, ['value'], onlychanged =True)
         c_task.append(pn.Row(task.widget))
 
     w_add_task.on_click(add_task)
     task = task_widget()
-    tasks.append(base_task)
+    tasks.append(task)
     c_task = pn.Card(pn.Row(task.widget, w_add_task), title = 'Task', width = 1200)
     w_split = w.Select(name = 'Split', options = ['None','column', 'row', 'tab'], width = 300)
     w_split_basis = w.Select(name = 'Split basis', options = {}, width = 300)
@@ -275,35 +304,66 @@ def get_widgets(schema, config):
     def set_split(event):
         dict = {}
         for task in tasks:
-            dict[', '.join(task.w_data.value)] = task.w_data.value
+            dict[', '.join(task.w_data_multi.value)] = task.w_data_multi.value
         w_split_basis.options = dict
     for task in tasks:
-        task.w_data.param.watch(set_split, ['value'], onlychanged =True)
+        task.w_data_multi.param.watch(set_split, ['value'], onlychanged =True)
 
     def tasks_to_charts(clicked_button, tasks):
         for task in tasks:
             if task.w_task.value == "metrics":
-                result = query_performance_data(config, w_measurement.value, task.w_data.value, task.w_task.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                result = query_performance_data(config, w_measurement.value, task.w_data_multi.value, task.w_task.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
                 df = pd.DataFrame(result['metric'])
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
 
                 #df = load_table(conn, w_measurement.value)
-                fig = metrics_task(y=task.w_data.value,chart_type = 'line').plot(df)
+                fig = metrics_task_viz_template(y=task.w_data_multi.value,chart_type = 'line').plot(df)
                 #print(fig)
                 main.append(pn.pane.Plotly(fig))
+            elif task.w_task.value == "correlation":
+                result = query_performance_data(config, w_measurement.value, task.w_data_x.value+task.w_data_y.value, 'metrics', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                print(result)
+                
+                df = pd.DataFrame(result['metric'])
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+                fig = correlation_task_viz_template(y=task.w_data_y.value, x= task.w_data_x.value, chart_type = task.w_cor_type.value).plot(df)
+                #print(fig)
+                main.append(pn.pane.Plotly(fig))
+            elif task.w_task.value == "distribution":
+                result = query_performance_data(config, w_measurement.value, task.w_data_x.value, 'metrics', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                #print(result)
+                
+                df = pd.DataFrame(result['metric'])
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+                dashboard = distribution_task_viz_template(x=task.w_data_x.value, chart_type = task.w_dis_type.value).plot(df)
+                #print(fig)
+                main.append(dashboard)
+            elif task.w_task.value == "historical comparison":
+                result = query_performance_data(config, w_measurement.value, task.w_data_y.value, 'metrics', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                #print(result)
+                
+                df = pd.DataFrame(result['metric'])
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+                dashboard = historical_comparison_task_viz_template(y=task.w_data_y.value, chart_type = task.w_dis_type.value, time_interval = task.w_time_interval.value).plot(df)
+                #print(fig)
+                main.append(dashboard)    
+            
             elif task.w_task.value == 'load prediction':
-                result = query_performance_data(config, w_measurement.value, task.w_data.value, task.w_task.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                result = query_performance_data(config, w_measurement.value, task.w_data_x.value, task.w_task.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
                 
                 df = pd.DataFrame(result['metric'])
                 df_task = pd.DataFrame(result['task'])
 
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
                 df_task['timestamp'] = pd.to_datetime(df_task['timestamp'])
-                fig = load_prediction_task(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
+                fig = load_prediction_task_viz_template(y=task.w_data_x.value,chart_type = 'line').plot(df, derived_df=df_task)
                 #print(fig)
                 main.append(pn.pane.Plotly(fig))
             elif task.w_task.value == 'anomaly detection':
-                result = query_performance_data(config, w_measurement.value, task.w_data.value, task.w_task.value, type = task.w_task_type.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                result = query_performance_data(config, w_measurement.value, task.w_data_x.value, task.w_task.value, type = task.w_task_type.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
                 
                 df = pd.DataFrame(result['metric'])
                 df_task = pd.DataFrame(result['task'])
@@ -312,11 +372,11 @@ def get_widgets(schema, config):
                 df_task['timestamp'] = pd.to_datetime(df_task['timestamp'])
 
                 if task.w_task_type.value == 'anomaly scorer':
-                    fig = anomaly_scorer_task(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
+                    fig = anomaly_scorer_task_viz_template(y=task.w_data_x.value,chart_type = 'line').plot(df, derived_df=df_task)
                 elif task.w_task_type.value == 'anomaly time interval':
-                    fig = anomaly_time_interval_task(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
+                    fig = anomaly_time_interval_task_viz_template(y=task.w_data_x.value,chart_type = 'line').plot(df, derived_df=df_task)
                 elif task.w_task_type.value == 'anomaly detector':
-                    fig = anomaly_detector_task(y=task.w_data.value,chart_type = 'line').plot(df, derived_df=df_task)
+                    fig = anomaly_detector_task_viz_template(y=task.w_data_x.value,chart_type = 'line').plot(df, derived_df=df_task)
                 else:
                     raise AssertionError
                 
@@ -326,7 +386,7 @@ def get_widgets(schema, config):
     w_draw = w.Button(name='Draw', width = 100)
     import functools
     w_draw.on_click(functools.partial(tasks_to_charts, tasks=tasks))
-    main = pn.Column("### Visualization Language Generation", widgets, c_task, c_split, w_draw)
+    main = pn.Column("### Visualization Widgets", widgets, c_task, c_split, w_draw)
     return main
     #display(ui)
 
@@ -335,7 +395,7 @@ def get_widgets(schema, config):
 
 
 
-class base_task:
+class base_task_viz_template:
     """
     A class representing a template for visualizing chart.
 
@@ -382,30 +442,29 @@ class base_task:
             #xaxis_title='Sepal Length (cm)',
             #yaxis_title='Sepal Width (cm)'
         )
-        fig.show()
-        return fig
+        return pn.pane.Plotly(fig)
 
 
-class metrics_task(base_task):
+class metrics_task_viz_template(base_task_viz_template):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
         self.x = 'timestamp'
         self.y = y
         self.chart_type = chart_type
 
-class anomaly_scorer_task(base_task):
+class anomaly_scorer_task_viz_template(base_task_viz_template):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
        
-class anomaly_detector_task(base_task):
+class anomaly_detector_task_viz_template(base_task_viz_template):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
 
-class anomaly_time_interval_task(base_task):
+class anomaly_time_interval_task_viz_template(base_task_viz_template):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
 
-class load_prediction_task(base_task):
+class load_prediction_task_viz_template(base_task_viz_template):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
         self.x = 'timestamp'
@@ -416,15 +475,81 @@ class load_prediction_task(base_task):
         self.upper_bound = 'upper_bound'
         self.chart_type = chart_type
 
-class correlation_task(base_task):
+class historical_comparison_task_viz_template(base_task_viz_template):
+    def __init__(self, y, chart_type, x = 'timestamp', time_interval = '30 minutes',color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
+        super().__init__(chart_type)
+        self.y = y
+        self.chart_type = chart_type
+        self.time_interval = time_interval # freq string
+    
+    def plot(self, df, derived_df = None, title = ""):
+        period, freq = self.time_interval
+        df = df.set_index('timestamp')
+        #df.drop('timestamp', axis=1, inplace=True)
+
+        print(period,freq)
+        shifted_df = df.shift(periods = -period, freq=freq)
+        print(shifted_df)
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=df.index, y=df[self.y], name=self.y))
+        fig.add_trace(go.Scatter(x=shifted_df.index, y=shifted_df[self.y], name=self.y+str(period)+" "+freq+" ago"))
+        #display(fig)
+        fig.update_layout(title = f"Historical comparison of '{self.y}' ({self.y+str(period)+' '+freq+' ago'})")
+        return pn.pane.Plotly(fig)
+
+class distribution_task_viz_template(base_task_viz_template):
+    def __init__(self, x, chart_type, y =None, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
+        super().__init__(chart_type)
+        self.x = x
+        self.chart_type = chart_type
+    
+    def plot(self, df, derived_df = None, title = ""):
+        
+        if self.chart_type == 'histogram':
+            num_bins_widget = pn.widgets.IntSlider(name='Number of Bins', start=1, end=30, value=10)
+            # Histogram chart 생성
+            @pn.depends(num_bins=num_bins_widget)
+            def create_histogram(num_bins):
+                fig = px.histogram(df, x=self.x, nbins=num_bins)
+                return fig
+
+            
+            histogram_chart = pn.Column(create_histogram, num_bins_widget)
+
+            return histogram_chart
+
+        elif self.chart_type == 'box':
+            fig = px.box(df, x=self.x)
+        elif self.chart_type == 'violin':
+            fig = px.violin(df, x=self.x)
+
+        return pn.pane.Plotly(fig)
+
+class correlation_task_viz_template(base_task_viz_template):
     def __init__(self, x, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
         self.x = x
         self.y = y
         self.chart_type = chart_type
+    
+    def plot(self, df, title = ""): # df에 x, y 데이터가 함께 들어있음
+        correlation = df[self.x].corr(df[self.y])
+        if self.chart_type == 'scatter':
+            fig = px.scatter(df, x=self.x, y=self.y, title=f"Correlation: {correlation}", trendline='ols')
+        elif self.chart_type == 'kernel density estimation':
+            fig = px.density_contour(df, x=self.x, y=self.y, title=f"Correlation: {correlation}", trendline='ols')
+
+        if title != '':
+            fig.update_layout(
+                title=title,
+                #xaxis_title='Sepal Length (cm)',
+                #yaxis_title='Sepal Width (cm)'
+            )
+        return pn.pane.Plotly(fig)
 
 
-class query_analysis_task(base_task):
+class query_analysis_task_viz_template(base_task_viz_template):
     def __init__(self, y, chart_type, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
         self.x = 'time'
@@ -433,7 +558,7 @@ class query_analysis_task(base_task):
         self.chart_type = chart_type
 
 
-class query_ranking_task(base_task):
+class query_ranking_task_viz_template(base_task_viz_template):
     def __init__(self, data, max_row=None):
         super().__init__()
         self.chart_type = 'table'
