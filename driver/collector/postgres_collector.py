@@ -404,6 +404,7 @@ class PostgresCollector(BaseDbCollector):
         metric['measurement'] = 'active_sessions'
         metric['fields'] = {}
         for row in rows:
+            row['state'] = row['state'].replace(' ','_')
             metric['fields'][row['state']] = row['count']
         metrics.append(metric)
 
@@ -538,6 +539,7 @@ class PostgresCollector(BaseDbCollector):
         metric['table'] = 'active_sessions'
         metric['data'] = {}
         for row in rows:
+            row['state'] = row['state'].replace(' ','_')
             metric['data'][row['state']] = row['count']
         metrics.append(metric)
 
