@@ -37,7 +37,7 @@ from driver.pipeline import (
 )
 
 # Setup the scheduler that will poll for new configs and run the core pipeline
-scheduler = BlockingScheduler()
+scheduler = BlockingScheduler(daemon = True)
 
 server_conn = psycopg2.connect(
         host='localhost',
@@ -185,6 +185,7 @@ def collect_metrics(db_id, db_type, db_host, db_port, db_name, db_user, db_passw
     # Run queries to collect metrics and store them in a file or database
 
 
+
 @app.route('/data', methods=['GET'])
 def perform_data_query():
     
@@ -199,6 +200,9 @@ def perform_data_query():
     end_time = args['end_time']
     interval = args['interval']
     task = args['task']
+    if 'order' in args:
+        order = args['order']
+        num_of_query = int(args['num_of_query'])
     #subtask = args['subtask']
     print("server",args)
     db_id = get_dbid(args['config'])
@@ -224,10 +228,45 @@ def perform_data_query():
         # Pandas DataFrame으로 변환
     df_metrics = pd.read_sql_query(sql_query, server_conn)
     df_metrics['timestamp'] = df_metrics['timestamp'].astype(str)
-
+    print(df_metrics)
     if task == 'metrics':
         data['metric'] = df_metrics.to_dict()
+        print(data)
         return json.dumps(data)
+    elif task == 'query analysis':
+        sql_query = f"""SELECT timestamp, {metric_string}, queryid, query FROM query_statistics """
+        
+        if interval == '':
+            sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
+                            AND dbid = '{db_id}'
+                            ORDER BY timestamp ASC;"""
+        else:
+            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
+                            AND dbid = '{db_id}'
+                            ORDER BY timestamp ASC;"""
+        print("ORIGINAL TASK DATA")
+        df_task = pd.read_sql_query(sql_query, server_conn)
+
+        query_dict = dict(zip(df_task['queryid'], df_task['query']))
+        data['query_dict'] = query_dict
+        print("QUERY DICT")
+        print(data['query_dict'])
+        ascending = True
+        if order == "DESC":
+            ascending = False
+        slice_df = df_task.groupby('queryid').sum().sort_values(by=metric_string, ascending=ascending).iloc[:num_of_query]
+        print("PLOT1")
+        print(slice_df)
+        top_queryid = slice_df.index.tolist() # 문제
+        print("PLOT2")
+        print(top_queryid)
+        print("PLOT3")
+        mask = df_task['queryid'].isin(top_queryid)
+        print(mask)
+        df_task = df_task[mask]
+        
+
+        print(df_task)
     elif task == 'load prediction':
         
         assert len(metrics) == 1
@@ -247,9 +286,7 @@ def perform_data_query():
                             ORDER BY timestamp ASC;"""
 
         df_task = pd.read_sql_query(sql_query, server_conn)
-        #df = df_metrics[['timestamp', metric]]
-        #df_result = pd.merge(df, df_task, on='timestamp', how='outer')
-        data['task'] = df_task.to_dict()
+        
     elif task == 'anomaly time interval':
         assert len(metrics) == 1
 
@@ -269,7 +306,6 @@ def perform_data_query():
                             ORDER BY timestamp ASC;"""
 
         df_task = pd.read_sql_query(sql_query, server_conn)
-        data['task'] = df_task.to_dict()
     elif task == 'anomaly scorer':
         assert len(metrics) == 1
 
@@ -288,7 +324,6 @@ def perform_data_query():
                             ORDER BY timestamp ASC;"""
 
         df_task = pd.read_sql_query(sql_query, server_conn)
-        data['task'] = df_task.to_dict()
     elif task == 'anomaly detector':
         assert len(metrics) == 1
 
@@ -307,8 +342,8 @@ def perform_data_query():
                             ORDER BY timestamp ASC;"""
 
         df_task = pd.read_sql_query(sql_query, server_conn)
-        data['task'] = df_task.to_dict()
-
+    df_task['timestamp'] = df_task['timestamp'].astype(str)
+    data['task'] = df_task.to_dict()    
     return json.dumps(data)
 
 
@@ -448,8 +483,7 @@ def fetch_metrics_within_time_range(config=None, start_time='-infinity', end_tim
         temp_df = pd.DataFrame(results, columns=['timestamp'] + column_names)
         temp_df.set_index('timestamp', inplace=True)
         result_df = pd.concat([result_df, temp_df], axis=1)
-        print(result_df.head)
-        print(result_df.columns)
+
     result_df = result_df.reset_index()
 
     result_df['timestamp'] = result_df['timestamp'].astype(str)

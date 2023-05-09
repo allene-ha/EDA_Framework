@@ -123,13 +123,18 @@ def _insert_db_level_observation_to_postgresql(db_level_observation, db_id):
         existing_columns = [col[0] for col in cur.fetchall()]
 
         for col in data_dict.keys():
+            if ' ' in col:
+                col = col.replace(' ','_')
+
             if col.lower() not in existing_columns:
+                print(data_dict)
                 col_type = type(data_dict[col]).__name__
                 if col_type == 'str':
                     col_type = 'VARCHAR'
                 elif col_type == 'int':
                     col_type = 'numeric'
                 #print(col, col_type)
+                
                 cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {col} {col_type};")
                 server_conn.commit()
 
