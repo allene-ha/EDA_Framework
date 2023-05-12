@@ -3,7 +3,7 @@ import psycopg2
 from flask import Flask, request, Response
 from apscheduler.schedulers.background import BackgroundScheduler
 import uuid
-
+from model import orion
 import json
 import pandas as pd
 from typing import Dict, Any, Union
@@ -433,7 +433,6 @@ def get_schema():
 @app.route('/all_metrics', methods=['GET'])
 def fetch_metrics_within_time_range(config=None, start_time='-infinity', end_time='infinity'):
     if request.args:
-        print("HHHHHHHHHHHHHHH")
         params_json = request.args.get('params')
         args = json.loads(params_json)
         config = args['config']
@@ -510,29 +509,58 @@ def fetch_metrics_within_time_range(config=None, start_time='-infinity', end_tim
 
     return response
 
-        
-def run_anomaly_detector(config, model_name, metric=''):
+@app.route('/train', methods=['POST'])
+def train():
+    input_data = request.get_json()
+    print("HERE")
+    data = input_data.get('data')
+    df = pd.read_json(data)
+    print("HERE")
+    task = input_data.get('task')
+    print("HERE")
+    pipeline = input_data.get('pipeline')
+    print("HERE")
+    hyperparameters = input_data.get('hyperparameters')
+    print(df.shape)
+    print(task)
+    # 통신은 가능
+    if task == 'anomaly detection':
+        train_anomaly_detection(df, pipeline, hyperparameters)
+        print("HERE")
+    return "OKAY"
 
-    # 모델 초기화
-    model = IsolationForest()
+@app.route('/predict', methods=['POST'])
+def predict():
+    input_data = request.get_json()
+    data = input_data.get('data')
+    df = pd.read_json(data)
+    task = input_data.get('task')
+    path = input_data.get('path')
+    config = input_data.get('config')
+    db_id = get_dbid(config)
+    
+    if task == 'anomaly detection':
+        result_df = predict_anomaly_detection(server_conn, db_id, df, path)
+    
+    if result_df is not None:
+        result_df = result_df.reset_index()
+        #result_df['timestamp'] = result_df['timestamp'].astype(str)
+    # DataFrame을 pickle로 직렬화
+    serialized_df = pickle.dumps(result_df)
 
-    # 데이터 전처리
-    # ...
+    # Response 객체에 직렬화된 데이터와 MIME 타입을 지정하여 담기
+    response = Response(serialized_df, mimetype='application/octet-stream')
 
-    # 학습 데이터와 테스트 데이터 분리
-    train_data, test_data = train_test_split(data, test_size=0.2)
+    return response
 
-    # 모델 학습
-    model.fit(train_data)
+def train_anomaly_detection(df, pipeline, hyperparameters):
+    if pipeline in ['lstm_dynamic_threshold']:
+        orion.train_with_orion_pipeline(df, pipeline, hyperparameters)
 
-    # 이상치 검출
-    results = pd.DataFrame(model.predict(test_data))
-    results['dbid'] = get_dbid(config)
-
-    # 결과 데이터베이스에 저장
-    results.to_sql(name='anomaly_detector', con=server_conn, if_exists='append')
-
-
+def predict_anomaly_detection(server_conn, db_id, df, path):
+    if path.split('.')[-1] == 'pickle':
+        anomaly = orion.detect_with_orion_pipeline(server_conn, db_id, df, path)
+    return anomaly
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=80)
+    app.run(host="0.0.0.0", port=80, debug=True)

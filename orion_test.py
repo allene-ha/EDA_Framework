@@ -8,7 +8,7 @@ from orion import Orion
 
 hyperparameters = {
     'keras.Sequential.LSTMTimeSeriesRegressor#1': {
-        'epochs': 30,
+        'epochs': 3,
         'verbose': True
     }
 }
@@ -35,7 +35,18 @@ df = pd.DataFrame({'timestamp': timestamp, 'value': value})
 train_data, test_data = train_test_split(df, test_size=0.3, random_state=42)
 
 orion.fit(train_data)
-
-anomalies = orion.detect(test_data)
+orion.save("model/here.pickle")
+orion2 = Orion.load("model/here.pickle")
+anomalies = orion2.detect(test_data)
 
 print(anomalies) # DataFrame
+
+# orion = Orion.load('/home/eda_framework_visualization/model/trained_model/lstm_dynamic_threshold_20230512_194847.pickle')
+
+# df = pd.read_csv('temp.csv')
+# df = df[['timestamp', 'buffers_checkpoint']]
+# df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+# anomalies = orion.detect(df)
+
+# print(orion)
