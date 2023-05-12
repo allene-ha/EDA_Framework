@@ -228,11 +228,34 @@ def perform_data_query():
         # Pandas DataFrame으로 변환
     df_metrics = pd.read_sql_query(sql_query, server_conn)
     df_metrics['timestamp'] = df_metrics['timestamp'].astype(str)
-    print(df_metrics)
+
     if task == 'metrics':
         data['metric'] = df_metrics.to_dict()
-        print(data)
+       
         return json.dumps(data)
+    elif task == 'query ranking':
+        sql_query = f"""SELECT timestamp, {metric_string}, queryid, query FROM query_statistics """
+        
+        if interval == '':
+            sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
+                            AND dbid = '{db_id}'
+                            ORDER BY timestamp ASC;"""
+        else:
+            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
+                            AND dbid = '{db_id}'
+                            ORDER BY timestamp ASC;"""
+    
+        df_task = pd.read_sql_query(sql_query, server_conn)
+
+        query_dict = dict(zip(df_task['queryid'], df_task['query']))
+        data['query_dict'] = query_dict
+
+        ascending = False
+        if order == "ASC":
+            ascending = True
+        df_task = df_task.groupby('queryid').sum().sort_values(by=metric_string, ascending=ascending).iloc[:num_of_query]
+        
+        
     elif task == 'query analysis':
         sql_query = f"""SELECT timestamp, {metric_string}, queryid, query FROM query_statistics """
         
@@ -249,24 +272,16 @@ def perform_data_query():
 
         query_dict = dict(zip(df_task['queryid'], df_task['query']))
         data['query_dict'] = query_dict
-        print("QUERY DICT")
-        print(data['query_dict'])
+
         ascending = True
         if order == "DESC":
             ascending = False
         slice_df = df_task.groupby('queryid').sum().sort_values(by=metric_string, ascending=ascending).iloc[:num_of_query]
-        print("PLOT1")
-        print(slice_df)
-        top_queryid = slice_df.index.tolist() # 문제
-        print("PLOT2")
-        print(top_queryid)
-        print("PLOT3")
+        top_queryid = slice_df.index.tolist() # 문제    
         mask = df_task['queryid'].isin(top_queryid)
-        print(mask)
+        data['top_queryid'] = top_queryid
         df_task = df_task[mask]
-        
-
-        print(df_task)
+       
     elif task == 'load prediction':
         
         assert len(metrics) == 1
