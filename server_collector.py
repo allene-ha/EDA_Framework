@@ -198,7 +198,7 @@ def perform_data_query():
     metrics = args['metric']
     start_time = args['start_time']
     end_time = args['end_time']
-    interval = args['interval']
+    recent_time_window = args['recent_time_window']
     task = args['task']
     if 'order' in args:
         order = args['order']
@@ -214,14 +214,14 @@ def perform_data_query():
     else:
         metric_string = ','.join(metrics)
     # SQL 쿼리문 작성
-    if interval == '':
+    if recent_time_window == '':
         sql_query = f"""SELECT timestamp, {metric_string} FROM {table} 
                         WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                         AND dbid = '{db_id}'
                         ORDER BY timestamp ASC;"""
     else:
         sql_query = f"""SELECT timestamp, {metric_string} FROM {table}  
-                        WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
+                        WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
                         AND dbid = '{db_id}'
                         ORDER BY timestamp ASC;"""
 
@@ -236,12 +236,12 @@ def perform_data_query():
     elif task == 'query ranking':
         sql_query = f"""SELECT timestamp, {metric_string}, queryid, query FROM query_statistics """
         
-        if interval == '':
+        if recent_time_window == '':
             sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                             AND dbid = '{db_id}'
                             ORDER BY timestamp ASC;"""
         else:
-            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
+            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
                             AND dbid = '{db_id}'
                             ORDER BY timestamp ASC;"""
     
@@ -259,12 +259,12 @@ def perform_data_query():
     elif task == 'query analysis':
         sql_query = f"""SELECT timestamp, {metric_string}, queryid, query FROM query_statistics """
         
-        if interval == '':
+        if recent_time_window == '':
             sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                             AND dbid = '{db_id}'
                             ORDER BY timestamp ASC;"""
         else:
-            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
+            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
                             AND dbid = '{db_id}'
                             ORDER BY timestamp ASC;"""
         print("ORIGINAL TASK DATA")
@@ -286,18 +286,18 @@ def perform_data_query():
         
         assert len(metrics) == 1
         data['metric'] = df_metrics.to_dict()
-
+       
         sql_query = f"""SELECT timestamp, predicted, lower_bound, upper_bound, analysis_time FROM load_prediction """
         
-        if interval == '':
+        if recent_time_window == '':
             sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                             AND dbid = '{db_id}'
-                            AND metric = '{metric}'
+                            AND metric = '{metric_string}'
                             ORDER BY timestamp ASC;"""
         else:
-            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
+            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
                             AND dbid = '{db_id}'
-                            AND metric = '{metric}'
+                            AND metric = '{metric_string}'
                             ORDER BY timestamp ASC;"""
 
         df_task = pd.read_sql_query(sql_query, server_conn)
@@ -306,18 +306,18 @@ def perform_data_query():
         assert len(metrics) == 1
 
         data['metric'] = df_metrics.to_dict()
-      
+
         sql_query = f"""SELECT analysis_time, start, end, severity FROM anomaly_time_interval"""
         
-        if interval == '':
+        if recent_time_window == '':
             sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                             AND dbid = '{db_id}'
-                            AND (metric = '{metric}' OR metric IS NULL)
+                            AND (metric = '{metric_string}' OR metric IS NULL)
                             ORDER BY timestamp ASC;"""
         else:
-            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
+            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
                             AND dbid = '{db_id}'
-                            AND metric = '{metric}'
+                            AND metric = '{metric_string}'
                             ORDER BY timestamp ASC;"""
 
         df_task = pd.read_sql_query(sql_query, server_conn)
@@ -327,13 +327,13 @@ def perform_data_query():
         data['metric'] = df_metrics.to_dict()
         sql_query = f"""SELECT timestamp, anomaly_score, analysis_time FROM anomaly_scorer"""
         
-        if interval == '':
+        if recent_time_window == '':
             sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                             AND dbid = '{db_id}'
                             AND (metric = '{metric}' OR metric IS NULL)
                             ORDER BY timestamp ASC;"""
         else:
-            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
+            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
                             AND dbid = '{db_id}'
                             AND metric = '{metric}'
                             ORDER BY timestamp ASC;"""
@@ -345,13 +345,13 @@ def perform_data_query():
         data['metric'] = df_metrics.to_dict()
         sql_query = f"""SELECT timestamp, anomaly_label, analysis_time FROM anomaly_scorer"""
         
-        if interval == '':
+        if recent_time_window == '':
             sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                             AND dbid = '{db_id}'
                             AND (metric = '{metric}' OR metric IS NULL)
                             ORDER BY timestamp ASC;"""
         else:
-            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{interval}' AND NOW()
+            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
                             AND dbid = '{db_id}'
                             AND metric = '{metric}'
                             ORDER BY timestamp ASC;"""
