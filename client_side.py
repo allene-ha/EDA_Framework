@@ -58,3 +58,46 @@ def visualize(config):
     main = get_widgets(schema, config)
     display(pn.Row(sidebar, main))
 
+def train(config:dict, data:pd.DataFrame, task:str, pipeline:str='lstm_dynamic_threshold', hyperparameters:dict={}):
+    url = "http://eda:80/train"
+    data_post = {
+        'data':data.to_json(orient='records'),
+        'task':task,
+        'pipeline':pipeline,
+        'hyperparameters':hyperparameters,
+        'config':config,
+    }
+
+
+    # POST 요청 보내기
+    response = requests.post(url, json=data_post)
+    print(response)
+    # Check the response status code
+    if response.status_code != 200:
+        print(f"Error sending configuration data. Status code: {response.status_code}")
+        raise NotImplementedError(response.status_code)
+    else:
+        return response
+
+def predict(config:dict, data:pd.DataFrame, task:str, path:str):
+    url = "http://eda:80/predict"
+    data_post = {
+        'data':data.to_json(orient='records'),
+        'task':task,
+        'path':path,
+        'config':config,
+    }
+
+    # POST 요청 보내기
+    response = requests.post(url, json=data_post)
+    
+    data = pickle.loads(response.content)
+    
+    df = pd.DataFrame(data)
+    if 'start' in df:
+        df['start'] = pd.to_datetime(df['start'])
+        df['end'] = pd.to_datetime(df['end'])
+        return df
+    else:
+        print("no anomaly")
+        return None
