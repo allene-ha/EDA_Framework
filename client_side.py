@@ -1,6 +1,6 @@
 import requests
 from client_visualizer import * 
-import json
+
 
 def connect_db(db_type='postgres', host='eda-client', database='test_cli', user='postgres', password='postgres', port='5432', interval ='10'):
 
@@ -58,6 +58,3 @@ def visualize(config):
     main = get_widgets(schema, config)
     display(pn.Row(sidebar, main))
 
-    
-
-    

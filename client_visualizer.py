@@ -1,5 +1,3 @@
-# from performance_analysis import *
-#from influxdb import InfluxDBClient
 import pandas as pd
 import panel as pn
 from panel import widgets as w
@@ -99,13 +97,18 @@ def load_table(conn, measurement, metric = None):
     else:
         df = df[metric]
 
-def load_all_metrics(config):
+def load_all_metrics(config, start_time=None, end_time=None):
     url = "http://eda:80/"
-  
+    
     params = {
-        'config':config
+        'config':config,
     }
 
+    if start_time is not None:
+        params['start_time'] = start_time
+
+    if end_time is not None:
+        params['end_time'] = end_time
 
     response = requests.get(url+"all_metrics", params ={'params': json.dumps(params)})
     # Check the response status code
@@ -117,7 +120,9 @@ def load_all_metrics(config):
 
     return df
 
-def query_performance_data(config, table='all', metrics='all', task='metrics', type = None, start_time=None, end_time=None, interval=None,  order = None, num_of_query = None):
+def query_performance_data(config, table='all', metrics='all', task='metrics', type = None, start_time=None, end_time=None, interval=None,  order = None, num_of_query = None, split_date=None):
+    # data
+    
     url = "http://eda:80/"
     print("query_performance_data", config)
     
@@ -148,8 +153,25 @@ def query_performance_data(config, table='all', metrics='all', task='metrics', t
     else:
         print(f"Error sending configuration data. Status code: {response.status_code}")
     
-    
     return data
+        
+def load_and_split_performance_data(config, table='all', metrics='all', time_interval=[None,None], split_date=None):
+    #
+    if table == 'all':
+        df = load_all_metrics(config, time_interval[0], time_interval[1])
+    else:
+        data = query_performance_data(config, table, metrics, start_time=time_interval[0], end_time=time_interval[1], recent_time_window=None, split_date=None)
+        df = pd.DataFrame(data['metric'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+    
+    if split_date != None:
+        # 데이터프레임을 기준 시간을 기준으로 분할합니다.
+        train_data = df[df['timestamp'] < split_date]
+        test_data = df[df['timestamp'] >= split_date]
+        return train_data, test_data
+    else:
+        return df
+        
 
    
 def get_widgets(schema, config):
@@ -260,7 +282,7 @@ def get_widgets(schema, config):
                     
                 elif self.w_task.value == 'query ranking':
                     
-                    self.widget[1].objects = [pn.Row(self.w_data_x)]
+                    self.widget[1].objects = [pn.Row(self.w_data_x, self.w_num_of_query)]
                     self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
                 
                 elif self.w_task.value =='anomaly detection':
@@ -322,7 +344,7 @@ def get_widgets(schema, config):
     def tasks_to_charts(clicked_button, tasks):
         for task in tasks:
             if task.w_task.value == "metrics":
-                result = query_performance_data(config, w_table.value, task.w_data_multi.value, task.w_task.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                result = query_performance_data(config, w_table.value, task.w_data_multi.value, task.w_task.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
                 df = pd.DataFrame(result['metric'])
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
 
@@ -330,18 +352,35 @@ def get_widgets(schema, config):
                 dashboard = metrics_task_viz_template(y=task.w_data_multi.value,chart_type = 'line').plot(df)
                 #print(fig)
                 main.append(dashboard)
-            elif task.w_task.value == "query analysis":
-                result = query_performance_data(config, 'query_statistics', task.w_data_y.value, 'query analysis', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value, order = task.w_order.value, num_of_query = task.w_num_of_query.value)
+            elif task.w_task.value == 'query ranking':
+                result = query_performance_data(config, 'query_statistics', task.w_data_x.value, 'query ranking', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value, order = task.w_order.value, num_of_query = task.w_num_of_query.value)
                 df = pd.DataFrame(result['task'])
-                print("CLIENT")
-                print(df)
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                # query_dict = result['query_dict']
+                # top_queryid = result['top_queryid']
+                ###
+                template = query_ranking_task_viz_template(y=task.w_data_y.value)
+                dashboard = template.plot(df)
+                #print(fig)
+                main.append(dashboard)
+                
+            elif task.w_task.value == "query analysis":
+                
+                result = query_performance_data(config, 'query_statistics', task.w_data_y.value, 'query analysis', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value, order = task.w_order.value, num_of_query = task.w_num_of_query.value)
+                df = pd.DataFrame(result['task'])
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
                 
-                dashboard = query_analysis_task_viz_template(y=task.w_data_y.value,chart_type = task.w_type.value,).plot(df)
+                
+                
+                query_dict = result['query_dict']
+                top_queryid = result['top_queryid']
+                ###
+                template = query_analysis_task_viz_template(y=task.w_data_y.value,chart_type = task.w_type.value)#, query_dict = query_dict)
+                dashboard = template.plot(df,  query_dict = query_dict, top_queryid = top_queryid)
                 #print(fig)
                 main.append(dashboard)
             elif task.w_task.value == "correlation":
-                result = query_performance_data(config, w_table.value, task.w_data_x.value+task.w_data_y.value, 'metrics', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                result = query_performance_data(config, w_table.value, task.w_data_x.value+task.w_data_y.value, 'metrics', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
                 print(result)
                 
                 df = pd.DataFrame(result['metric'])
@@ -351,7 +390,7 @@ def get_widgets(schema, config):
                 #print(fig)
                 main.append(dashboard)
             elif task.w_task.value == "distribution":
-                result = query_performance_data(config, w_table.value, task.w_data_x.value, 'metrics', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                result = query_performance_data(config, w_table.value, task.w_data_x.value, 'metrics', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
                 #print(result)
                 
                 df = pd.DataFrame(result['metric'])
@@ -361,7 +400,7 @@ def get_widgets(schema, config):
                 #print(fig)
                 main.append(dashboard)
             elif task.w_task.value == "historical comparison":
-                result = query_performance_data(config, w_table.value, task.w_data_y.value, 'metrics', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                result = query_performance_data(config, w_table.value, task.w_data_y.value, 'metrics', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
                 #print(result)
                 
                 df = pd.DataFrame(result['metric'])
@@ -372,7 +411,7 @@ def get_widgets(schema, config):
                 main.append(dashboard)    
             
             elif task.w_task.value == 'load prediction':
-                result = query_performance_data(config, w_table.value, task.w_data_x.value, task.w_task.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                result = query_performance_data(config, w_table.value, task.w_data_x.value, task.w_task.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
                 
                 df = pd.DataFrame(result['metric'])
                 df_task = pd.DataFrame(result['task'])
@@ -383,7 +422,7 @@ def get_widgets(schema, config):
                 #print(fig)
                 main.append(dashboard)
             elif task.w_task.value == 'anomaly detection':
-                result = query_performance_data(config, w_table.value, task.w_data_x.value, task.w_task.value, type = task.w_task_type.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], interval=w_time.value)
+                result = query_performance_data(config, w_table.value, task.w_data_x.value, task.w_task.value, type = task.w_task_type.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
                 
                 df = pd.DataFrame(result['metric'])
                 df_task = pd.DataFrame(result['task'])
@@ -477,10 +516,6 @@ class metrics_task_viz_template(base_task_viz_template):
 class anomaly_scorer_task_viz_template(base_task_viz_template):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
-       
-class anomaly_detector_task_viz_template(base_task_viz_template):
-    def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
-        super().__init__(chart_type)
 
 class anomaly_time_interval_task_viz_template(base_task_viz_template):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
@@ -572,56 +607,21 @@ class correlation_task_viz_template(base_task_viz_template):
 
 
 class query_analysis_task_viz_template(base_task_viz_template):
-    def __init__(self, y, chart_type, order="DESC", num_of_query=5, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
+    def __init__(self, y, chart_type, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
         self.x = 'timestamp'
+        print("log")
         self.y = y
         self.color = 'queryid'
         self.chart_type = chart_type
-        self.order = order
-        self.num_of_query = int(num_of_query)
 
-    def plot(self, df, derived_df = None, title = ""):
-        print("PLOT")
-    
-        # DataFrame 가공
-        query_dict = dict(zip(df['queryid'], df['query']))
-        print("PLOT")
-        # print(query_dict)
-        ascending = True
-        if self.order == "DESC":
-            ascending = False
-        slice_df = df.groupby('queryid').sum().sort_values(by=self.y, ascending=ascending)
-        print("PLOT")
-        top_queryid = slice_df.iloc[:self.num_of_query]['queryid'].tolist()
-        print("PLOT")
-        print(top_queryid)
-        print("PLOT")
-        mask = df['queryid'].isin(top_queryid)
 
-        df = df[mask]
+    def plot(self, df, derived_df = None, title = "", query_dict = {}, top_queryid = []):
+        fig = px.bar(df, x=self.x, y=self.y, color=self.color, barmode = 'stack', category_orders = {'queryid':top_queryid}, hover_data = ['query'])
         
-        fig = px.bar(df, x=self.x, y=self.y, color=self.color, facet_col=self.col, barmode = 'stack')
-        # print(df)
-        # if self.chart_type == 'scatter':
-        #     fig = px.scatter(df, x=self.x, y=self.y, color=self.color, symbol = self.shape, size = self.size, facet_col=self.col, facet_row = self.row)
-        # elif self.chart_type == 'line':
-        #     fig = px.line(df, x=self.x, y=self.y, color=self.color, facet_col=self.col, facet_row = self.row)
-        # elif self.chart_type == 'bar':
-        #     print("BAR")
-        #     fig = px.bar(df, x=self.x, y=self.y, color=self.color, facet_col=self.col, barmode = 'stack')
-        # else:
-        #     raise ValueError("Invalid Chart Type")
-        # #fig.for_each_trace(lambda trace: trace.update(name='Female' if trace.name == 'F' else 'Male'))
+        dashboard = pn.pane.Plotly(fig)
 
-        # fig.update_layout(
-        #     title=title,
-        #     #xaxis_title='Sepal Length (cm)',
-        #     #yaxis_title='Sepal Width (cm)'
-        # )
-        
-        return pn.pane.Plotly(fig)
-
+        return dashboard
 
 class query_ranking_task_viz_template(base_task_viz_template):
     def __init__(self, data, max_row=None):
@@ -631,12 +631,5 @@ class query_ranking_task_viz_template(base_task_viz_template):
         # Data를 metric과 additional_column으로 분리하는 작업 필요
         # not used to rank
         # ㅇself.metrics = metrics # will be used to rank
-        self.max_row = max_row 
-
-
-
-    
-    
-
-
-
+    def plot(self, df):
+        return w.Tabulator(df)
