@@ -196,8 +196,9 @@ def perform_data_query():
 
     table = args['table']
     metrics = args['metric']
-    start_time = args['start_time']
-    end_time = args['end_time']
+    if 'start_time' in args:
+        start_time = args['start_time']
+        end_time = args['end_time']
     recent_time_window = args['recent_time_window']
     task = args['task']
     if 'order' in args:
