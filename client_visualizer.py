@@ -129,12 +129,14 @@ def query_performance_data(config, table='all', metrics='all', task='metrics', t
     params = {
         'table':table,
         'metric':metrics,
-        'start_time':start_time.strftime("%Y-%m-%d %H:%M:%S"),
-        'end_time':end_time.strftime("%Y-%m-%d %H:%M:%S"),
         'recent_time_window':recent_time_window,
         'task':task,
         'config':config,
     }
+    if start_time is not None:
+        params['start_time'] = start_time.strftime("%Y-%m-%d %H:%M:%S")
+        params['end_time'] = end_time.strftime("%Y-%m-%d %H:%M:%S")
+        
     if order is not None:
         params['order'] = order
         params['num_of_query'] = str(num_of_query)
