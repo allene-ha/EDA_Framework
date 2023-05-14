@@ -120,7 +120,7 @@ def load_all_metrics(config, start_time=None, end_time=None):
 
     return df
 
-def query_performance_data(config, table='all', metrics='all', task='metrics', type = None, start_time=None, end_time=None, interval=None,  order = None, num_of_query = None, split_date=None):
+def query_performance_data(config, table='all', metrics='all', task='metrics', type = None, start_time=None, end_time=None, recent_time_window=None,  order = None, num_of_query = None, split_date=None):
     # data
     
     url = "http://eda:80/"
@@ -131,7 +131,7 @@ def query_performance_data(config, table='all', metrics='all', task='metrics', t
         'metric':metrics,
         'start_time':start_time.strftime("%Y-%m-%d %H:%M:%S"),
         'end_time':end_time.strftime("%Y-%m-%d %H:%M:%S"),
-        'interval':interval,
+        'recent_time_window':recent_time_window,
         'task':task,
         'config':config,
     }
@@ -152,7 +152,6 @@ def query_performance_data(config, table='all', metrics='all', task='metrics', t
         data = response.json() 
     else:
         print(f"Error sending configuration data. Status code: {response.status_code}")
-    
     return data
         
 def load_and_split_performance_data(config, table='all', metrics='all', time_interval=[None,None], split_date=None):
