@@ -66,7 +66,7 @@ CREATE TABLE load_prediction (
     predicted FLOAT NOT NULL,
     upper_bound FLOAT,
     lower_bound FLOAT,
-    PRIMARY KEY (dbid, analysis_time)
+    PRIMARY KEY (dbid, timestamp)
 );
 CREATE TABLE anomaly_time_interval (
     dbid varchar(36) NOT NULL,
@@ -75,7 +75,7 @@ CREATE TABLE anomaly_time_interval (
     start TIMESTAMP NOT NULL,
     "end" TIMESTAMP NOT NULL,
     severity FLOAT,
-    PRIMARY KEY (dbid, analysis_time)
+    PRIMARY KEY (dbid, timestamp)
 );
 CREATE TABLE anomaly_scorer (
     dbid varchar(36) NOT NULL,
@@ -83,7 +83,7 @@ CREATE TABLE anomaly_scorer (
     timestamp TIMESTAMP NOT NULL,
     metric varchar(200),
     anomaly_score FLOAT NOT NULL,
-    PRIMARY KEY (dbid, analysis_time)
+    PRIMARY KEY (dbid, timestamp)
 );
 CREATE TABLE anomaly_detector (
     dbid varchar(36) NOT NULL,
@@ -91,5 +91,5 @@ CREATE TABLE anomaly_detector (
     timestamp TIMESTAMP NOT NULL,
     metric varchar(200),
     anomaly_label FLOAT NOT NULL,
-    PRIMARY KEY (dbid, analysis_time)
+    PRIMARY KEY (dbid, timestamp)
 );

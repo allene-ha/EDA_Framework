@@ -3,7 +3,7 @@ import psycopg2
 from flask import Flask, request, Response
 from apscheduler.schedulers.background import BackgroundScheduler
 import uuid
-from model import orion
+#from model import orion
 import json
 import pandas as pd
 from typing import Dict, Any, Union
@@ -184,6 +184,15 @@ def collect_metrics(db_id, db_type, db_host, db_port, db_name, db_user, db_passw
     scheduler.start()
     # Run queries to collect metrics and store them in a file or database
 
+def preprocess_dataframe(df, interval):
+    print(len(df))
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df.set_index('timestamp', inplace=True)
+    # Resample the data to 10-minute intervals and calculate the mean
+    df_resampled = df.resample(f'{interval}S').mean()
+    df_resampled.reset_index(inplace = True)
+    df_resampled.fillna(method='ffill', inplace=True)
+    return df_resampled
 
 
 @app.route('/data', methods=['GET'])
@@ -204,9 +213,12 @@ def perform_data_query():
     if 'order' in args:
         order = args['order']
         num_of_query = int(args['num_of_query'])
-    #subtask = args['subtask']
+
+    if task == 'anomaly detection':
+        task = args['task_type']
     print("server",args)
     db_id = get_dbid(args['config'])
+    collect_interval = args['config']['interval']
     
 
     data = {}
@@ -226,10 +238,14 @@ def perform_data_query():
                         AND dbid = '{db_id}'
                         ORDER BY timestamp ASC;"""
 
+    print(sql_query)
         # Pandas DataFrame으로 변환
     df_metrics = pd.read_sql_query(sql_query, server_conn)
+    print(df_metrics)
+    df_metrics = preprocess_dataframe(df_metrics, collect_interval)
     df_metrics['timestamp'] = df_metrics['timestamp'].astype(str)
-
+    
+    print(df_metrics)
     if task == 'metrics':
         data['metric'] = df_metrics.to_dict()
        
@@ -255,6 +271,8 @@ def perform_data_query():
         if order == "ASC":
             ascending = True
         df_task = df_task.groupby('queryid').sum().sort_values(by=metric_string, ascending=ascending).iloc[:num_of_query]
+        #df_task = preprocess_dataframe(df_task, collect_interval)
+        print(df_task)
         
         
     elif task == 'query analysis':
@@ -282,6 +300,8 @@ def perform_data_query():
         mask = df_task['queryid'].isin(top_queryid)
         data['top_queryid'] = top_queryid
         df_task = df_task[mask]
+        #df_task = preprocess_dataframe(df_task, collect_interval)
+
        
     elif task == 'load prediction':
         
@@ -302,6 +322,8 @@ def perform_data_query():
                             ORDER BY timestamp ASC;"""
 
         df_task = pd.read_sql_query(sql_query, server_conn)
+        df_task = preprocess_dataframe(df_task, collect_interval)
+
         
     elif task == 'anomaly time interval':
         assert len(metrics) == 1
@@ -323,42 +345,45 @@ def perform_data_query():
 
         df_task = pd.read_sql_query(sql_query, server_conn)
     elif task == 'anomaly scorer':
-        assert len(metrics) == 1
-
         data['metric'] = df_metrics.to_dict()
-        sql_query = f"""SELECT timestamp, anomaly_score, analysis_time FROM anomaly_scorer"""
-        
+        sql_query = f"""SELECT timestamp, anomaly_score, analysis_time FROM anomaly_scorer """
+        print(metric_string)
         if recent_time_window == '':
             sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                             AND dbid = '{db_id}'
-                            AND (metric = '{metric}' OR metric IS NULL)
+                            AND (metric = '{metric_string}' OR metric IS NULL)
                             ORDER BY timestamp ASC;"""
         else:
             sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
                             AND dbid = '{db_id}'
-                            AND metric = '{metric}'
+                            AND metric = '{metric_string}'
                             ORDER BY timestamp ASC;"""
 
         df_task = pd.read_sql_query(sql_query, server_conn)
+        print(df_task)
+        df_task = preprocess_dataframe(df_task, collect_interval)
+        print(df_task)
     elif task == 'anomaly detector':
-        assert len(metrics) == 1
-
         data['metric'] = df_metrics.to_dict()
         sql_query = f"""SELECT timestamp, anomaly_label, analysis_time FROM anomaly_scorer"""
         
         if recent_time_window == '':
             sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                             AND dbid = '{db_id}'
-                            AND (metric = '{metric}' OR metric IS NULL)
+                            AND (metric = '{metric_string}' OR metric IS NULL)
                             ORDER BY timestamp ASC;"""
         else:
             sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
                             AND dbid = '{db_id}'
-                            AND metric = '{metric}'
+                            AND metric = '{metric_string}'
                             ORDER BY timestamp ASC;"""
 
         df_task = pd.read_sql_query(sql_query, server_conn)
-    df_task['timestamp'] = df_task['timestamp'].astype(str)
+        df_task = preprocess_dataframe(df_task, collect_interval)
+
+    
+    if 'timestamp' in df_task:
+        df_task['timestamp'] = df_task['timestamp'].astype(str)
     data['task'] = df_task.to_dict()    
     return json.dumps(data)
 
@@ -513,21 +538,14 @@ def fetch_metrics_within_time_range(config=None, start_time='-infinity', end_tim
 @app.route('/train', methods=['POST'])
 def train():
     input_data = request.get_json()
-    print("HERE")
     data = input_data.get('data')
     df = pd.read_json(data)
-    print("HERE")
     task = input_data.get('task')
-    print("HERE")
     pipeline = input_data.get('pipeline')
-    print("HERE")
     hyperparameters = input_data.get('hyperparameters')
-    print(df.shape)
-    print(task)
     # 통신은 가능
     if task == 'anomaly detection':
         train_anomaly_detection(df, pipeline, hyperparameters)
-        print("HERE")
     return "OKAY"
 
 @app.route('/predict', methods=['POST'])
@@ -543,8 +561,8 @@ def predict():
     if task == 'anomaly detection':
         result_df = predict_anomaly_detection(server_conn, db_id, df, path)
     
-    if result_df is not None:
-        result_df = result_df.reset_index()
+    #if result_df is not None and type(result_df) == pd.DataFrame:
+    #    result_df = result_df.reset_index()
         #result_df['timestamp'] = result_df['timestamp'].astype(str)
     # DataFrame을 pickle로 직렬화
     serialized_df = pickle.dumps(result_df)
@@ -556,11 +574,19 @@ def predict():
 
 def train_anomaly_detection(df, pipeline, hyperparameters):
     if pipeline in ['lstm_dynamic_threshold']:
-        orion.train_with_orion_pipeline(df, pipeline, hyperparameters)
+        print("HERE")
+        #orion.train_with_orion_pipeline(df, pipeline, hyperparameters)
+    elif pipeline in ['kmeans_scorer']:
+        from model import darts
+        darts.train_with_darts(df, pipeline, hyperparameters)
 
 def predict_anomaly_detection(server_conn, db_id, df, path):
-    if path.split('.')[-1] == 'pickle':
-        anomaly = orion.detect_with_orion_pipeline(server_conn, db_id, df, path)
+    # if path.split('.')[-1] == 'pickle':
+    #     print("HERE")
+        #anomaly = orion.detect_with_orion_pipeline(server_conn, db_id, df, path)
+    if path.split('_')[0] == 'darts':
+        from model import darts
+        anomaly = darts.predict_with_darts(server_conn, db_id, df, path)
     return anomaly
 
 if __name__ == '__main__':

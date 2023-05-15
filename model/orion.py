@@ -27,6 +27,8 @@ def train_with_orion_pipeline(df, pipeline, hyperparameters = {}):
         hyperparameters=hyperparameters
     ) # tensoflow open
 
+    df['timestamp']= pd.to_datetime(df['timestamp'])
+    df['timestamp'] = df['timestamp'].astype('datetime64[s]')
     if df.shape[1] != 2:
         transformed_dfs = []
         print(df.columns[1:])
@@ -68,6 +70,14 @@ def detect_with_orion_pipeline(server_conn, db_id, df, path):
     orion = Orion.load(path)
     print(orion)
     print(orion._fitted)
+    #print(df)
+    df['timestamp']= pd.to_datetime(df['timestamp'])
+    df['timestamp'] = df['timestamp'].astype('datetime64[s]')
+    #df['timestamp'] = df['timestamp'].astype(int)
+    df.columns = ['timestamp','value']
+
+    print(df)
+    #df['timestamp']
     anomaly_dict = {}
     if df.shape[1] != 2:
         #transformed_dfs = []
@@ -89,6 +99,7 @@ def detect_with_orion_pipeline(server_conn, db_id, df, path):
             
             
     else:
+        print(len(df))
         anomalies = orion.detect(df)
 
     
