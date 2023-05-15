@@ -133,6 +133,9 @@ def query_performance_data(config, table='all', metrics='all', task='metrics', t
         'task':task,
         'config':config,
     }
+    if task == 'anomaly detection':
+        params['task_type'] = type
+
     if start_time is not None:
         params['start_time'] = start_time.strftime("%Y-%m-%d %H:%M:%S")
         params['end_time'] = end_time.strftime("%Y-%m-%d %H:%M:%S")
@@ -174,7 +177,6 @@ def load_and_split_performance_data(config, table='all', metrics='all', time_int
         return df
         
 
-   
 def get_widgets(schema, config):
     for k in schema.keys():
         for c in schema[k]:
@@ -210,24 +212,25 @@ def get_widgets(schema, config):
         def __init__(self):
             self.w_task = w.Select(name = 'Task', options = ["Choose a task",
                                                             'metrics', # ok
-                                                            'historical comparison', 
-                                                            'query analysis', 
+                                                            'historical comparison', #ok
+                                                            'query analysis', #ok
                                                             'distribution', #ok
                                                             'correlation', #ok
-                                                            'load prediction',
+                                                            'load prediction', 
                                                             'query ranking', 
                                                             'performance anomaly diagnosis', 
                                                             'anomaly detection', 
                                                             'delta between predicted and actual value'], width = 300)
             self.w_task_type = w.Select(name = 'Task type', options = ['anomaly time interval', 
                                                 'anomaly scorer', 
-                                                'anomaly detector'], width = 300)
+                                                'anomaly detector'], width = 200)
+
             self.w_show_bound = w.Select(name = 'Show bounds', options = ['y','n'], width = 300)
             # 중복 허용
             self.w_data_multi = w.MultiSelect(name = 'Data', options = [i[0] for i in schema[w_table.value]], width = 300)
             # 중복 비허용
-            self.w_data_x = w.Select(name = 'Data', options = [i[0] for i in schema[w_table.value]], width = 300)
-            self.w_data_y = w.Select(name = 'Data', options = [i[0] for i in schema[w_table.value]], width = 300)
+            self.w_data_x = w.Select(name = 'Data', options = [i[0] for i in schema[w_table.value]], width = 200)
+            self.w_data_y = w.Select(name = 'Data', options = [i[0] for i in schema[w_table.value]], width = 200)
             
             self.w_num_of_query = w.IntInput(name='# of queries', value=5, step=1, start=1, end=30, width = 200)
             self.w_color = w.Select(name = 'Color', options = ['None'] + [i[0] for i in schema[w_table.value]], width = 300)
@@ -250,13 +253,13 @@ def get_widgets(schema, config):
                 #self.w_shape.options = self.w_data.value
             self.w_data_multi.param.watch(set_options, ['value'], onlychanged=True)
      
-            
+
             self.widget = pn.Column(pn.Row(self.w_task),pn.Row(), pn.Row(), css_classes = ['task_box'])
             ## color, shape, pattern, size, row, col, tab, legend, label
             def fill_widget(event):
                 # table을 한정
-                if self.w_task.value == 'query analysis':
-                    w_table.options = ['query_statistics']
+                if self.w_task.value == 'query analysis' or self.w_task.value == 'query ranking':
+                    w_table.value = 'query_statistics'
                 self.w_data_multi.options = [i[0] for i in schema[w_table.value]]
                 self.w_data_x.options = [i[0] for i in schema[w_table.value]]
                 self.w_data_y.options = [i[0] for i in schema[w_table.value]]
@@ -287,7 +290,11 @@ def get_widgets(schema, config):
                     self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
                 
                 elif self.w_task.value =='anomaly detection':
-                    self.widget[1].objects = [pn.Row(self.w_data_x, self.w_type, self.w_task_type)]
+                    if self.w_task_type.value == 'anomaly scorer':
+                        # get analysis time
+                        NotImplemented
+                    self.widget[1].objects = [pn.Row(self.w_data_y, self.w_type, self.w_task_type)]
+
                     self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
 
                 elif self.w_task.value =='load prediction':
@@ -297,6 +304,7 @@ def get_widgets(schema, config):
 
             w_table.param.watch(fill_widget, ['value'], onlychanged=True)
             self.w_task.param.watch(fill_widget, ['value'], onlychanged=True)
+            self.w_task_type.param.watch(fill_widget, ['value'], onlychanged=True)
             
 
 
@@ -360,9 +368,10 @@ def get_widgets(schema, config):
                 # query_dict = result['query_dict']
                 # top_queryid = result['top_queryid']
                 ###
-                template = query_ranking_task_viz_template(y=task.w_data_y.value)
-                dashboard = template.plot(df)
+                #template = query_ranking_task_viz_template(y=task.w_data_x.value)
+                #dashboard = template.plot(df)
                 #print(fig)
+                dashboard = w.Tabulator(df)
                 main.append(dashboard)
                 
             elif task.w_task.value == "query analysis":
@@ -423,7 +432,7 @@ def get_widgets(schema, config):
                 #print(fig)
                 main.append(dashboard)
             elif task.w_task.value == 'anomaly detection':
-                result = query_performance_data(config, w_table.value, task.w_data_x.value, task.w_task.value, type = task.w_task_type.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
+                result = query_performance_data(config, w_table.value, task.w_data_y.value, task.w_task.value, type = task.w_task_type.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
                 
                 df = pd.DataFrame(result['metric'])
                 df_task = pd.DataFrame(result['task'])
@@ -432,7 +441,7 @@ def get_widgets(schema, config):
                 df_task['timestamp'] = pd.to_datetime(df_task['timestamp'])
 
                 if task.w_task_type.value == 'anomaly scorer':
-                    dashboard = anomaly_scorer_task_viz_template(y=task.w_data_x.value,chart_type = 'line').plot(df, derived_df=df_task)
+                    dashboard = anomaly_scorer_task_viz_template(y=task.w_data_y.value,chart_type = 'line').plot(df, derived_df=df_task)
                 elif task.w_task_type.value == 'anomaly time interval':
                     dashboard = anomaly_time_interval_task_viz_template(y=task.w_data_x.value,chart_type = 'line').plot(df, derived_df=df_task)
                 elif task.w_task_type.value == 'anomaly detector':
@@ -445,8 +454,13 @@ def get_widgets(schema, config):
         NotImplemented
     w_draw = w.Button(name='Draw', width = 100)
     import functools
+    w_clean = w.Button(name='Clean', width = 100)
     w_draw.on_click(functools.partial(tasks_to_charts, tasks=tasks))
-    main = pn.Column("### Visualization Widgets", widgets, c_task, c_split, w_draw)
+    def clean_output(button):
+        main.objects = ["### Visualization Widgets", widgets, c_task, c_split, pn.Row(w_draw,w_clean)]
+
+    w_clean.on_click(clean_output)
+    main = pn.Column("### Visualization Widgets", widgets, c_task, c_split, pn.Row(w_draw,w_clean))
     return main
     #display(ui)
 
@@ -517,6 +531,44 @@ class metrics_task_viz_template(base_task_viz_template):
 class anomaly_scorer_task_viz_template(base_task_viz_template):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
+        self.x = 'timestamp'
+        self.y = y
+        self.chart_type = chart_type
+
+    def plot(self, df, derived_df):
+        merged_df = pd.merge(df, derived_df, on='timestamp')
+        print(merged_df)
+        print("PLOT")
+        # implementation of plot method for the base class
+        if self.chart_type == 'scatter':
+            fig = px.scatter(merged_df, x=self.x, y=self.y, color=self.color, symbol = self.shape, size = self.size, facet_col=self.col, facet_row = self.row)
+        elif self.chart_type == 'line':
+            fig = px.line(merged_df, x=self.x, y=self.y, color=self.color, facet_col=self.col, facet_row = self.row)
+        else:
+            raise ValueError("Invalid Chart Type")
+
+        custom_colors = [[0.0, 'green'], [0.6, 'yellow'],[0.8, 'orange'], [1.0, 'red']]
+        fig.add_trace(go.Scatter(
+            x=merged_df['timestamp'],
+            y=merged_df[self.y],
+            mode='markers',
+            marker=dict(
+                color=merged_df['anomaly_score'],  # anomaly score에 따라 marker의 진하기 설정
+                colorscale=custom_colors,  # 색상 맵 설정
+                size=10  # marker의 크기 스케일 설정
+            ),
+            name='Anomaly'  # trace의 이름 설정
+        ))
+        fig.update_layout(coloraxis_showscale=True)
+
+
+#         fig.update_layout(
+#             title=title,
+#             #xaxis_title='Sepal Length (cm)',
+#             #yaxis_title='Sepal Width (cm)'
+#         )
+        return pn.pane.Plotly(fig)
+
 
 class anomaly_time_interval_task_viz_template(base_task_viz_template):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
@@ -625,12 +677,13 @@ class query_analysis_task_viz_template(base_task_viz_template):
         return dashboard
 
 class query_ranking_task_viz_template(base_task_viz_template):
-    def __init__(self, data, max_row=None):
+    def __init__(self, y, chart_type=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__()
         self.chart_type = 'table'
-        self.data = data 
+        self.y=y
         # Data를 metric과 additional_column으로 분리하는 작업 필요
         # not used to rank
         # ㅇself.metrics = metrics # will be used to rank
     def plot(self, df):
-        return w.Tabulator(df)
+        dashboard = w.Tabulator(df)
+        return dashboard

@@ -1,4 +1,5 @@
 import requests
+import pandas as pd
 from client_visualizer import * 
 
 
@@ -92,12 +93,8 @@ def predict(config:dict, data:pd.DataFrame, task:str, path:str):
     response = requests.post(url, json=data_post)
     
     data = pickle.loads(response.content)
+
     
     df = pd.DataFrame(data)
-    if 'start' in df:
-        df['start'] = pd.to_datetime(df['start'])
-        df['end'] = pd.to_datetime(df['end'])
-        return df
-    else:
-        print("no anomaly")
-        return None
+    
+    return df
