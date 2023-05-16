@@ -390,7 +390,7 @@ def get_widgets(schema, config):
                 #print(fig)
                 main.append(dashboard)
             elif task.w_task.value == "correlation":
-                result = query_performance_data(config, w_table.value, task.w_data_x.value+task.w_data_y.value, 'metrics', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
+                result = query_performance_data(config, w_table.value, task.w_data_x.value+", "+task.w_data_y.value, 'metrics', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
                 print(result)
                 
                 df = pd.DataFrame(result['metric'])
@@ -598,14 +598,17 @@ class historical_comparison_task_viz_template(base_task_viz_template):
         #df.drop('timestamp', axis=1, inplace=True)
 
         print(period,freq)
-        shifted_df = df.shift(periods = -period, freq=freq)
+        shifted_df = df.shift(periods = period, freq=freq)
         print(shifted_df)
+        shifted_df=shifted_df[:max(df.index)]
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df.index, y=df[self.y], name=self.y))
         fig.add_trace(go.Scatter(x=shifted_df.index, y=shifted_df[self.y], name=self.y+str(period)+" "+freq+" ago"))
         #display(fig)
         fig.update_layout(title = f"Historical comparison of '{self.y}' ({self.y+str(period)+' '+freq+' ago'})")
+        #fig.update_xaxes(range=[min(df.index), max(df.index)])
+
         return pn.pane.Plotly(fig)
 
 class distribution_task_viz_template(base_task_viz_template):
