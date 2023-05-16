@@ -9,6 +9,7 @@ import pandas as pd
 from typing import Dict, Any, Union
 #import simplejson as json
 import pickle
+from sqlalchemy import create_engine
 
 #from driver.collector.collector_factory import get_collector
 # from driver.database import (
@@ -38,6 +39,9 @@ from driver.pipeline import (
 
 # Setup the scheduler that will poll for new configs and run the core pipeline
 scheduler = BlockingScheduler(daemon = True)
+
+# Replace the placeholder values with your actual database connection details
+server_engine = create_engine('postgresql://postgres:postgres@localhost:5432/eda')
 
 server_conn = psycopg2.connect(
         host='localhost',
@@ -225,7 +229,7 @@ def perform_data_query():
     if type(metrics) == str:
         metric_string = metrics
     else:
-        metric_string = ','.join(metrics)
+        metric_string = ', '.join(metrics)
     # SQL 쿼리문 작성
     if recent_time_window == '':
         sql_query = f"""SELECT timestamp, {metric_string} FROM {table} 
@@ -234,13 +238,13 @@ def perform_data_query():
                         ORDER BY timestamp ASC;"""
     else:
         sql_query = f"""SELECT timestamp, {metric_string} FROM {table}  
-                        WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
+                        WHERE timestamp BETWEEN (NOW() - INTERVAL '{recent_time_window}') AND NOW()
                         AND dbid = '{db_id}'
                         ORDER BY timestamp ASC;"""
 
     print(sql_query)
         # Pandas DataFrame으로 변환
-    df_metrics = pd.read_sql_query(sql_query, server_conn)
+    df_metrics = pd.read_sql_query(sql_query, server_engine)
     print(df_metrics)
     df_metrics = preprocess_dataframe(df_metrics, collect_interval)
     df_metrics['timestamp'] = df_metrics['timestamp'].astype(str)
@@ -283,7 +287,7 @@ def perform_data_query():
                             AND dbid = '{db_id}'
                             ORDER BY timestamp ASC;"""
         else:
-            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
+            sql_query += f"""WHERE timestamp BETWEEN (NOW() - INTERVAL '{recent_time_window}') AND NOW()
                             AND dbid = '{db_id}'
                             ORDER BY timestamp ASC;"""
         print("ORIGINAL TASK DATA")
@@ -578,7 +582,7 @@ def train_anomaly_detection(df, pipeline, hyperparameters):
         #orion.train_with_orion_pipeline(df, pipeline, hyperparameters)
     elif pipeline in ['kmeans_scorer']:
         from model import darts
-        darts.train_with_darts(df, pipeline, hyperparameters)
+        darts.ad_train_with_darts(df, pipeline, hyperparameters)
 
 def predict_anomaly_detection(server_conn, db_id, df, path):
     # if path.split('.')[-1] == 'pickle':
@@ -586,7 +590,7 @@ def predict_anomaly_detection(server_conn, db_id, df, path):
         #anomaly = orion.detect_with_orion_pipeline(server_conn, db_id, df, path)
     if path.split('_')[0] == 'darts':
         from model import darts
-        anomaly = darts.predict_with_darts(server_conn, db_id, df, path)
+        anomaly = darts.ad_predict_with_darts(server_conn, db_id, df, path)
     return anomaly
 
 if __name__ == '__main__':
