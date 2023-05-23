@@ -1,6 +1,6 @@
 import os
 import psycopg2
-from flask import Flask, request, Response
+from flask import Flask, request, Response, jsonify
 from apscheduler.schedulers.background import BackgroundScheduler
 import uuid
 #from model import orion
@@ -231,7 +231,7 @@ def perform_data_query():
     else:
         metric_string = ', '.join(metrics)
     # SQL 쿼리문 작성
-    if recent_time_window == '':
+    if recent_time_window == 'Custom':
         sql_query = f"""SELECT timestamp, {metric_string} FROM {table} 
                         WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                         AND dbid = '{db_id}'
@@ -257,16 +257,16 @@ def perform_data_query():
     elif task == 'query ranking':
         sql_query = f"""SELECT timestamp, {metric_string}, queryid, query FROM query_statistics """
         
-        if recent_time_window == '':
+        if recent_time_window == 'Custom':
             sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                             AND dbid = '{db_id}'
                             ORDER BY timestamp ASC;"""
         else:
-            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
+            sql_query += f"""WHERE timestamp BETWEEN (NOW() - INTERVAL '{recent_time_window}') AND NOW()
                             AND dbid = '{db_id}'
                             ORDER BY timestamp ASC;"""
     
-        df_task = pd.read_sql_query(sql_query, server_conn)
+        df_task = pd.read_sql_query(sql_query, server_engine)
 
         query_dict = dict(zip(df_task['queryid'], df_task['query']))
         data['query_dict'] = query_dict
@@ -282,7 +282,7 @@ def perform_data_query():
     elif task == 'query analysis':
         sql_query = f"""SELECT timestamp, {metric_string}, queryid, query FROM query_statistics """
         
-        if recent_time_window == '':
+        if recent_time_window == 'Custom':
             sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                             AND dbid = '{db_id}'
                             ORDER BY timestamp ASC;"""
@@ -290,8 +290,8 @@ def perform_data_query():
             sql_query += f"""WHERE timestamp BETWEEN (NOW() - INTERVAL '{recent_time_window}') AND NOW()
                             AND dbid = '{db_id}'
                             ORDER BY timestamp ASC;"""
-        print("ORIGINAL TASK DATA")
-        df_task = pd.read_sql_query(sql_query, server_conn)
+        #print("ORIGINAL TASK DATA")
+        df_task = pd.read_sql_query(sql_query, server_engine)
 
         query_dict = dict(zip(df_task['queryid'], df_task['query']))
         data['query_dict'] = query_dict
@@ -304,28 +304,29 @@ def perform_data_query():
         mask = df_task['queryid'].isin(top_queryid)
         data['top_queryid'] = top_queryid
         df_task = df_task[mask]
+        print("DF_QUERY_ANALYSIS")
+        print(df_task)
         #df_task = preprocess_dataframe(df_task, collect_interval)
 
        
     elif task == 'load prediction':
         
-        assert len(metrics) == 1
         data['metric'] = df_metrics.to_dict()
        
         sql_query = f"""SELECT timestamp, predicted, lower_bound, upper_bound, analysis_time FROM load_prediction """
         
-        if recent_time_window == '':
+        if recent_time_window == 'Custom':
             sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                             AND dbid = '{db_id}'
                             AND metric = '{metric_string}'
                             ORDER BY timestamp ASC;"""
         else:
-            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
+            sql_query += f"""WHERE timestamp BETWEEN (NOW() - INTERVAL '{recent_time_window}') AND NOW()
                             AND dbid = '{db_id}'
                             AND metric = '{metric_string}'
                             ORDER BY timestamp ASC;"""
 
-        df_task = pd.read_sql_query(sql_query, server_conn)
+        df_task = pd.read_sql_query(sql_query, server_engine)
         df_task = preprocess_dataframe(df_task, collect_interval)
 
         
@@ -336,7 +337,7 @@ def perform_data_query():
 
         sql_query = f"""SELECT analysis_time, start, end, severity FROM anomaly_time_interval"""
         
-        if recent_time_window == '':
+        if recent_time_window == 'Custom':
             sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                             AND dbid = '{db_id}'
                             AND (metric = '{metric_string}' OR metric IS NULL)
@@ -347,12 +348,12 @@ def perform_data_query():
                             AND metric = '{metric_string}'
                             ORDER BY timestamp ASC;"""
 
-        df_task = pd.read_sql_query(sql_query, server_conn)
+        df_task = pd.read_sql_query(sql_query, server_engine)
     elif task == 'anomaly scorer':
         data['metric'] = df_metrics.to_dict()
         sql_query = f"""SELECT timestamp, anomaly_score, analysis_time FROM anomaly_scorer """
         print(metric_string)
-        if recent_time_window == '':
+        if recent_time_window == 'Custom':
             sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                             AND dbid = '{db_id}'
                             AND (metric = '{metric_string}' OR metric IS NULL)
@@ -363,7 +364,7 @@ def perform_data_query():
                             AND metric = '{metric_string}'
                             ORDER BY timestamp ASC;"""
 
-        df_task = pd.read_sql_query(sql_query, server_conn)
+        df_task = pd.read_sql_query(sql_query, server_engine)
         print(df_task)
         df_task = preprocess_dataframe(df_task, collect_interval)
         print(df_task)
@@ -371,7 +372,7 @@ def perform_data_query():
         data['metric'] = df_metrics.to_dict()
         sql_query = f"""SELECT timestamp, anomaly_label, analysis_time FROM anomaly_scorer"""
         
-        if recent_time_window == '':
+        if recent_time_window == 'Custom':
             sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                             AND dbid = '{db_id}'
                             AND (metric = '{metric_string}' OR metric IS NULL)
@@ -382,7 +383,7 @@ def perform_data_query():
                             AND metric = '{metric_string}'
                             ORDER BY timestamp ASC;"""
 
-        df_task = pd.read_sql_query(sql_query, server_conn)
+        df_task = pd.read_sql_query(sql_query, server_engine)
         df_task = preprocess_dataframe(df_task, collect_interval)
 
     
@@ -547,27 +548,34 @@ def train():
     task = input_data.get('task')
     pipeline = input_data.get('pipeline')
     hyperparameters = input_data.get('hyperparameters')
-    # 통신은 가능
+    
+    # preprocessing # not implemented
+
     if task == 'anomaly detection':
         train_anomaly_detection(df, pipeline, hyperparameters)
+    elif task == 'load prediction':
+        train_load_prediction(df, pipeline, hyperparameters)
+
     return "OKAY"
 
 @app.route('/predict', methods=['POST'])
 def predict():
     input_data = request.get_json()
-    data = input_data.get('data')
-    df = pd.read_json(data)
+    
+    
     task = input_data.get('task')
-    path = input_data.get('path')
+    path = str(input_data.get('path'))
+    print(path)
     config = input_data.get('config')
     db_id = get_dbid(config)
-    
+
     if task == 'anomaly detection':
+        data = input_data.get('data')
+        df = pd.read_json(data[0])
         result_df = predict_anomaly_detection(server_conn, db_id, df, path)
+    elif task == 'load prediction':
+        result_df = predict_load_prediction(server_conn, db_id, path, input_data['metric'], input_data['n'])
     
-    #if result_df is not None and type(result_df) == pd.DataFrame:
-    #    result_df = result_df.reset_index()
-        #result_df['timestamp'] = result_df['timestamp'].astype(str)
     # DataFrame을 pickle로 직렬화
     serialized_df = pickle.dumps(result_df)
 
@@ -576,11 +584,37 @@ def predict():
 
     return response
 
+@app.route('/trained_model', methods=['GET'])
+def get_trained_models():
+    input_data = request.get_json()
+
+    config = input_data['config']
+    task = input_data['task']
+    
+    import os
+    if task == 'load prediction':
+        folder_path = '/home/eda_framework_visualization/model/trained_model/lp'  # Replace with the path to your folder
+    else:
+        folder_path = '/home/eda_framework_visualization/model/trained_model/ad'
+    file_names = os.listdir(folder_path)
+    file_names = [i for i in file_names if 'ckpt' not in i]
+    print(file_names)
+
+    return jsonify(file_names)
+
+
+def train_load_prediction(df, pipeline, hyperparameters):
+    if pipeline in ['example_pipeline']:
+        print("example_pipeline_not_implemented")
+    elif pipeline in ['RNN', 'LSTM', 'ARIMA', 'AutoARIMA','TCN', 'Transformer','FFT', 'NBEATS']:
+        from model import darts
+        darts.lp_train_with_darts(df, pipeline, hyperparameters)
+
 def train_anomaly_detection(df, pipeline, hyperparameters):
     if pipeline in ['lstm_dynamic_threshold']:
         print("HERE")
         #orion.train_with_orion_pipeline(df, pipeline, hyperparameters)
-    elif pipeline in ['kmeans_scorer']:
+    elif pipeline in ['kmeans_scorer','pyod','wasserstein']:
         from model import darts
         darts.ad_train_with_darts(df, pipeline, hyperparameters)
 
@@ -592,6 +626,16 @@ def predict_anomaly_detection(server_conn, db_id, df, path):
         from model import darts
         anomaly = darts.ad_predict_with_darts(server_conn, db_id, df, path)
     return anomaly
+
+def predict_load_prediction(server_conn, db_id, path, metric, n):
+    # if path.split('.')[-1] == 'pickle':
+    #     print("HERE")
+        #anomaly = orion.detect_with_orion_pipeline(server_conn, db_id, df, path)
+    if path.split('_')[0] == 'darts':
+        from model import darts
+        predicted = darts.lp_predict_with_darts(server_conn, db_id, path, metric, n)
+    return predicted
+
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=80, debug=True)

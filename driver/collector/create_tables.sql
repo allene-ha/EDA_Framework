@@ -56,6 +56,14 @@ CREATE TABLE query_statistics (
    
     PRIMARY KEY (timestamp, queryid)
 );
+-- custom table creation
+
+CREATE TABLE performance (
+    timestamp TIMESTAMP,
+    dbid varchar(36), 
+    PRIMARY KEY (timestamp, queryid)
+);
+
 
 -- derived metric table creation
 CREATE TABLE load_prediction (
@@ -66,7 +74,7 @@ CREATE TABLE load_prediction (
     predicted FLOAT NOT NULL,
     upper_bound FLOAT,
     lower_bound FLOAT,
-    PRIMARY KEY (dbid, timestamp)
+    PRIMARY KEY (dbid, timestamp, analysis_time)
 );
 CREATE TABLE anomaly_time_interval (
     dbid varchar(36) NOT NULL,

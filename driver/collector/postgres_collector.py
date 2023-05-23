@@ -553,13 +553,25 @@ class PostgresCollector(BaseDbCollector):
 
         
         rows = self._get_stat_statements()
-    
+        #print(rows)
         metric = {}
         metric['table'] = "query_statistics"
         metric['data'] = rows
         metrics.append(metric)
         
         #print(metrics) 
+        tps = self._get_metrics("""SELECT total_calls / total_exec_time AS tps
+                                    FROM (
+                                    SELECT sum(calls) AS total_calls, sum(total_exec_time) AS total_exec_time
+                                    FROM pg_stat_statements
+                                    ) AS subquery;""")[0]
+        
+        latency_95th = self._get_metrics("""SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY total_exec_time) AS latency_95th_percentile
+                                    FROM pg_stat_statements;""")[0]
+        metric = {}
+        metric['table'] = 'performance'
+        metric['data'] = [{**tps, **latency_95th}]
+        metrics.append(metric)
 
         self._cmd_wo_fetch("select pg_stat_reset();")
 
@@ -1030,7 +1042,7 @@ class PostgresCollector(BaseDbCollector):
         Returns:
             True if module is loaded successfully, otherwise return False.
         """
-        self._cmd_wo_fetch("ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements'")
+        #self._cmd_wo_fetch("ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements'")
     
         check_module_sql = (
             "SELECT count(*) FROM pg_extension where extname='pg_stat_statements';"
