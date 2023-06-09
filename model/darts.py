@@ -235,5 +235,8 @@ def ad_predict_with_darts(server_conn, db_id, test_df, path):
     # Close the cursor and connection
     cur.close()
     
+    import time
+    time.sleep(1)
+    
     return result_df
    

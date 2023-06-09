@@ -91,7 +91,7 @@ CREATE TABLE anomaly_scorer (
     timestamp TIMESTAMP NOT NULL,
     metric varchar(200),
     anomaly_score FLOAT NOT NULL,
-    PRIMARY KEY (dbid, timestamp)
+    PRIMARY KEY (dbid, timestamp, analysis_time)
 );
 CREATE TABLE anomaly_detector (
     dbid varchar(36) NOT NULL,

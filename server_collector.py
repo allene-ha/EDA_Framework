@@ -126,8 +126,8 @@ def collect_performance_data():
     cur.execute("""
         SELECT id
         FROM db_config
-        WHERE db_type = %s AND db_host = %s AND db_port = %s AND db_name = %s AND db_user = %s;
-    """, (db_type, db_host, db_port, db_name, db_user))
+        WHERE db_type = %s AND db_host = %s AND db_port = %s AND db_name = %s AND db_user = %s AND db_password = %s;
+    """, (db_type, db_host, db_port, db_name, db_user, db_password))
     result = cur.fetchone()
 
     if result:
@@ -193,7 +193,10 @@ def preprocess_dataframe(df, interval):
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df.set_index('timestamp', inplace=True)
     # Resample the data to 10-minute intervals and calculate the mean
-    df_resampled = df.resample(f'{interval}S').mean()
+    if 'analysis_time' in df.columns:
+        df_resampled = df.groupby('analysis_time').resample(f'{interval}S').mean()
+    else:
+        df_resampled = df.resample(f'{interval}S').mean()
     df_resampled.reset_index(inplace = True)
     df_resampled.fillna(method='ffill', inplace=True)
     return df_resampled
@@ -205,7 +208,7 @@ def perform_data_query():
     params_json = request.args.get('params')
     args = json.loads(params_json)
 
-    # print(args)
+    print(args)
 
     table = args['table']
     metrics = args['metric']
@@ -316,12 +319,16 @@ def perform_data_query():
         sql_query = f"""SELECT timestamp, predicted, lower_bound, upper_bound, analysis_time FROM load_prediction """
         
         if recent_time_window == 'Custom':
-            sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
+            sql_query += f"""WHERE timestamp >= '{start_time}'
                             AND dbid = '{db_id}'
                             AND metric = '{metric_string}'
                             ORDER BY timestamp ASC;"""
+                            #  f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
+                            # AND dbid = '{db_id}'
+                            # AND metric = '{metric_string}'
+                            # ORDER BY timestamp ASC;"""
         else:
-            sql_query += f"""WHERE timestamp BETWEEN (NOW() - INTERVAL '{recent_time_window}') AND NOW()
+            sql_query += f"""WHERE timestamp >= (NOW() - INTERVAL '{recent_time_window}') 
                             AND dbid = '{db_id}'
                             AND metric = '{metric_string}'
                             ORDER BY timestamp ASC;"""
@@ -350,6 +357,7 @@ def perform_data_query():
 
         df_task = pd.read_sql_query(sql_query, server_engine)
     elif task == 'anomaly scorer':
+        print("HERE")
         data['metric'] = df_metrics.to_dict()
         sql_query = f"""SELECT timestamp, anomaly_score, analysis_time FROM anomaly_scorer """
         print(metric_string)
@@ -389,6 +397,8 @@ def perform_data_query():
     
     if 'timestamp' in df_task:
         df_task['timestamp'] = df_task['timestamp'].astype(str)
+    if 'analysis_time' in df_task:
+        df_task['analysis_time'] = df_task['analysis_time'].astype(str)
     data['task'] = df_task.to_dict()    
     return json.dumps(data)
 

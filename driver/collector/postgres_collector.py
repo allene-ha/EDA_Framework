@@ -216,11 +216,8 @@ class PostgresCollector(BaseDbCollector):
                 "calls, mean_time as avg_time_ms "
                 "FROM pg_stat_statements;"
             )
-        self.PG_STAT_STATEMENTS_EDA_SQL = (
-            """SELECT queryid, query,  calls, total_exec_time as wait_time, mean_exec_time as latency, blk_read_time+blk_write_time as io, 
-            shared_blks_hit,shared_blks_read,shared_blks_dirtied, shared_blks_written, local_blks_hit, local_blks_read, local_blks_dirtied, local_blks_written, 
-            temp_blks_read, temp_blks_written, blk_read_time, blk_write_time FROM pg_stat_statements;"""
-            )
+        
+        
         
 
     def _cmd_wo_fetch(self, sql: str):  # type: ignore
@@ -1063,14 +1060,20 @@ class PostgresCollector(BaseDbCollector):
         """
         Get statement statistics from pg_stat_statements module.
         """
+        userid = self._cmd("SELECT usesysid FROM pg_user WHERE usename = 'eda_user'")[0][0][0]
 
+        PG_STAT_STATEMENTS_EDA_SQL = (
+            f"""SELECT queryid, query,  calls, total_exec_time as wait_time, mean_exec_time as latency, blk_read_time+blk_write_time as io, 
+            shared_blks_hit,shared_blks_read,shared_blks_dirtied, shared_blks_written, local_blks_hit, local_blks_read, local_blks_dirtied, local_blks_written, 
+            temp_blks_read, temp_blks_written, blk_read_time, blk_write_time FROM pg_stat_statements;"""
+            )
         res = []
         success = self._load_stat_statements()
         if success:
             try:
-                res = self._get_metrics(self.PG_STAT_STATEMENTS_EDA_SQL)
+                res = self._get_metrics(PG_STAT_STATEMENTS_EDA_SQL)
                 #res = self._get_metrics(self.PG_STAT_STATEMENTS_SQL)
-                self._cmd_wo_fetch("select pg_stat_statements_reset();")
+                self._cmd_wo_fetch("select pg_stat_statements_reset(0);")
             except PostgresCollectorException as ex:
                 logging.error(
                     "Failed to load pg_stat_statements module, you need to add "
