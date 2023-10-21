@@ -41,11 +41,11 @@ from driver.pipeline import (
 scheduler = BlockingScheduler(daemon = True)
 
 # Replace the placeholder values with your actual database connection details
-server_engine = create_engine('postgresql://postgres:postgres@localhost:5432/eda')
+server_engine = create_engine('postgresql://postgres:postgres@localhost:5432/dbeda')
 
 server_conn = psycopg2.connect(
         host='localhost',
-        database='eda',
+        database='dbeda',
         user='postgres',
         password='postgres'
     )
@@ -414,7 +414,7 @@ def get_schema():
     cur.execute("""
         SELECT table_name
         FROM information_schema.tables
-        WHERE table_catalog = 'eda' 
+        WHERE table_catalog = 'dbeda' 
         AND table_schema = 'public' 
         AND table_type = 'BASE TABLE'
     """)
@@ -436,7 +436,7 @@ def get_schema():
             SELECT CC.COLUMN_NAME AS COLUMN_NAME
             FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS       TC
                 ,INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE CC
-            WHERE TC.TABLE_CATALOG   = 'eda'
+            WHERE TC.TABLE_CATALOG   = 'dbeda'
             AND TC.TABLE_NAME      = '{table_name}'
             AND TC.CONSTRAINT_TYPE = 'PRIMARY KEY'
             AND TC.TABLE_CATALOG   = CC.TABLE_CATALOG
@@ -603,9 +603,9 @@ def get_trained_models():
     
     import os
     if task == 'load prediction':
-        folder_path = '/home/eda_framework_visualization/model/trained_model/lp'  # Replace with the path to your folder
+        folder_path = '/home/dbeda_framework/model/trained_model/lp'  # Replace with the path to your folder
     else:
-        folder_path = '/home/eda_framework_visualization/model/trained_model/ad'
+        folder_path = '/home/dbeda_framework/model/trained_model/ad'
     file_names = os.listdir(folder_path)
     file_names = [i for i in file_names if 'ckpt' not in i]
     print(file_names)
