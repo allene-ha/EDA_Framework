@@ -108,7 +108,7 @@ def _db_level_monitor_driver_pipeline_for_on_prem(
 def _insert_db_level_observation_to_postgresql(db_level_observation, db_id):
     server_conn = psycopg2.connect(
         host='localhost',
-        database='eda',
+        database='dbeda',
         user='postgres',
         password='postgres'
     )

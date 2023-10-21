@@ -1060,7 +1060,7 @@ class PostgresCollector(BaseDbCollector):
         """
         Get statement statistics from pg_stat_statements module.
         """
-        userid = self._cmd("SELECT usesysid FROM pg_user WHERE usename = 'eda_user'")[0][0][0]
+        #userid = self._cmd("SELECT usesysid FROM pg_user WHERE usename = 'eda_user'")[0][0][0]
 
         PG_STAT_STATEMENTS_EDA_SQL = (
             f"""SELECT queryid, query,  calls, total_exec_time as wait_time, mean_exec_time as latency, blk_read_time+blk_write_time as io, 
