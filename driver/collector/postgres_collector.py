@@ -133,6 +133,7 @@ FROM
 """
 
 
+
 class PostgresCollector(BaseDbCollector):
     """Postgres connector to collect knobs/metrics from the Postgres database"""
 
@@ -155,14 +156,22 @@ class PostgresCollector(BaseDbCollector):
         "table": ["pg_stat_user_tables", "pg_statio_user_tables"],
         "index": ["pg_stat_user_indexes", "pg_statio_user_indexes"],
     }
+    # PG_STAT_VIEWS_LOCAL = {
+    #     "database": ["pg_stat_database", "pg_stat_database_conflicts"],
+    #     "table": ["pg_stat_user_tables", "pg_statio_user_tables"],
+    #     "index": ["pg_stat_user_indexes", "pg_statio_user_indexes"],
+    # }
+    PG_STAT_VIEWS_LOCAL_RAW = {
+        "database": ["pg_stat_database", "pg_stat_database_conflicts"],
+    }
     PG_STAT_VIEWS_LOCAL_KEY = {
         "database": "datid",
         "table": "relid",
         "index": "indexrelid",
     }
     PG_STAT_LOCAL_QUERY: Dict[str, str] = {
-        "pg_stat_database": DATABASE_STAT,
-        "pg_stat_database_conflicts": DATABASE_CONFLICTS_STAT,
+        #"pg_stat_database": DATABASE_STAT,
+        #"pg_stat_database_conflicts": DATABASE_CONFLICTS_STAT,
         "pg_stat_user_tables": TABLE_STAT,
         "pg_statio_user_tables": TABLE_STATIO,
         "pg_stat_user_indexes": INDEX_STAT,
@@ -207,9 +216,9 @@ class PostgresCollector(BaseDbCollector):
                 "calls, mean_time as avg_time_ms "
                 "FROM pg_stat_statements;"
             )
-        self.PG_STAT_STATEMENTS_EDA_SQL = (
-            "SELECT queryid, query,  calls, total_exec_time as time_ms, blk_read_time+blk_write_time as io FROM pg_stat_statements order by calls desc limit 10;"
-            )
+        
+        
+        
 
     def _cmd_wo_fetch(self, sql: str):  # type: ignore
         try:
@@ -283,6 +292,291 @@ class PostgresCollector(BaseDbCollector):
             knobs_json[knob_tuple[0]] = val
         knobs["global"]["global"] = knobs_json
         return knobs
+    
+    def collect_metrics_influx(self, metrics):
+        #metrics = []
+
+        # bgwriter
+        view = 'bgwriter'
+        query = f"SELECT * FROM pg_stat_bgwriter;"
+        rows = self._get_metrics(query)
+        # A global view can only have one row
+        assert len(rows) == 1
+        
+        metric = {}
+        metric['measurement'] = view
+        if 'stats_reset' in rows[0]:
+            del rows[0]['stats_reset']
+        metric['fields'] = rows[0]
+        metrics.append(metric)
+        
+        # database
+       
+
+        views = self.PG_STAT_VIEWS_LOCAL_RAW['database'] # measurement
+        views_key = self.PG_STAT_VIEWS_LOCAL_KEY['database'] # tag (일정)
+        for view in views:
+            query = f"SELECT * FROM {view};"
+            rows = self._get_metrics(query)
+            #data[view]["raw"] = {}
+            for row in rows:
+                metric = {}
+                if view == 'pg_stat_database':
+                    metric['measurement'] = 'database_statistics'
+                else:
+                    metric['measurement'] = view.split('_')[-1]
+                
+                metric['tags'] = {views_key : row[views_key]} # PK
+                del row[views_key]
+                if 'stats_reset' in row:
+                    del row['stats_reset']
+                metric['fields'] = row
+                metrics.append(metric)
+        
+        # categories = ['table','index']
+        # for category in categories:
+        #     views = self.PG_STAT_VIEWS_LOCAL[category]
+        #     for view in views:
+        #         query = self.PG_STAT_LOCAL_QUERY[view]
+        #         rows = self._get_metrics(query)
+        #         if len(rows) > 0:
+        #             metric = {}
+        #             metric['measurement'] = view
+        #             metric['fields'] = rows[0]
+        #             metrics.append(metric)
+        
+        # access
+        view = 'access'
+        query = TABLE_STAT
+        rows = self._get_metrics(query)
+
+        metric = {}
+        metric['measurement'] = view
+        if 'stats_reset' in rows[0]:
+            del rows[0]['stats_reset']
+        metric['fields'] = rows[0]
+
+        query = INDEX_STAT
+        rows = self._get_metrics(query)
+        metric['fields'].update(rows[0])
+
+        metrics.append(metric)
+
+        # io
+
+        view = 'io'
+        query = TABLE_STATIO
+        rows = self._get_metrics(query)
+        
+        metric = {}
+        metric['measurement'] = view
+        if 'stats_reset' in rows[0]:
+            del rows[0]['stats_reset']
+        metric['fields'] = rows[0]
+
+        query = INDEX_STATIO
+        rows = self._get_metrics(query)
+        metric['fields'].update(rows[0])
+
+        metrics.append(metric)
+
+        # activity
+        queries = ["select extract(epoch from (NOW() - min(backend_start))) as oldest_backend_time_sec from pg_stat_activity;"
+                  ,"select extract(epoch from (NOW() - min(query_start))) as longest_query_time_sec from pg_stat_activity where state = 'active';"
+                  ,"select extract(epoch from (NOW() - min(xact_start))) as longest_transaction_time_sec from pg_stat_activity where state = 'active';"
+                  ,"SELECT count(*) as num_sessions FROM pg_stat_activity WHERE state = 'active';"
+                  ,"SELECT count(*) as num_wait_sessions FROM pg_stat_activity WHERE wait_event_type is not null;"]
+        metric = {}
+        metric['measurement'] = 'sessions'
+        metric['fields'] = {}
+        for q in queries:
+            res, meta = self._cmd(q)
+            metric['fields'][meta[0]] = int(res[0][0])
+        metrics.append(metric)
+        # ACTIVITY_STAT = ["""select state, count(*) from pg_stat_activity group by state having state is not null;""",
+        # """select wait_event_type, count(*) from pg_stat_activity group by wait_event_type having wait_event_type is not null;"""]
+
+        rows = self._get_metrics("""select state, count(*) from pg_stat_activity group by state having state is not null;""")
+        metric = {}
+        metric['measurement'] = 'active_sessions'
+        metric['fields'] = {}
+        for row in rows:
+            row['state'] = row['state'].replace(' ','_')
+            metric['fields'][row['state']] = row['count']
+        metrics.append(metric)
+
+        rows = self._get_metrics("""select wait_event_type, count(*) from pg_stat_activity group by wait_event_type having wait_event_type is not null;""")
+        metric = {}
+        metric['measurement'] = 'waiting_sessions'
+        metric['fields'] = {}
+        for row in rows:
+            metric['fields'][row['wait_event_type']] = row['count']
+        metrics.append(metric)        
+
+        
+        rows = self._get_stat_statements()
+        for row in rows:
+            metric = {}
+            metric['measurement'] = "query_statistics"
+            metric['tags'] = {k:v for k,v in row.items() if k == 'queryid'}
+            metric['fields'] = {k:v for k,v in row.items() if k != 'queryid'}
+            metrics.append(metric)
+        
+        #print(metrics) 
+
+        self._cmd_wo_fetch("select pg_stat_reset();")
+
+
+        return metrics
+       
+    def collect_metrics_pg(self, metrics):
+        #metrics = []
+
+        # bgwriter
+        view = 'bgwriter'
+        query = f"SELECT * FROM pg_stat_bgwriter;"
+        rows = self._get_metrics(query)
+        # A global view can only have one row
+        assert len(rows) == 1
+        
+        metric = {}
+        
+        if 'stats_reset' in rows[0]:
+            del rows[0]['stats_reset']
+        metric['table'] = view
+        metric['data'] = rows[0]
+        metrics.append(metric)
+        
+        # database
+       
+
+        views = self.PG_STAT_VIEWS_LOCAL_RAW['database'] # measurement
+        #views_key = self.PG_STAT_VIEWS_LOCAL_KEY['database'] # tag (일정)
+        for view in views:
+            query = f"SELECT * FROM {view};"
+            rows = self._get_metrics(query)
+            metric = {}
+            #data[view]["raw"] = {}
+            if view == 'pg_stat_database':
+                metric['table'] = 'database_statistics'
+            else:
+                metric['table'] = view.split('_')[-1]
+            
+            for row in rows:
+                if 'stats_reset' in row:
+                    del row['stats_reset']
+            metric['data'] = rows
+            metrics.append(metric)
+        
+        # categories = ['table','index']
+        # for category in categories:
+        #     views = self.PG_STAT_VIEWS_LOCAL[category]
+        #     for view in views:
+        #         query = self.PG_STAT_LOCAL_QUERY[view]
+        #         rows = self._get_metrics(query)
+        #         if len(rows) > 0:
+        #             metric = {}
+        #             metric['measurement'] = view
+        #             metric['fields'] = rows[0]
+        #             metrics.append(metric)
+        
+        # access
+        view = 'access'
+        query = TABLE_STAT
+        rows = self._get_metrics(query)
+
+        metric = {}
+        metric['table'] = view
+        if 'stats_reset' in rows[0]:
+            del rows[0]['stats_reset']
+        metric['data'] = rows[0]
+
+        query = INDEX_STAT
+        rows = self._get_metrics(query)
+        metric['data'].update(rows[0])
+
+        metrics.append(metric)
+
+        # io
+
+        view = 'io'
+        query = TABLE_STATIO
+        rows = self._get_metrics(query)
+        
+        metric = {}
+        metric['table'] = view
+        if 'stats_reset' in rows[0]:
+            del rows[0]['stats_reset']
+        metric['data'] = rows[0]
+
+        query = INDEX_STATIO
+        rows = self._get_metrics(query)
+        metric['data'].update(rows[0])
+
+        metrics.append(metric)
+
+        # activity
+        queries = ["select extract(epoch from (NOW() - min(backend_start))) as oldest_backend_time_sec from pg_stat_activity;"
+                  ,"select extract(epoch from (NOW() - min(query_start))) as longest_query_time_sec from pg_stat_activity where state = 'active';"
+                  ,"select extract(epoch from (NOW() - min(xact_start))) as longest_transaction_time_sec from pg_stat_activity where state = 'active';"
+                  ,"SELECT count(*) as num_sessions FROM pg_stat_activity WHERE state = 'active';"
+                  ,"SELECT count(*) as num_wait_sessions FROM pg_stat_activity WHERE wait_event_type is not null;"]
+        metric = {}
+        metric['table'] = 'sessions'
+        metric['data'] = {}
+        for q in queries:
+            res, meta = self._cmd(q)
+            metric['data'][meta[0]] = int(res[0][0])
+        metrics.append(metric)
+        # ACTIVITY_STAT = ["""select state, count(*) from pg_stat_activity group by state having state is not null;""",
+        # """select wait_event_type, count(*) from pg_stat_activity group by wait_event_type having wait_event_type is not null;"""]
+
+        rows = self._get_metrics("""select state, count(*) from pg_stat_activity group by state having state is not null;""")
+        metric = {}
+        metric['table'] = 'active_sessions'
+        metric['data'] = {}
+        for row in rows:
+            row['state'] = row['state'].replace(' ','_')
+            metric['data'][row['state']] = row['count']
+        metrics.append(metric)
+
+        rows = self._get_metrics("""select wait_event_type, count(*) from pg_stat_activity group by wait_event_type having wait_event_type is not null;""")
+        metric = {}
+        metric['table'] = 'waiting_sessions'
+        metric['data'] = {}
+        for row in rows:
+            metric['data'][row['wait_event_type']] = row['count']
+        metrics.append(metric)        
+
+        
+        rows = self._get_stat_statements()
+        #print(rows)
+        metric = {}
+        metric['table'] = "query_statistics"
+        metric['data'] = rows
+        metrics.append(metric)
+        
+        #print(metrics) 
+        tps = self._get_metrics("""SELECT total_calls / total_exec_time AS tps
+                                    FROM (
+                                    SELECT sum(calls) AS total_calls, sum(total_exec_time) AS total_exec_time
+                                    FROM pg_stat_statements
+                                    ) AS subquery;""")[0]
+        
+        latency_95th = self._get_metrics("""SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY total_exec_time) AS latency_95th_percentile
+                                    FROM pg_stat_statements;""")[0]
+        metric = {}
+        metric['table'] = 'performance'
+        metric['data'] = [{**tps, **latency_95th}]
+        metrics.append(metric)
+
+        self._cmd_wo_fetch("select pg_stat_reset();")
+
+
+        return metrics
+        
+
+
 
     def collect_metrics(self) -> Dict[str, Any]:
         """Collect database metrics information
@@ -295,7 +589,7 @@ class PostgresCollector(BaseDbCollector):
 
         metrics: Dict[str, Any] = {
             "global": {},
-            "local": {"database": {}, "table": {}, "index": {}},
+            "local": {"database": {}, "table": {}, "index": {}, "activity":{}},
         }
 
         # global
@@ -308,9 +602,13 @@ class PostgresCollector(BaseDbCollector):
         metrics["global"]["pg_stat_statements"] = {
             "statements": json.dumps(self._get_stat_statements())
         }
+        
+
         # local
         self._aggregated_local_stats(metrics["local"])
-
+        self._raw_local_stats(metrics["local"])
+        self._collect_activity_stats(metrics["local"])
+        self._cmd_wo_fetch("select pg_stat_reset();")
         return metrics
 
     def collect_table_row_number_stats(self) -> Dict[str, Any]:
@@ -639,6 +937,8 @@ class PostgresCollector(BaseDbCollector):
         """Get Aggregated local metrics by summing all values"""
 
         for category, data in local_metric.items():
+            if category == 'activity' :
+                continue
             views = self.PG_STAT_VIEWS_LOCAL[category]
             for view in views:
                 query = self.PG_STAT_LOCAL_QUERY[view]
@@ -648,19 +948,55 @@ class PostgresCollector(BaseDbCollector):
                     data[view]["aggregated"] = rows[0]
         return local_metric
 
+
+    def _collect_activity_stats(self, local_metric: Dict[str, Any]) -> Dict[str, Any]:
+        activity = local_metric['activity']
+        queries = ["select extract(epoch from (NOW() - min(backend_start))) as oldest_backend_time_sec from pg_stat_activity;"
+                  ,"select extract(epoch from (NOW() - min(query_start))) as longest_query_time_sec from pg_stat_activity where state = 'active';"
+                  ,"select extract(epoch from (NOW() - min(xact_start))) as longest_transaction_time_sec from pg_stat_activity where state = 'active';"
+                  ,"SELECT count(*) as num_sessions FROM pg_stat_activity WHERE state = 'active';"
+                  ,"SELECT count(*) as num_wait_sessions FROM pg_stat_activity WHERE wait_event_type is not null;"]
+        activity['aggregated'] = {}
+        for q in queries:
+            res, meta = self._cmd(q)
+            #print(res[0][0], meta[0])
+            activity['aggregated'][meta[0]] = int(res[0][0])
+        
+        # ACTIVITY_STAT = ["""select state, count(*) from pg_stat_activity group by state having state is not null;""",
+        # """select wait_event_type, count(*) from pg_stat_activity group by wait_event_type having wait_event_type is not null;"""]
+
+        rows = self._get_metrics("""select state, count(*) from pg_stat_activity group by state having state is not null;""")
+        activity['raw'] = {}
+        activity['raw']['state']={}
+        for row in rows:
+            activity['raw']['state'][row['state']] = row['count']
+        
+        rows = self._get_metrics("""select wait_event_type, count(*) from pg_stat_activity group by wait_event_type having wait_event_type is not null;""")
+        activity['raw']['wait_event_type']={}
+        for row in rows:
+            activity['raw']['wait_event_type'][row['wait_event_type']] = row['count']
+            
+        
+        
+
+        
     def _raw_local_stats(self, local_metric: Dict[str, Any]) -> Dict[str, Any]:
         """Get raw local metrics without aggregation"""
-
+        #local_metric['activity']['pg_stat_activity']['raw']
         for category, data in local_metric.items():
-            views = self.PG_STAT_VIEWS_LOCAL[category]
+            if not category == 'database':
+                # if you want to collect table or index raw data, just remove this if statement.
+                continue 
+            
+            views = self.PG_STAT_VIEWS_LOCAL_RAW[category]
             views_key = self.PG_STAT_VIEWS_LOCAL_KEY[category]
             for view in views:
                 query = f"SELECT * FROM {view};"
                 rows = self._get_metrics(query)
-                data[view] = {}
+                data[view]["raw"] = {}
                 for row in rows:
                     key = row.get(views_key)
-                    data[view][key] = row
+                    data[view]["raw"][key] = row
         return local_metric
 
     def _get_metrics(self, query: str):  # type: ignore
@@ -703,7 +1039,8 @@ class PostgresCollector(BaseDbCollector):
         Returns:
             True if module is loaded successfully, otherwise return False.
         """
-
+        #self._cmd_wo_fetch("ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements'")
+    
         check_module_sql = (
             "SELECT count(*) FROM pg_extension where extname='pg_stat_statements';"
         )
@@ -723,18 +1060,26 @@ class PostgresCollector(BaseDbCollector):
         """
         Get statement statistics from pg_stat_statements module.
         """
+        #userid = self._cmd("SELECT usesysid FROM pg_user WHERE usename = 'eda_user'")[0][0][0]
 
+        PG_STAT_STATEMENTS_EDA_SQL = (
+            f"""SELECT queryid, query,  calls, total_exec_time as wait_time, mean_exec_time as latency, blk_read_time+blk_write_time as io, 
+            shared_blks_hit,shared_blks_read,shared_blks_dirtied, shared_blks_written, local_blks_hit, local_blks_read, local_blks_dirtied, local_blks_written, 
+            temp_blks_read, temp_blks_written, blk_read_time, blk_write_time FROM pg_stat_statements;"""
+            )
         res = []
         success = self._load_stat_statements()
         if success:
             try:
-                res = self._get_metrics(self.PG_STAT_STATEMENTS_EDA_SQL)
+                res = self._get_metrics(PG_STAT_STATEMENTS_EDA_SQL)
                 #res = self._get_metrics(self.PG_STAT_STATEMENTS_SQL)
+                self._cmd_wo_fetch("select pg_stat_statements_reset(0);")
             except PostgresCollectorException as ex:
                 logging.error(
                     "Failed to load pg_stat_statements module, you need to add "
                     "pg_stat_statements in parameter shared_preload_libraries: %s",
                     ex,
                 )
-        self._cmd_wo_fetch("select pg_stat_statements_reset();")
+        
         return res
+

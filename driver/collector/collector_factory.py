@@ -4,9 +4,9 @@ from contextlib import contextmanager
 from typing import Dict, Any, Generator
 import os
 
-from mysql.connector.constants import ClientFlag  # for SSL
-import mysql.connector
-import mysql.connector.connection as mysql_conn
+# from mysql.connector.constants import ClientFlag  # for SSL
+# import mysql.connector
+# import mysql.connector.connection as mysql_conn
 import psycopg2
 
 from driver.collector.base_collector import BaseDbCollector
@@ -16,70 +16,70 @@ from driver.exceptions import (
     PostgresCollectorException,
     MysqlCollectorException,
 )
-from driver.collector.mysql_collector import MysqlCollector
+#from driver.collector.mysql_collector import MysqlCollector
 from driver.collector.postgres_collector import PostgresCollector
 
 
-def create_db_config_mysql(driver_conf: Dict[str, Any]) -> Dict[str, Any]:
-    """Convert the driver configuration to the MySQL database configuration
+# def create_db_config_mysql(driver_conf: Dict[str, Any]) -> Dict[str, Any]:
+#     """Convert the driver configuration to the MySQL database configuration
 
-    Args:
-        driver_conf: Dict of the driver configuration
-    Returns:
-        Database configuration for connecting to the target database
-    Raises:
-        DriverConfigException: invalid database configuration
-    """
-    try:
-        conf = {
-            "host": driver_conf["db_host"],
-            "port": driver_conf["db_port"],
-            "user": driver_conf["db_user"],
-            "password": driver_conf["db_password"],
-            "charset": "utf8",
-        }
-    except Exception as ex:
-        msg = "Invalid MySQL database configuration: parameter is not defined"
-        raise DriverConfigException(msg, ex) from ex
+#     Args:
+#         driver_conf: Dict of the driver configuration
+#     Returns:
+#         Database configuration for connecting to the target database
+#     Raises:
+#         DriverConfigException: invalid database configuration
+#     """
+#     try:
+#         conf = {
+#             "host": driver_conf["db_host"],
+#             "port": driver_conf["db_port"],
+#             "user": driver_conf["db_user"],
+#             "password": driver_conf["db_password"],
+#             "charset": "utf8",
+#         }
+#     except Exception as ex:
+#         msg = "Invalid MySQL database configuration: parameter is not defined"
+#         raise DriverConfigException(msg, ex) from ex
 
-    if driver_conf.get("db_name"):
-        conf["database"] = driver_conf["db_name"]
-    else:
-        conf[
-            "database"
-        ] = "information_schema"  # connect to information_schema by default
-    if driver_conf.get("db_enable_ssl"):
-        conf["client_flags"] = [ClientFlag.SSL]
-        if driver_conf.get("db_ssl_ca"):
-            conf["ssl_ca"] = driver_conf["db_ssl_ca"]
-        if driver_conf.get("db_ssl_cert"):
-            conf["ssl_cert"] = driver_conf["db_ssl_cert"]
-        if driver_conf.get("db_ssl_key"):
-            conf["ssl_key"] = driver_conf["db_ssl_key"]
+#     if driver_conf.get("db_name"):
+#         conf["database"] = driver_conf["db_name"]
+#     else:
+#         conf[
+#             "database"
+#         ] = "information_schema"  # connect to information_schema by default
+#     if driver_conf.get("db_enable_ssl"):
+#         conf["client_flags"] = [ClientFlag.SSL]
+#         if driver_conf.get("db_ssl_ca"):
+#             conf["ssl_ca"] = driver_conf["db_ssl_ca"]
+#         if driver_conf.get("db_ssl_cert"):
+#             conf["ssl_cert"] = driver_conf["db_ssl_cert"]
+#         if driver_conf.get("db_ssl_key"):
+#             conf["ssl_key"] = driver_conf["db_ssl_key"]
 
-    # All mysql connection configuration parameters:
-    # https://dev.mysql.com/doc/connector-python/en/connector-python-connectargs.html
-    if driver_conf.get("db_conf_extend"):
-        conf_extend = driver_conf["db_conf_extend"]
-        if not isinstance(conf_extend, dict):
-            msg = (
-                "Invalid MySQL database configuration: db_conf_extend type "
-                f"{type(conf_extend)} is not dictionary"
-            )
-            raise DriverConfigException(msg)
-        extend_params = set(conf_extend.keys())
-        driver_params = set(driver_conf.keys())
-        duplicate_params = extend_params.intersection(driver_params)
-        if duplicate_params:
-            msg = (
-                "Invalid MySQL database configuration: duplicate parameters "
-                f"{duplicate_params} in db_conf_extend"
-            )
-            raise DriverConfigException(msg)
+#     # All mysql connection configuration parameters:
+#     # https://dev.mysql.com/doc/connector-python/en/connector-python-connectargs.html
+#     if driver_conf.get("db_conf_extend"):
+#         conf_extend = driver_conf["db_conf_extend"]
+#         if not isinstance(conf_extend, dict):
+#             msg = (
+#                 "Invalid MySQL database configuration: db_conf_extend type "
+#                 f"{type(conf_extend)} is not dictionary"
+#             )
+#             raise DriverConfigException(msg)
+#         extend_params = set(conf_extend.keys())
+#         driver_params = set(driver_conf.keys())
+#         duplicate_params = extend_params.intersection(driver_params)
+#         if duplicate_params:
+#             msg = (
+#                 "Invalid MySQL database configuration: duplicate parameters "
+#                 f"{duplicate_params} in db_conf_extend"
+#             )
+#             raise DriverConfigException(msg)
 
-        conf.update(conf_extend)
+#         conf.update(conf_extend)
 
-    return conf
+#     return conf
 
 
 def create_db_config_postgres(driver_conf: Dict[str, Any]) -> Dict[str, Any]:
@@ -140,22 +140,22 @@ def create_db_config_postgres(driver_conf: Dict[str, Any]) -> Dict[str, Any]:
     return conf
 
 
-def connect_mysql(mysql_conf: Dict[str, Any]) -> mysql.connector.MySQLConnection:
-    """
-    Connects to target mysql database
-    Args:
-        mysql_conf: configuration for mysql connection
-    Returns:
-        mysql connection
-    Raises:
-        MysqlCollectorException: unable to query DB for version
-    """
-    #print(mysql_conf)
-    #mysql_conf['passwd']='1234'
-    try:
-        return mysql.connector.connect(**mysql_conf, autocommit=True)
-    except mysql.connector.Error as ex:
-        raise MysqlCollectorException("Failed to connect to MySQL", ex) from ex
+# def connect_mysql(mysql_conf: Dict[str, Any]) -> mysql.connector.MySQLConnection:
+#     """
+#     Connects to target mysql database
+#     Args:
+#         mysql_conf: configuration for mysql connection
+#     Returns:
+#         mysql connection
+#     Raises:
+#         MysqlCollectorException: unable to query DB for version
+#     """
+#     #print(mysql_conf)
+#     #mysql_conf['passwd']='1234'
+#     try:
+#         return mysql.connector.connect(**mysql_conf, autocommit=True)
+#     except mysql.connector.Error as ex:
+#         raise MysqlCollectorException("Failed to connect to MySQL", ex) from ex
 
 
 def connect_postgres(postgres_conf: Dict[str, Any]):
@@ -168,6 +168,7 @@ def connect_postgres(postgres_conf: Dict[str, Any]):
     Raises:
         PostgresCollectorException: unable to query DB for version
     """
+    print("connect_pg",postgres_conf)
     try:
         conn = psycopg2.connect(**postgres_conf)
         conn.autocommit = True
@@ -176,22 +177,22 @@ def connect_postgres(postgres_conf: Dict[str, Any]):
         raise PostgresCollectorException("Failed to connect to Postgres", ex) from ex
 
 
-def get_mysql_version(conn: mysql_conn.MySQLConnection) -> str:
-    """
-    Returns the version number from mysql (e.g. 5.7.34)
-    Args:
-        conn: the mysql connection
-    Raises:
-        MysqlCollectorException: unable to query DB for version
-    """
-    try:
-        cursor = conn.cursor(dictionary=False)
-        cursor.execute("SELECT VERSION();")
-        res = cursor.fetchall()
-        version = res[0][0].split("-")[0]
-        return version
-    except mysql.connector.Error as ex:
-        raise MysqlCollectorException("Failed to get MySQL version", ex) from ex
+# def get_mysql_version(conn: mysql_conn.MySQLConnection) -> str:
+#     """
+#     Returns the version number from mysql (e.g. 5.7.34)
+#     Args:
+#         conn: the mysql connection
+#     Raises:
+#         MysqlCollectorException: unable to query DB for version
+#     """
+#     try:
+#         cursor = conn.cursor(dictionary=False)
+#         cursor.execute("SELECT VERSION();")
+#         res = cursor.fetchall()
+#         version = res[0][0].split("-")[0]
+#         return version
+#     except mysql.connector.Error as ex:
+#         raise MysqlCollectorException("Failed to get MySQL version", ex) from ex
 
 
 def get_postgres_version(conn) -> str:
@@ -242,17 +243,19 @@ def get_collector(
             os.environ.get("STUB_COLLECTOR", "false").lower() == "true"
         )
         if driver_conf["db_type"] == "mock" or should_stub_collector:
-            from tests.mocks.mock_collector import (  # pylint: disable=import-outside-toplevel
-                MockCollector,
-            )
+            # from tests.mocks.mock_collector import (  # pylint: disable=import-outside-toplevel
+            #     MockCollector,
+            # )
 
-            collector = MockCollector()
+            # collector = MockCollector()
+            pass
 
         elif driver_conf["db_type"] in ["mysql", "aurora_mysql"]:
-            mysql_conf = create_db_config_mysql(driver_conf)
-            conn = connect_mysql(mysql_conf)
-            version = get_mysql_version(conn)
-            collector = MysqlCollector(conn, version)
+            # mysql_conf = create_db_config_mysql(driver_conf)
+            # conn = connect_mysql(mysql_conf)
+            # version = get_mysql_version(conn)
+            # collector = MysqlCollector(conn, version)
+            pass
         elif driver_conf["db_type"] in ["postgres", "aurora_postgresql"]:
             pg_conf = create_db_config_postgres(driver_conf)
             conn = connect_postgres(pg_conf)
