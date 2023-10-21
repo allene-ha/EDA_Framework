@@ -127,10 +127,10 @@ def run():
 
             s = [i.replace("  ","").split(':') for i in temp]
             d = {i[0].lstrip():i[1].lstrip() for i in s if len(i)>1}
-            txn = float(d['transactions'].split(" ")[0])
-            query = float(d['queries'].split(" ")[0])
-            latency = float(d['95th percentile'])
-            time = float(d['total time'].replace("s",''))
+            txn = float(d['transactions'].replace("("," ").split(" ")[0])
+            query = float(d['queries'].replace("("," ").split(" ")[0])
+            latency = float(d['95th percentile'].replace("("," "))
+            time = float(d['total time'].replace("("," ").replace("s",''))
             print(f"Complete running TPC-C ({knob1_name}: {val})| TPS: {txn/time} QPS: {query/time} 95th latency: {latency}")
             result['TPS'][i] = txn/time
             result['QPS'][i] = query/time
@@ -174,7 +174,7 @@ def run():
                 set_knob(knob2_name, val2)
                 # tpcc를 일정 시간 돌린다.
 
-                output = subprocess.check_output(tpcc_command,shell=True, cwd="sysbenchtpcc", universal_newlines=True)
+                output = subprocess.check_output(tpcc_command,shell=True, cwd="sysbench-tpcc", universal_newlines=True)
 
 
                 temp = output.split('\n')
@@ -186,7 +186,7 @@ def run():
                 query = float(d['queries'].split(" ")[0])
                 latency = float(d['95th percentile'])
                 time = float(d['total time'].replace("s",''))
-                print(f"Complete running TPCC ({knob1_name}: {val1}/ {knob2_name}: {val2})| TPS: {txn/time} QPS: {query/time} 95th latency: {latency}")
+                print(f"Complete running TPC-C ({knob1_name}: {val1}/ {knob2_name}: {val2})| TPS: {txn/time} QPS: {query/time} 95th latency: {latency}")
                 result['TPS'][i][j] = txn/time
                 result['QPS'][i][j] = query/time
                 result['latency'][i][j] = latency
@@ -261,3 +261,4 @@ def run():
     add1.on_click(add_knob)
     run.on_click(run_experiment)
     display(HBox([knob1.get_box(),add1, run], layout = Layout (align_items = 'center')))
+
