@@ -98,7 +98,7 @@ def load_table(conn, measurement, metric = None):
         df = df[metric]
 
 def load_all_metrics(config, start_time=None, end_time=None):
-    url = "http://eda:80/"
+    url = "http://dbeda:80/"
     
     params = {
         'config':config,
@@ -123,7 +123,7 @@ def load_all_metrics(config, start_time=None, end_time=None):
 def query_performance_data(config, table='all', metrics='all', task='metrics', type = None, start_time=None, end_time=None, recent_time_window=None,  order = None, num_of_query = None, split_date=None):
     # data
     
-    url = "http://eda:80/"
+    url = "http://dbeda:80/"
     print("query_performance_data", config)
     
     params = {
