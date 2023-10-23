@@ -17,10 +17,12 @@ To set up the server component, follow these steps:
 ```docker-compose up```
 
 - Run these commands to set up the server:
-```service postgresql start
-cd /root/DBEDA/server
-pip install -r server_requirements.txt
-python3 server_collector.py```
+   ```
+   service postgresql start
+   cd /root/DBEDA/server
+   pip install -r server_requirements.txt
+   python3 server_collector.py
+   ```
 
 ### Client
 
