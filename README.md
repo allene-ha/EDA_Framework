@@ -10,62 +10,17 @@ DBEDA is an experimental data analysis framework designed for database performan
 
 To set up the server component, follow these steps:
 
-1. **Container Setup**:
-   - Pull the Docker container for the server:
+- Pull the Docker container for the server:
+```docker pull nvidia/cuda:11.7.0-cudnn8-runtime-ubuntu20.04```
 
-     ```bash
-     docker pull nvidia/cuda:11.7.0-cudnn8-runtime-ubuntu20.04
-     ```
+- Start the DBEDA server using Docker Compose:
+```docker-compose up```
 
-   - Create a Docker network named `dbeda-network`:
-
-     ```bash
-     docker network create dbeda-network
-     ```
-
-   - Run the DBEDA server container:
-
-     ```bash
-     docker run -it --gpus all --name dbeda -v ~/pgdata:/etc/postgresql/14/main -v ~/dbeda:/home/dbeda -p 80:80 --network dbeda-network nvidia/cuda:11.7.0-cudnn8-runtime-ubuntu20.04 /bin/bash
-     ```
-
-2. **Database Setup**:
-   - Install [PostgreSQL](https://www.postgresql.org/download/linux/ubuntu/).
-   - Change the password for the 'postgres' user:
-
-     ```sql
-     ALTER USER postgres PASSWORD 'postgres';
-     ```
-
-   - Create an integrated database named 'dbeda' and a table for configuring connected databases:
-
-     ```sql
-     CREATE DATABASE dbeda;
-
-     CREATE TABLE db_config( 	
-     id VARCHAR(50) PRIMARY KEY, 	
-     db_type VARCHAR(50) NOT NULL, 	
-     db_host VARCHAR(50) NOT NULL, 
-     db_port VARCHAR(50) NOT NULL,
-     db_name VARCHAR(50) NOT NULL, 
-     db_user VARCHAR(50) NOT NULL, 
-     db_password  VARCHAR(50) NOT NULL );
-     ```
-
-3. **Running the Server**:
-   - Clone the DBEDA repository and install server dependencies:
-
-     ```bash
-     git clone https://github.com/jeha-dblab/dbeda_framework.git
-     cd dbeda_framework
-     pip install -r requirements/server_requirements.txt
-     ```
-
-   - Run the DBEDA server:
-
-     ```bash
-     python3 server_collector.py
-     ```
+- Run these commands to set up the server:
+```service postgresql start
+cd /root/DBEDA/server
+pip install -r server_requirements.txt
+python3 server_collector.py```
 
 ### Client
 

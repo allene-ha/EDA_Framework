@@ -41,13 +41,14 @@ from driver.pipeline import (
 scheduler = BlockingScheduler(daemon = True)
 
 # Replace the placeholder values with your actual database connection details
-server_engine = create_engine('postgresql://postgres:postgres@localhost:5432/dbeda')
+server_engine = create_engine('postgresql://postgres:postgres@localhost:5433/dbeda')
 
 server_conn = psycopg2.connect(
         host='localhost',
         database='dbeda',
         user='postgres',
-        password='postgres'
+        password='postgres',
+        port='5433'
     )
 
 def schedule_db_level_monitor_job(config, db_id) -> None:
@@ -648,4 +649,4 @@ def predict_load_prediction(server_conn, db_id, path, metric, n):
 
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=80, debug=True)
+    app.run(host="0.0.0.0", port=85, debug=True)

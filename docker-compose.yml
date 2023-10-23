@@ -1,0 +1,18 @@
+version: "3"
+
+services:
+    DBEDA:
+        shm_size: 4gb
+        container_name: dbeda_test
+        image: jeha/dbeda:latest
+        stdin_open: true
+        tty: true
+        network_mode: "host"
+        build:
+          context: ./server
+          dockerfile: Dockerfile
+        environment:
+            - TZ=Asia/Seoul
+            - NVIDIA_VISIBLE_DEVICES=all
+        volumes:
+          - ./:/root/DBEDA
