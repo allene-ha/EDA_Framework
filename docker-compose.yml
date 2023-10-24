@@ -16,3 +16,18 @@ services:
             - NVIDIA_VISIBLE_DEVICES=all
         volumes:
           - ./:/root/DBEDA
+    DBEDA-client:
+        shm_size: 4gb
+        container_name: dbeda_client_test
+        image: jeha/dbeda-client:latest
+        stdin_open: true
+        tty: true
+        network_mode: "host"
+        build:
+          context: ./client
+          dockerfile: Dockerfile
+        environment:
+            - TZ=Asia/Seoul
+            - NVIDIA_VISIBLE_DEVICES=all
+        volumes:
+          - ./:/root/DBEDA

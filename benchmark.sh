@@ -1,0 +1,3 @@
+COMMAND21="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=64 --time=1800 --report-interval=60 oltp_read_write run"
+COMMAND22="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=214 --time=300 --report-interval=60 oltp_read_write run"
+COMMAND23="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=64 --time=1500 --report-interval=60 oltp_read_write run"
