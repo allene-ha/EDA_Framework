@@ -3,9 +3,9 @@ import pandas as pd
 from client_visualizer import * 
 
 
-def connect_db(db_type='postgres', host='dbeda-client', database='test_cli', user='postgres', password='postgres', port='5432', interval ='10'):
+def connect_db(db_type='postgres', host='dbeda-client', database='test_cli', user='postgres', password='postgres', port='5434', interval ='10'):
 
-    url = "http://dbeda:80/connect"
+    url = "http://localhost:85/connect"
     config = {'db_type': db_type,
               'db_host': host,
               'db_name':database,
@@ -25,7 +25,7 @@ def connect_db(db_type='postgres', host='dbeda-client', database='test_cli', use
 
 def collect_performance_data(config):
 
-    url = "http://dbeda:80/collect"
+    url = "http://localhost:85/collect"
     # config = {'db_type': db_type,
     #           'db_host': host,
     #           'db_name':database,
@@ -44,7 +44,7 @@ def collect_performance_data(config):
     return config
 
 def visualize(config):    
-    url = "http://dbeda:80/"
+    url = "http://localhost:85/"
 
     response = requests.get(url+"schema", params = config)
     # Check the response status code
@@ -60,7 +60,7 @@ def visualize(config):
     display(pn.Row(sidebar, main))
 
 def train(config:dict, data:pd.DataFrame, task:str, pipeline:str='lstm_dynamic_threshold', hyperparameters:dict={}):
-    url = "http://dbeda:80/train"
+    url = "http://localhost:85/train"
     data_post = {
         'data':data.to_json(orient='records'),
         'task':task,
@@ -81,7 +81,7 @@ def train(config:dict, data:pd.DataFrame, task:str, pipeline:str='lstm_dynamic_t
         return response
 
 def predict(config:dict, data:pd.DataFrame, task:str, path:str):
-    url = "http://dbeda:80/predict"
+    url = "http://localhost:85/predict"
     data_post = {
         'data':data.to_json(orient='records'),
         'task':task,

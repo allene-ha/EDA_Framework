@@ -48,7 +48,7 @@ server_conn = psycopg2.connect(
         database='dbeda',
         user='postgres',
         password='postgres',
-        port='5433'
+        port=5433
     )
 
 def schedule_db_level_monitor_job(config, db_id) -> None:

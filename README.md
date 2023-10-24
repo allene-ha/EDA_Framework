@@ -63,7 +63,7 @@ Register the configuration of the database for collecting performance data:
 
 ```python
 from client_side import *
-config = connect_db(db_type='postgres', host='dbeda-client', database='test_cli', user='postgres', password='postgres', port='5432')
+config = connect_db(db_type='postgres', host='dbeda-client', database='test_cli', user='postgres', password='postgres', port='5434')
 collect_performance_data(config)
 ```
 ### Data Visualization

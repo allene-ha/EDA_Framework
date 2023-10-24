@@ -31,13 +31,15 @@ psql -c "alter user postgres with encrypted password 'postgres'" && \
 psql -c 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;' 
 
 # Add the necessary configuration to allow data collection
-RUN echo "listen_address = '*'" >> /etc/postgresql/14/main/postgresql.conf
+RUN echo "listen_addresses='*'"  >> /etc/postgresql/14/main/postgresql.conf
 RUN echo "shared_preload_libraries = 'pg_stat_statements'" >> /etc/postgresql/14/main/postgresql.conf
 RUN echo "pg_stat_statements.track = all" >> /etc/postgresql/14/main/postgresql.conf
 
 # Register the allowed IP address in pg_hba.conf
 RUN echo "host all all 0.0.0.0/0 md5" >> /etc/postgresql/14/main/pg_hba.conf
 RUN sed -i 's/port = 5432/port = 5434/g' /etc/postgresql/14/main/postgresql.conf
+RUN export PATH=$PATH:~/.local/bin
 
+USER root
 # Specify the command to run when the container starts
 CMD ["/bin/bash"]

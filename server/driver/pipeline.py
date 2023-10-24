@@ -110,7 +110,8 @@ def _insert_db_level_observation_to_postgresql(db_level_observation, db_id):
         host='localhost',
         database='dbeda',
         user='postgres',
-        password='postgres'
+        password='postgres',
+        port=5433
     )
     # 커서 생성
     now = datetime.now()
