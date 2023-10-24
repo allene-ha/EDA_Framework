@@ -1,5 +1,5 @@
 # Use the base Docker image with the desired operating system and dependencies
-FROM nvidia/cuda:11.7.0-cudnn8-runtime-ubuntu20.04
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu20.04
 
 # Install basic packages
 RUN apt-get update
