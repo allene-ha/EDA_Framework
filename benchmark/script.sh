@@ -1,9 +1,9 @@
 bash poor_query.sh
 
-sleep 300
+sleep 600
 
 bash cpu.sh
 
-sleep 300
+sleep 600
 
 bash mem.sh

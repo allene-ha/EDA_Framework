@@ -4,18 +4,17 @@
 csv_file="poor_query_log.csv"
 echo "Iteration,Start Time,End Time,Anomaly Start Time,Anomaly End Time" > $csv_file
 
-normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=16 --time=513 --report-interval=60 oltp_read_write run"
-
 # 총 실행 시간 (초)
 total_time=1300
+normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=16 --time=$total_time --report-interval=60 oltp_read_write run"
 
 # PostgreSQL 데이터베이스 백업 디렉토리 설정
 
 # 10번의 실험 반복
-for i in $(seq 1 1)
+for i in $(seq 1 10)
 do
     # Random한 시간 설정 (1에서 300 사이의 랜덤한 값)
-    random_time=$((30 + $RANDOM % 40))
+    random_time=$((300 + $RANDOM % 400))
     # 현재 시간 기록
     start_time=$(date +"%Y-%m-%d %H:%M:%S")
 
@@ -30,8 +29,12 @@ do
 
     echo "[$anomaly_start_time] Start poorly designed join query"    
     #!/bin/bash
-        
-    psql --host localhost --port 5434 --username postgres --dbname oltpbench -w -c "SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);" > poor_query_result.txt
+    psql --host localhost --port 5434 --username postgres --dbname oltpbench -w -c "SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);" > poor_query_result.txt
+    psql --host localhost --port 5434 --username postgres --dbname oltpbench -w -c "SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);" > poor_query_result.txt
+    psql --host localhost --port 5434 --username postgres --dbname oltpbench -w -c "SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);" > poor_query_result.txt
+    echo "" > poor_query_result.txt 
+    
+    # 이 쿼리 실행시간 약 25초 * 9번
 
     # 현재 시간 다시 기록
     anomaly_end_time=$(date +"%Y-%m-%d %H:%M:%S")

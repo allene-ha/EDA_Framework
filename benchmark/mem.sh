@@ -1,6 +1,4 @@
 #!/bin/bash
-bash install_stress-ng.sh
-
 # CSV 파일 이름 및 헤더 작성
 csv_file="mem_log.csv"
 echo "Iteration,Start Time,End Time,Anomaly Start Time,Anomaly End Time" > $csv_file
@@ -8,14 +6,14 @@ echo "Iteration,Start Time,End Time,Anomaly Start Time,Anomaly End Time" > $csv_
 # 총 실행 시간 (초)
 total_time=1300
 
-normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=16 --time=$total_time --report-interval=60 oltp_read_write run"
+normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=16 --time=$total_time --report-interval=10 oltp_read_write run"
 
 
 # 10번의 실험 반복
-for i in $(seq 1 10)
+for i in $(seq 1 1)
 do
     # Random한 시간 설정 (300에서 700 사이의 랜덤한 값)
-    random_time=$((300 + $RANDOM % 401))
+    random_time=$((300 + $RANDOM % 400))
     # 현재 시간 기록
     start_time=$(date +"%Y-%m-%d %H:%M:%S")
 
@@ -29,8 +27,8 @@ do
     anomaly_start_time=$(date +"%Y-%m-%d %H:%M:%S")
     echo "[$anomaly_start_time] Started mem load"
     # Anomaly duration의 시간동안 Anomaly 발생
-    anomaly_duration = i*30 
-    stress-ng --vm 2 --vm-bytes 512M --timeout ${anomaly_duration}s
+    anomaly_duration=$((i * 30))
+    stress-ng --vm 8 --vm-bytes 2G --timeout ${anomaly_duration}s
 
 
     # 현재 시간 다시 기록
