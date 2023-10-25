@@ -24,7 +24,7 @@ To set up the client component, follow these steps:
    service postgresql start
    cd /root/DBEDA/client
    pip install -r client_requirements.txt
-   jupyter-notebook --allow-root
+   jupyter lab --allow-root
    ```
 
 ## Example Usage
@@ -45,11 +45,36 @@ Execute a widget to visualize the collected performance data:
 ```python
 visualize(config)
 ```
+On the left, you can verify which table the collected performance data is currently stored in.
+
+![image](https://github.com/jeha-dblab/dbeda_framework/assets/80744377/b3346336-a33f-45ef-be43-f73847d34c22)
+
+You can specify the performance table to visualize using the Tables widget and set the time interval with the Time Range widget.
+
+In the Task widget, you can select various database performance analysis tasks. For basic performance metric charts, you can choose the 'metrics' task.
+
+
+To visualize the performance data, use the Data widget to select the data, specify the type, and click the Draw button. The selected chart will then be added below.
+
+
+![image](https://github.com/jeha-dblab/dbeda_framework/assets/80744377/52a5b202-72fd-4d44-8555-cf1c8f12273c)
+
+
+The overall appearance of the visualization component is as follows:
+
+![image](https://github.com/jeha-dblab/dbeda_framework/assets/80744377/9b5aaf0b-380a-4416-a653-e1eb06a3a8e3)
+
 ### Data Extraction
 Extract the desired performance data:
 ```python
-data = query_performance_data(config, table='os_metric', metrics='cpu_percent', task='load prediction', recent_time_window='1 day')
+data = query_performance_data(config, table='os_metric', metrics='cpu_percent', task='metrics', recent_time_window='1 day')
+df_metric = pd.DataFrame(data['metric'])
+df
 ```
+![image](https://github.com/jeha-dblab/dbeda_framework/assets/80744377/8c3c25bb-404e-42d4-80ff-242b47447565)
+
+The data collected is displayed in the form of a DataFrame, similar to the image above.
+
 ### Model Traning and Prediction
 Train a model, retrieve the trained model, and make predictions:
 
