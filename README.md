@@ -5,17 +5,11 @@ DBEDA is an experimental data analysis framework designed for database performan
 ![DBEDA Logo](https://github.com/jeha-dblab/dbeda_framework/assets/80744377/a4f7cfe8-7dba-455e-ba89-43b74791fd84)
 
 ## Environment Setup
+- Start the DBEDA server and client using Docker Compose:
+```docker compose up```
 
 ### Server
-
 To set up the server component, follow these steps:
-
-- Pull the Docker container for the server:
-```docker pull nvidia/cuda:11.7.0-cudnn8-runtime-ubuntu20.04```
-
-- Start the DBEDA server using Docker Compose:
-```docker-compose up```
-
 - Run these commands to set up the server:
    ```
    service postgresql start
@@ -23,39 +17,18 @@ To set up the server component, follow these steps:
    pip install -r server_requirements.txt
    python3 server_collector.py
    ```
-
 ### Client
-
 To set up the client component, follow these steps:
-
-1. **Client Container**:
-   - Run a Docker container for the client:
-
-     ```bash
-     docker run -it --name dbeda-client --network dbeda-network ubuntu:20.04 /bin/bash
-     ```
-
-2. **Database Setup**:
-   - Install [PostgreSQL](https://www.postgresql.org/download/linux/ubuntu/).
-   - Modify the configuration file of the client's database (e.g., /etc/postgresql/14/main/postgresql.conf) to allow data collection:
-
-     ```ini
-     listen_address = '*'
-
-     # For collecting query statistics
-     shared_preload_libraries = 'pg_stat_statements'
-     pg_stat_statements.track = all
-     ```
-
-   - Run the PostgreSQL DB and execute the command:
-
-     ```sql
-     CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
-     ```
-
-   - Register the IP address that is allowed to connect in pg_hba.conf (e.g., host all all dbeda.dbeda-network trust).
+- Run these commands to set up the client:
+   ```
+   service postgresql start
+   cd /root/DBEDA/client
+   pip install -r client_requirements.txt
+   jupyter lab --allow-root
+   ```
 
 ## Example Usage
+Click `client_tutorial.ipynb`
 
 ### Register Database Configuration
 
@@ -72,11 +45,36 @@ Execute a widget to visualize the collected performance data:
 ```python
 visualize(config)
 ```
+On the left, you can verify which table the collected performance data is currently stored in.
+
+![image](https://github.com/jeha-dblab/dbeda_framework/assets/80744377/b3346336-a33f-45ef-be43-f73847d34c22)
+
+You can specify the performance table to visualize using the Tables widget and set the time interval with the Time Range widget.
+
+In the Task widget, you can select various database performance analysis tasks. For basic performance metric charts, you can choose the 'metrics' task.
+
+
+To visualize the performance data, use the Data widget to select the data, specify the type, and click the Draw button. The selected chart will then be added below.
+
+
+![image](https://github.com/jeha-dblab/dbeda_framework/assets/80744377/52a5b202-72fd-4d44-8555-cf1c8f12273c)
+
+
+The overall appearance of the visualization component is as follows:
+
+![image](https://github.com/jeha-dblab/dbeda_framework/assets/80744377/9b5aaf0b-380a-4416-a653-e1eb06a3a8e3)
+
 ### Data Extraction
 Extract the desired performance data:
 ```python
-data = query_performance_data(config, table='os_metric', metrics='cpu_percent', task='load prediction', recent_time_window='1 day')
+data = query_performance_data(config, table='os_metric', metrics='cpu_percent', task='metrics', recent_time_window='1 day')
+df_metric = pd.DataFrame(data['metric'])
+df
 ```
+![image](https://github.com/jeha-dblab/dbeda_framework/assets/80744377/8c3c25bb-404e-42d4-80ff-242b47447565)
+
+The data collected is displayed in the form of a DataFrame, similar to the image above.
+
 ### Model Traning and Prediction
 Train a model, retrieve the trained model, and make predictions:
 

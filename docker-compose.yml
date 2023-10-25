@@ -3,8 +3,8 @@ version: "3"
 services:
     DBEDA:
         shm_size: 4gb
-        container_name: dbeda_test
-        image: jeha/dbeda:latest
+        container_name: dbeda_server_test
+        image: jeha/dbeda_server:latest
         stdin_open: true
         tty: true
         network_mode: "host"

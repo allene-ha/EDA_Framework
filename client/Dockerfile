@@ -28,7 +28,8 @@ USER postgres
 
 RUN /etc/init.d/postgresql start && \
 psql -c "alter user postgres with encrypted password 'postgres'" && \
-psql -c 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;' 
+psql -c 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;' && \
+psql -c 'CREATE DATABASE test_cli;' 
 
 # Add the necessary configuration to allow data collection
 RUN echo "listen_addresses='*'"  >> /etc/postgresql/14/main/postgresql.conf
