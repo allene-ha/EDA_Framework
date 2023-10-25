@@ -209,7 +209,7 @@ def perform_data_query():
     params_json = request.args.get('params')
     args = json.loads(params_json)
 
-    print(args)
+    #print(args)
 
     table = args['table']
     metrics = args['metric']
@@ -523,7 +523,8 @@ def fetch_metrics_within_time_range(config=None, start_time='-infinity', end_tim
             cur.execute(columns_query.format(table_name))
             column_names = [row[0] for row in cur.fetchall()]
             column_names = [col for col in column_names if col not in ['timestamp', 'dbid', 'datid','datname']]
-            
+            if len(column_names) == 0:
+                continue
             query = f"""
                 SELECT timestamp, {", ".join([col for col in column_names])}
                 FROM {table_name}
@@ -531,10 +532,11 @@ def fetch_metrics_within_time_range(config=None, start_time='-infinity', end_tim
             """
             if start_time is not None and end_time is not None:
                 query += f"AND timestamp BETWEEN '{start_time}' AND '{end_time}'"
+        print(query)
         cur.execute(query, (db_id,))
         results = cur.fetchall()
         #result_df.set_index('timestamp', inplace=True)
-        
+        #print(results)
 
         temp_df = pd.DataFrame(results, columns=['timestamp'] + column_names)
         temp_df.set_index('timestamp', inplace=True)
@@ -543,6 +545,7 @@ def fetch_metrics_within_time_range(config=None, start_time='-infinity', end_tim
     result_df = result_df.reset_index()
 
     result_df['timestamp'] = result_df['timestamp'].astype(str)
+    print(result_df)
     # DataFrame을 pickle로 직렬화
     serialized_df = pickle.dumps(result_df)
 

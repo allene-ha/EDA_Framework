@@ -97,6 +97,24 @@ def load_table(conn, measurement, metric = None):
     else:
         df = df[metric]
 
+def query_all_metrics_into_csv(config, filename, save_filename):
+    original_df = pd.read_csv(f'{filename}')
+
+    # Create a new DataFrame for the results
+    results_df = pd.DataFrame(columns=['iteration', 'start_time', 'end_time', 'Anomaly Start Time','Anomaly End Time'])
+
+    # Iterate through the rows of the original DataFrame
+    for index, row in original_df.iterrows():
+        iteration = row['Iteration']
+        start_time = row['Start Time']
+        end_time = row['End Time']
+        
+        # Create a new row for the results DataFrame
+        results_df = load_all_metrics(config, start_time, end_time)
+        results_df.to_csv(f'{save_filename}_{iteration}.csv', index=False)
+
+
+
 def load_all_metrics(config, start_time=None, end_time=None):
     url = "http://localhost:85/"
     
@@ -105,8 +123,12 @@ def load_all_metrics(config, start_time=None, end_time=None):
     }
 
     if start_time is not None:
+        if isinstance(start_time, datetime):
+            start_time = start_time.strftime("%Y-%m-%d %H:%M:%S")
+            end_time = end_time.strftime("%Y-%m-%d %H:%M:%S")
+    
         params['start_time'] = start_time
-
+        
     if end_time is not None:
         params['end_time'] = end_time
 
