@@ -17,7 +17,7 @@ from sqlalchemy import create_engine
 #     collect_table_level_data_from_database,
 # )
 
-metric_tables = ['bgwriter', 'access', 'io', 'os_metric', 'sessions', 'active_sessions', 'waiting_sessions', 'database_statistics', 'conflicts', 'query_statistics']
+metric_tables = ['bgwriter', 'access', 'io', 'os_metric', 'sessions', 'active_sessions', 'waiting_sessions', 'database_statistics', 'conflicts', 'query_statistics','performance']
 non_default_table = ['sessions', 'active_sessions', 'waiting_sessions','query_statistics']
 derived_metric_tables = ['load_prediction', 'anomaly_time_interval', 'anomaly_scorer', 'anomaly_detector']
 db_statistics_tables = ['database_statistics', 'conflicts']

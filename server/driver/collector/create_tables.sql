@@ -83,7 +83,7 @@ CREATE TABLE anomaly_time_interval (
     start TIMESTAMP NOT NULL,
     "end" TIMESTAMP NOT NULL,
     severity FLOAT,
-    PRIMARY KEY (dbid, timestamp)
+    PRIMARY KEY (dbid, analysis_time)
 );
 CREATE TABLE anomaly_scorer (
     dbid varchar(36) NOT NULL,

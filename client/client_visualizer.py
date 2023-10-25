@@ -97,8 +97,8 @@ def load_table(conn, measurement, metric = None):
     else:
         df = df[metric]
 
-def query_all_metrics_into_csv(config, filename, save_filename):
-    original_df = pd.read_csv(f'{filename}')
+def query_all_metrics_into_csv(config, save_dir, cause):
+    original_df = pd.read_csv(f'../benchmark/{cause}_log.csv')
 
     # Create a new DataFrame for the results
     results_df = pd.DataFrame(columns=['iteration', 'start_time', 'end_time', 'Anomaly Start Time','Anomaly End Time'])
@@ -111,7 +111,8 @@ def query_all_metrics_into_csv(config, filename, save_filename):
         
         # Create a new row for the results DataFrame
         results_df = load_all_metrics(config, start_time, end_time)
-        results_df.to_csv(f'{save_filename}_{iteration}.csv', index=False)
+        results_df['cause'] = cause
+        results_df.to_csv(f'{save_dir}/{cause}_{iteration}.csv', index=False)
 
 
 
@@ -596,6 +597,51 @@ class anomaly_scorer_task_viz_template(base_task_viz_template):
         return pn.pane.Plotly(fig)
 
 
+
+class anomaly_detector_task_viz_template(base_task_viz_template):
+    # anomaly score에 anomaly인 포인트는 마커를 다르게 설정
+    def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
+        super().__init__(chart_type)
+        self.x = 'timestamp'
+        self.y = y
+        self.chart_type = chart_type
+
+    def plot(self, df, derived_df):
+        merged_df = pd.merge(df, derived_df, on='timestamp')
+        print(merged_df)
+        print("PLOT")
+        # implementation of plot method for the base class
+        if self.chart_type == 'scatter':
+            fig = px.scatter(merged_df, x=self.x, y=self.y, color=self.color, symbol = self.shape, size = self.size, facet_col=self.col, facet_row = self.row)
+        elif self.chart_type == 'line':
+            fig = px.line(merged_df, x=self.x, y=self.y, color=self.color, facet_col=self.col, facet_row = self.row)
+        else:
+            raise ValueError("Invalid Chart Type")
+
+        custom_colors = [[0.0, 'green'], [0.6, 'yellow'],[0.8, 'orange'], [1.0, 'red']]
+        fig.add_trace(go.Scatter(
+            x=merged_df['timestamp'],
+            y=merged_df[self.y],
+            mode='markers',
+            marker=dict(
+                color=merged_df['anomaly_score'],  # anomaly score에 따라 marker의 진하기 설정
+                colorscale=custom_colors,  # 색상 맵 설정
+                size=10  # marker의 크기 스케일 설정
+            ),
+            name='Anomaly'  # trace의 이름 설정
+        ))
+        fig.update_layout(coloraxis_showscale=True)
+
+
+#         fig.update_layout(
+#             title=title,
+#             #xaxis_title='Sepal Length (cm)',
+#             #yaxis_title='Sepal Width (cm)'
+#         )
+        return pn.pane.Plotly(fig)
+
+
+
 class anomaly_time_interval_task_viz_template(base_task_viz_template):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
@@ -623,9 +669,9 @@ class historical_comparison_task_viz_template(base_task_viz_template):
         df = df.set_index('timestamp')
         #df.drop('timestamp', axis=1, inplace=True)
 
-        print(period,freq)
+        #print(period,freq)
         shifted_df = df.shift(periods = period, freq=freq)
-        print(shifted_df)
+        #print(shifted_df)
         shifted_df=shifted_df[:max(df.index)]
 
         fig = go.Figure()
