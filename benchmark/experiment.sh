@@ -46,4 +46,5 @@ do
 
     # CSV 파일에 로그 추가
     echo "$i,$start_time,$end_time,$anomaly_start_time,$anomaly_end_time" >> $csv_file
+    
 done

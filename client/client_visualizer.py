@@ -65,8 +65,8 @@ css = '''
         border: 1px solid  lightgray;
     }
     '''
-pn.extension('plotly','tabulator',sizing_mode = 'stretch_width', css_files=[pn.io.resources.CSS_URLS['font-awesome']], raw_css = [css])
-ui = None
+pn.extension('plotly','tabulator',  sizing_mode = 'stretch_width', css_files=[pn.io.resources.CSS_URLS['font-awesome']], raw_css = [css])
+ui = None #,
 px.defaults.template = "plotly_white"
 
 
@@ -87,7 +87,7 @@ def get_sidebar(schema, sidebar_content):
         df_widgets.append(table)
 
     accordion = pn.Accordion(*df_widgets)
-    return pn.Column("### Performance Tables",accordion, width = 350)
+    return pn.Column("### Performance Tables",accordion, width = 300)
 
 def load_table(conn, measurement, metric = None):
     if metric == None:
@@ -98,7 +98,7 @@ def load_table(conn, measurement, metric = None):
         df = df[metric]
 
 def load_all_metrics(config, start_time=None, end_time=None):
-    url = "http://dbeda:80/"
+    url = "http://localhost:85/"
     
     params = {
         'config':config,
@@ -123,7 +123,7 @@ def load_all_metrics(config, start_time=None, end_time=None):
 def query_performance_data(config, table='all', metrics='all', task='metrics', type = None, start_time=None, end_time=None, recent_time_window=None,  order = None, num_of_query = None, split_date=None):
     # data
     
-    url = "http://dbeda:80/"
+    url = "http://localhost:85/"
     print("query_performance_data", config)
     
     params = {
@@ -136,9 +136,13 @@ def query_performance_data(config, table='all', metrics='all', task='metrics', t
     if task == 'anomaly detection':
         params['task_type'] = type
 
-    if start_time is not None:
-        params['start_time'] = start_time.strftime("%Y-%m-%d %H:%M:%S")
-        params['end_time'] = end_time.strftime("%Y-%m-%d %H:%M:%S")
+    if start_time is not None: # 왜 str ???
+        if isinstance(start_time, datetime):
+            start_time = start_time.strftime("%Y-%m-%d %H:%M:%S")
+            end_time = end_time.strftime("%Y-%m-%d %H:%M:%S")
+    
+        params['start_time'] = start_time
+        params['end_time'] = end_time
         
     if order is not None:
         params['order'] = order
@@ -185,26 +189,26 @@ def get_widgets(schema, config):
         
 
 
-    w_table = w.Select(name = 'Tables', options = list(schema.keys()), value = list(schema.keys())[0], width = 300)
+    w_table = w.Select(name = 'Tables', options = list(schema.keys()), value = list(schema.keys())[0], width = 220)
     #print(type(schema))
     # elif data is not None:
     #     # 해당 dataframe을 이용하여 시각화
     # else:
     #     NotImplementedError
 
-    w_title = w.TextInput(name='Title', placeholder='Enter a string for title of visualization', width = 300)
+    w_title = w.TextInput(name='Title', placeholder='Enter a string for title of visualization', width = 220)
     w_time = w.Select(name = 'Time range', options={'Last 30 minutes':'30 minutes',
                                                     'Last hour':'1 hour',
                                                     'Last 4 hours':'4 hours',
                                                     'Last 12 hours':'12 hours',
-                                                    'Last 24 hours':'1 day', 'Custom':''}, width = 300)
+                                                    'Last 24 hours':'1 day', 'Custom':''}, width = 220)
     # custom 선택되면 time range 선택하는 위젯 visible하게 변경
-    w_time_custom = w.DatetimeRangePicker(name='', value=(datetime.now() - timedelta(minutes = 30), datetime.now()), width = 300)
+    w_time_custom = w.DatetimeRangePicker(name='', value=(datetime.now() - timedelta(minutes = 30), datetime.now()), width = 220)
     w_time_custom.disabled = True
     w_refresh = w.Select(name = 'Auto refresh', options = {'Off':'None',  'Every 5 minutes':300000, 
                                                                             'Every 10 minutes': 600000, 
                                                                             'Every 15 minutes':900000, 
-                                                                           'Every 30 minutes':1800000}, width = 300)
+                                                                           'Every 30 minutes':1800000}, width = 220)
 
     
     
@@ -295,11 +299,11 @@ def get_widgets(schema, config):
                         NotImplemented
                     self.widget[1].objects = [pn.Row(self.w_data_y, self.w_type, self.w_task_type)]
 
-                    self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
+                    self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =800, collapsible = True, collapsed = True, title = 'Options')]
 
                 elif self.w_task.value =='load prediction':
                     self.widget[1].objects = [pn.Row(self.w_data_x)]
-                    self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
+                    self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =800, collapsible = True, collapsed = True, title = 'Options')]
 
 
             w_table.param.watch(fill_widget, ['value'], onlychanged=True)
@@ -338,10 +342,10 @@ def get_widgets(schema, config):
     w_add_task.on_click(add_task)
     task = task_widget()
     tasks.append(task)
-    c_task = pn.Card(pn.Row(task.widget, w_add_task), title = 'Task', width = 1200)
+    c_task = pn.Card(pn.Row(task.widget, w_add_task), title = 'Task', width = 1000)
     w_split = w.Select(name = 'Split', options = ['None','column', 'row', 'tab'], width = 300)
     w_split_basis = w.Select(name = 'Split basis', options = {}, width = 300)
-    c_split = pn.Card(pn.Row(w_split, w_split_basis), title = 'Split', width = 1200)
+    c_split = pn.Card(pn.Row(w_split, w_split_basis), title = 'Split', width = 1000)
     def set_split(event):
         dict = {}
         for task in tasks:
@@ -378,7 +382,7 @@ def get_widgets(schema, config):
                 
                 result = query_performance_data(config, 'query_statistics', task.w_data_y.value, 'query analysis', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value, order = task.w_order.value, num_of_query = task.w_num_of_query.value)
                 df = pd.DataFrame(result['task'])
-                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                df['timestamp'] = pd.to_g(df['timestamp'])
                 
                 
                 
