@@ -478,7 +478,10 @@ def fetch_metrics_within_time_range(config=None, start_time='-infinity', end_tim
         params_json = request.args.get('params')
         args = json.loads(params_json)
         config = args['config']
-    print(config)
+        if 'start_time' in args:
+            start_time = args['start_time']
+            end_time = args['end_time']
+    
     db_id = get_dbid(config)
 
     # 조회된 결과를 저장할 빈 DataFrame 생성
