@@ -10,11 +10,8 @@ DBEDA is an experimental data analysis framework designed for database performan
 
 To set up the server component, follow these steps:
 
-- Pull the Docker container for the server:
-```docker pull nvidia/cuda:11.7.0-cudnn8-runtime-ubuntu20.04```
-
 - Start the DBEDA server using Docker Compose:
-```docker-compose up```
+```docker compose up```
 
 - Run these commands to set up the server:
    ```
