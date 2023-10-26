@@ -38,7 +38,7 @@ from driver.pipeline import (
 )
 
 # Setup the scheduler that will poll for new configs and run the core pipeline
-scheduler = BlockingScheduler(daemon = True)
+scheduler = BlockingScheduler(daemon = True, job_defaults={'max_instances': 20})
 
 # Replace the placeholder values with your actual database connection details
 server_engine = create_engine('postgresql://postgres:postgres@localhost:5433/dbeda')
@@ -177,7 +177,7 @@ def collect_metrics(db_id, db_type, db_host, db_port, db_name, db_user, db_passw
         "db_user":db_user,
         "db_password":db_password,
         "db_type":"postgres",
-        "monitor_interval":"10",
+        "monitor_interval":"6",
         "table_level_monitor_interval":"5000",
         "db_provider": "on_premise",
         "db_key": "test_key",
@@ -190,7 +190,7 @@ def collect_metrics(db_id, db_type, db_host, db_port, db_name, db_user, db_passw
     # Run queries to collect metrics and store them in a file or database
 
 def preprocess_dataframe(df, interval):
-    print(len(df))
+    #print(len(df))
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df.set_index('timestamp', inplace=True)
     # Resample the data to 10-minute intervals and calculate the mean

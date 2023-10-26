@@ -98,7 +98,7 @@ def load_table(conn, measurement, metric = None):
         df = df[metric]
 
 def query_all_metrics_into_csv(config, save_dir, cause):
-    original_df = pd.read_csv(f'../benchmark/{cause}_log.csv')
+    original_df = pd.read_csv(f'../benchmark/log2/{cause}_log.csv')
 
     # Create a new DataFrame for the results
     results_df = pd.DataFrame(columns=['iteration', 'start_time', 'end_time', 'Anomaly Start Time','Anomaly End Time'])

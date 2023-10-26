@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # CSV 파일 이름 및 헤더 작성
-csv_file="index_log.csv"
+csv_file="../log2/index_log.csv"
 echo "Iteration,Start Time,End Time,Anomaly Start Time,Anomaly End Time" > $csv_file
 
 normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=16 --time=1300 --report-interval=60 oltp_read_write run"
@@ -32,7 +32,8 @@ do
     #!/bin/bash
 
     # Open SQL script file for writing
-    echo "" > create_indexes.sql
+    echo "" > ../create_indexes.sql
+    echo "" > ../drop_indexes.sql
 
     for j in $(seq 1 150)
     do
@@ -40,15 +41,15 @@ do
         index_name="redundant_idx_$table"
 
         # Append SQL commands to the script file
-        echo "CREATE INDEX ${index_name}_1 ON public.$table USING btree (k);" >> create_indexes.sql
-        echo "CREATE INDEX ${index_name}_2 ON public.$table USING btree (id);" >> create_indexes.sql
-        #echo "CREATE INDEX ${index_name}_3 ON public.$table USING btree (pad);" >> create_indexes.sql
-        #echo "CREATE INDEX ${index_name}_4 ON public.$table USING btree (c);" >> create_indexes.sql
+        #echo "CREATE INDEX ${index_name}_1 ON public.$table USING btree (k);" >> ../create_indexes.sql
+        #echo "CREATE INDEX ${index_name}_2 ON public.$table USING btree (id);" >> ../create_indexes.sql
+        echo "CREATE INDEX ${index_name}_3 ON public.$table USING btree (pad);" >> ../create_indexes.sql
+        echo "CREATE INDEX ${index_name}_4 ON public.$table USING btree (c);" >> ../create_indexes.sql
 
         echo "Index creation statements added for $table"
     done
 
-    psql --host localhost --port 5434 --username postgres --dbname oltpbench -w -f create_indexes.sql
+    psql --host localhost --port 5434 --username postgres --dbname oltpbench -w -f ../create_indexes.sql
 
 
     # Wait for 3 minutes
@@ -65,7 +66,7 @@ do
         index_name="redundant_idx_$table"
 
         # Append SQL commands to the script file
-        echo "DROP INDEX IF EXISTS ${index_name}_1, ${index_name}_2;" >> drop_indexes.sql
+        echo "DROP INDEX IF EXISTS ${index_name}_3, ${index_name}_4;" >> ../drop_indexes.sql
         # , ${index_name}_3, ${index_name}_4
         echo "Index drop statements added for $table"
     done

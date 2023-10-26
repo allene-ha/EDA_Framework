@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # CSV 파일 이름 및 헤더 작성
-csv_file="poor_query_log.csv"
+csv_file="../log2/poor_query_log.csv"
 echo "Iteration,Start Time,End Time,Anomaly Start Time,Anomaly End Time" > $csv_file
 
 # 총 실행 시간 (초)
@@ -29,10 +29,10 @@ do
 
     echo "[$anomaly_start_time] Start poorly designed join query"    
     #!/bin/bash
-    psql --host localhost --port 5434 --username postgres --dbname oltpbench -w -c "SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);" > poor_query_result.txt
-    psql --host localhost --port 5434 --username postgres --dbname oltpbench -w -c "SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);" > poor_query_result.txt
-    psql --host localhost --port 5434 --username postgres --dbname oltpbench -w -c "SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);" > poor_query_result.txt
-    echo "" > poor_query_result.txt 
+    psql --host localhost --port 5434 --username postgres --dbname oltpbench -w -c "SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest4);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest7);" > ../poor_query_result.txt
+    psql --host localhost --port 5434 --username postgres --dbname oltpbench -w -c "SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest5);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest8);" > ../poor_query_result.txt
+    psql --host localhost --port 5434 --username postgres --dbname oltpbench -w -c "SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest3);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest6);SELECT a.*, b.* FROM sbtest1 a INNER JOIN sbtest2 b ON a.id = b.id WHERE a.k > (SELECT AVG(k) FROM sbtest9);" > ../poor_query_result.txt
+    echo "" > ../poor_query_result.txt 
     
     # 이 쿼리 실행시간 약 25초 * 9번
 

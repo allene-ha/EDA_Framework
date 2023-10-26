@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # CSV 파일 이름 및 헤더 작성
-csv_file="workload_spike.csv"
+csv_file="../log2/workload_spike.csv"
 echo "Iteration,Start Time,End Time,Anomaly Start Time,Anomaly End Time" > $csv_file
 
 normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=16 --time=1800 --report-interval=60 oltp_read_write run"
@@ -19,7 +19,7 @@ do
 
     # Anomaly 명령어 설정, 실행 시간을 30초에서 300초까지 증가
     anomaly_time=$((30 * i))
-    anomaly="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=64 --time=$anomaly_time --report-interval=60 oltp_read_write run"
+    anomaly="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=128 --time=$anomaly_time --report-interval=60 oltp_read_write run"
 
     # Random한 시간만큼 "normal" 명령어 실행
     echo "[$start_time] Running normal for $random_time seconds: $normal"

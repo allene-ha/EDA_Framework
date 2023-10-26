@@ -1,5 +1,4 @@
-data/
-#data.pickle
+
 sysbench-tpcc/
 influxdata-*
 # Byte-compiled / optimized / DLL files
