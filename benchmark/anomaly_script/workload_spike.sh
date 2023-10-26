@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # CSV 파일 이름 및 헤더 작성
-csv_file="../log2/workload_spike.csv"
+csv_file="../log2/workload_spike_log.csv"
 echo "Iteration,Start Time,End Time,Anomaly Start Time,Anomaly End Time" > $csv_file
 
 normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=16 --time=1800 --report-interval=60 oltp_read_write run"

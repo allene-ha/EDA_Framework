@@ -85,6 +85,17 @@ CREATE TABLE anomaly_time_interval (
     severity FLOAT,
     PRIMARY KEY (dbid, analysis_time)
 );
+CREATE TABLE anomaly_explanation (
+    dbid varchar(36) NOT NULL,
+    analysis_time TIMESTAMP NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    
+    score FLOAT NOT NULL,
+    is_anomaly BOOLEAN NOT NULL,
+    anomaly_cause varchar(200),
+    metric varchar(200),
+    PRIMARY KEY (dbid, timestamp, analysis_time)
+);
 CREATE TABLE anomaly_scorer (
     dbid varchar(36) NOT NULL,
     analysis_time TIMESTAMP NOT NULL,

@@ -191,6 +191,7 @@ def collect_metrics(db_id, db_type, db_host, db_port, db_name, db_user, db_passw
 
 def preprocess_dataframe(df, interval):
     #print(len(df))
+    print(df)
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df.set_index('timestamp', inplace=True)
     # Resample the data to 10-minute intervals and calculate the mean
@@ -230,6 +231,7 @@ def perform_data_query():
     
 
     data = {}
+    print("METRIC:", metrics)
     if type(metrics) == str:
         metric_string = metrics
     else:
@@ -377,23 +379,24 @@ def perform_data_query():
         print(df_task)
         df_task = preprocess_dataframe(df_task, collect_interval)
         print(df_task)
-    elif task == 'anomaly detector':
+    elif task == 'anomaly explanation':
         data['metric'] = df_metrics.to_dict()
-        sql_query = f"""SELECT timestamp, anomaly_label, analysis_time FROM anomaly_scorer"""
+        sql_query = f"""SELECT timestamp, score, is_anomaly, anomaly_cause, analysis_time FROM anomaly_explanation """
         
-        if recent_time_window == 'Custom':
-            sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
-                            AND dbid = '{db_id}'
-                            AND (metric = '{metric_string}' OR metric IS NULL)
-                            ORDER BY timestamp ASC;"""
-        else:
-            sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
-                            AND dbid = '{db_id}'
-                            AND metric = '{metric_string}'
-                            ORDER BY timestamp ASC;"""
+        sql_query += f"""WHERE dbid = '{db_id}' ORDER BY timestamp ASC;"""
+        # if recent_time_window == 'Custom':
+        #     sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
+        #                     AND dbid = '{db_id}'
+        #                     AND (metric = '{metric_string}' OR metric IS NULL)
+        #                     ORDER BY timestamp ASC;"""
+        # else:
+        #     sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
+        #                     AND dbid = '{db_id}'
+        #                     AND metric = '{metric_string}'
+        #                     ORDER BY timestamp ASC;"""
 
         df_task = pd.read_sql_query(sql_query, server_engine)
-        df_task = preprocess_dataframe(df_task, collect_interval)
+        #df_task = preprocess_dataframe(df_task, collect_interval)
 
     
     if 'timestamp' in df_task:

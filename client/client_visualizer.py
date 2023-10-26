@@ -147,7 +147,7 @@ def query_performance_data(config, table='all', metrics='all', task='metrics', t
     # data
     
     url = "http://localhost:85/"
-    print("query_performance_data", config)
+    #print("query_performance_data", config)
     
     params = {
         'table':table,
@@ -250,7 +250,7 @@ def get_widgets(schema, config):
                                                             'delta between predicted and actual value'], width = 300)
             self.w_task_type = w.Select(name = 'Task type', options = ['anomaly time interval', 
                                                 'anomaly scorer', 
-                                                'anomaly detector'], width = 200)
+                                                'anomaly explanation'], width = 200)
 
             self.w_show_bound = w.Select(name = 'Show bounds', options = ['y','n'], width = 300)
             # 중복 허용
@@ -317,12 +317,13 @@ def get_widgets(schema, config):
                     self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
                 
                 elif self.w_task.value =='anomaly detection':
-                    if self.w_task_type.value == 'anomaly scorer':
-                        # get analysis time
-                        NotImplemented
-                    self.widget[1].objects = [pn.Row(self.w_data_y, self.w_type, self.w_task_type)]
+                    if self.w_task_type.value == 'anomaly explanation':
+                        self.widget[1].objects = [pn.Row(self.w_type, self.w_task_type)]
 
-                    self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =800, collapsible = True, collapsed = True, title = 'Options')]
+                        self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =800, collapsible = True, collapsed = True, title = 'Options')]
+                    else:
+                        self.widget[1].objects = [pn.Row(self.w_data_y, self.w_type, self.w_task_type)]
+                        self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =800, collapsible = True, collapsed = True, title = 'Options')]
 
                 elif self.w_task.value =='load prediction':
                     self.widget[1].objects = [pn.Row(self.w_data_x)]
@@ -392,12 +393,6 @@ def get_widgets(schema, config):
                 result = query_performance_data(config, 'query_statistics', task.w_data_x.value, 'query ranking', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value, order = task.w_order.value, num_of_query = task.w_num_of_query.value)
                 df = pd.DataFrame(result['task'])
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
-                # query_dict = result['query_dict']
-                # top_queryid = result['top_queryid']
-                ###
-                #template = query_ranking_task_viz_template(y=task.w_data_x.value)
-                #dashboard = template.plot(df)
-                #print(fig)
                 dashboard = w.Tabulator(df)
                 main.append(dashboard)
                 
@@ -406,9 +401,7 @@ def get_widgets(schema, config):
                 result = query_performance_data(config, 'query_statistics', task.w_data_y.value, 'query analysis', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value, order = task.w_order.value, num_of_query = task.w_num_of_query.value)
                 df = pd.DataFrame(result['task'])
                 df['timestamp'] = pd.to_g(df['timestamp'])
-                
-                
-                
+ 
                 query_dict = result['query_dict']
                 top_queryid = result['top_queryid']
                 ###
@@ -459,8 +452,11 @@ def get_widgets(schema, config):
                 #print(fig)
                 main.append(dashboard)
             elif task.w_task.value == 'anomaly detection':
-                result = query_performance_data(config, w_table.value, task.w_data_y.value, task.w_task.value, type = task.w_task_type.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
-                
+                if task.w_task_type.value == 'anomaly explanation': # for demo visualization 
+                    result = query_performance_data(config, w_table.value, task.w_data_y.value, task.w_task.value, type = task.w_task_type.value, start_time='-infinity', end_time='infinity', recent_time_window='Custom')
+                else: 
+                    result = query_performance_data(config, w_table.value, task.w_data_y.value, task.w_task.value, type = task.w_task_type.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
+                           
                 df = pd.DataFrame(result['metric'])
                 df_task = pd.DataFrame(result['task'])
 
@@ -471,8 +467,8 @@ def get_widgets(schema, config):
                     dashboard = anomaly_scorer_task_viz_template(y=task.w_data_y.value,chart_type = 'line').plot(df, derived_df=df_task)
                 elif task.w_task_type.value == 'anomaly time interval':
                     dashboard = anomaly_time_interval_task_viz_template(y=task.w_data_x.value,chart_type = 'line').plot(df, derived_df=df_task)
-                elif task.w_task_type.value == 'anomaly detector':
-                    dashboard = anomaly_detector_task_viz_template(y=task.w_data_x.value,chart_type = 'line').plot(df, derived_df=df_task)
+                elif task.w_task_type.value == 'anomaly explanation':
+                    dashboard = anomaly_explanation_task_viz_template(y='score',chart_type = 'line').plot(df, derived_df=df_task)
                 else:
                     raise AssertionError
                 
@@ -598,7 +594,7 @@ class anomaly_scorer_task_viz_template(base_task_viz_template):
 
 
 
-class anomaly_detector_task_viz_template(base_task_viz_template):
+class anomaly_explanation_task_viz_template(base_task_viz_template):
     # anomaly score에 anomaly인 포인트는 마커를 다르게 설정
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
@@ -607,37 +603,17 @@ class anomaly_detector_task_viz_template(base_task_viz_template):
         self.chart_type = chart_type
 
     def plot(self, df, derived_df):
-        merged_df = pd.merge(df, derived_df, on='timestamp')
-        print(merged_df)
-        print("PLOT")
+        merged_df = derived_df
+
         # implementation of plot method for the base class
-        if self.chart_type == 'scatter':
-            fig = px.scatter(merged_df, x=self.x, y=self.y, color=self.color, symbol = self.shape, size = self.size, facet_col=self.col, facet_row = self.row)
-        elif self.chart_type == 'line':
-            fig = px.line(merged_df, x=self.x, y=self.y, color=self.color, facet_col=self.col, facet_row = self.row)
-        else:
-            raise ValueError("Invalid Chart Type")
+        # 라인 차트 생성
+        anomaly_df = merged_df[merged_df['is_anomaly'] == True]
 
-        custom_colors = [[0.0, 'green'], [0.6, 'yellow'],[0.8, 'orange'], [1.0, 'red']]
-        fig.add_trace(go.Scatter(
-            x=merged_df['timestamp'],
-            y=merged_df[self.y],
-            mode='markers',
-            marker=dict(
-                color=merged_df['anomaly_score'],  # anomaly score에 따라 marker의 진하기 설정
-                colorscale=custom_colors,  # 색상 맵 설정
-                size=10  # marker의 크기 스케일 설정
-            ),
-            name='Anomaly'  # trace의 이름 설정
-        ))
-        fig.update_layout(coloraxis_showscale=True)
+        fig = px.line(merged_df, x=self.x, y=self.y)
+        fig.add_trace(px.scatter(anomaly_df, x=self.x, y=self.y, text='anomaly_cause').data[0])
+        fig.update_traces(marker=dict(size=12, color='red'))
+        fig.update_traces(textposition='top center')
 
-
-#         fig.update_layout(
-#             title=title,
-#             #xaxis_title='Sepal Length (cm)',
-#             #yaxis_title='Sepal Width (cm)'
-#         )
         return pn.pane.Plotly(fig)
 
 
