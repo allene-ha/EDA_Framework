@@ -10,7 +10,7 @@ normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgs
 
 
 # 10번의 실험 반복
-for i in $(seq 1 1)
+for i in $(seq 1 20)
 do
     # Random한 시간 설정 (300에서 700 사이의 랜덤한 값)
     random_time=$((300 + $RANDOM % 400))
@@ -27,7 +27,7 @@ do
     anomaly_start_time=$(date +"%Y-%m-%d %H:%M:%S")
     echo "[$anomaly_start_time] Started mem load"
     # Anomaly duration의 시간동안 Anomaly 발생
-    anomaly_duration=$((i * 30))
+    anomaly_duration=$((i * 20))
     stress-ng --vm 8 --vm-bytes 2G --timeout ${anomaly_duration}s
 
 
