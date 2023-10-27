@@ -5,7 +5,7 @@ csv_file="../log2/cpu_log.csv"
 echo "Iteration,Start Time,End Time,Anomaly Start Time,Anomaly End Time" > $csv_file
 
 # 총 실행 시간 (초)
-total_time=1300
+total_time=600
 
 normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=16 --time=$total_time --report-interval=60 oltp_read_write run"
 
@@ -14,7 +14,7 @@ normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgs
 for i in $(seq 1 30)
 do
     # Random한 시간 설정 (300에서 700 사이의 랜덤한 값)
-    random_time=$((300 + $RANDOM % 400))
+    random_time=$((150 + $RANDOM % 100))
     # 현재 시간 기록
     start_time=$(date +"%Y-%m-%d %H:%M:%S")
 
