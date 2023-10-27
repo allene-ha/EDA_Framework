@@ -1,7 +1,7 @@
 
 #!/bin/bash
 # CSV 파일 이름 및 헤더 작성
-csv_file="../log2/cpu_log2.csv"
+csv_file="../log2/cpu_log.csv"
 echo "Iteration,Start Time,End Time,Anomaly Start Time,Anomaly End Time" > $csv_file
 
 # 총 실행 시간 (초)
@@ -11,7 +11,7 @@ normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgs
 
 
 # 10번의 실험 반복
-for i in $(seq 1 10)
+for i in $(seq 1 30)
 do
     # Random한 시간 설정 (300에서 700 사이의 랜덤한 값)
     random_time=$((300 + $RANDOM % 400))
@@ -28,7 +28,7 @@ do
     anomaly_start_time=$(date +"%Y-%m-%d %H:%M:%S")
     echo "[$anomaly_start_time] Started CPU load"
     # Anomaly duration의 시간동안 Anomaly 발생
-    anomaly_duration=$((i * 30))
+    anomaly_duration=$((i * 10))
     stress-ng --cpu 16 --timeout ${anomaly_duration}s
 
 

@@ -336,7 +336,7 @@ def get_widgets(schema, config):
             
 
 
-    widgets = pn.Row(w_title, w_table, pn.Column(w_time, w_time_custom), w_refresh, )
+    widgets = pn.Row(w_title, w_table, pn.Column(w_time, w_time_custom))#, w_refresh, )
     def custom_time(event):
         if w_time.value == '':
             w_time_custom.disabled = False
@@ -480,10 +480,10 @@ def get_widgets(schema, config):
     w_clean = w.Button(name='Clean', width = 100)
     w_draw.on_click(functools.partial(tasks_to_charts, tasks=tasks))
     def clean_output(button):
-        main.objects = ["### Visualization Widgets", widgets, c_task, c_split, pn.Row(w_draw,w_clean)]
+        main.objects = ["### Visualization Widgets", widgets, c_task, pn.Row(w_draw,w_clean)]# c_split, pn.Row(w_draw,w_clean)]
 
     w_clean.on_click(clean_output)
-    main = pn.Column("### Visualization Widgets", widgets, c_task, c_split, pn.Row(w_draw,w_clean))
+    main = pn.Column("### Visualization Widgets", widgets, c_task, pn.Row(w_draw,w_clean))# c_split, pn.Row(w_draw,w_clean))
     return main
     #display(ui)
 
