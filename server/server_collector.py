@@ -560,6 +560,26 @@ def fetch_metrics_within_time_range(config=None, start_time='-infinity', end_tim
 
     return response
 
+@app.route('/experiment', methods=['POST'])
+def experiment():
+    input_data = request.get_json()
+    data = input_data.get('data')
+    df = pd.read_json(data)
+    task = input_data.get('task')
+    pipeline = input_data.get('pipeline')
+    hyperparameters = input_data.get('hyperparameters')
+    
+    result_df = pd.DataFrame() # 모델에 맞게 함수를 적용
+
+    # DataFrame을 pickle로 직렬화
+    serialized_df = pickle.dumps(result_df)
+
+    # Response 객체에 직렬화된 데이터와 MIME 타입을 지정하여 담기
+    response = Response(serialized_df, mimetype='application/octet-stream')
+
+    return response
+
+
 @app.route('/train', methods=['POST'])
 def train():
     input_data = request.get_json()

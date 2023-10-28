@@ -1,6 +1,6 @@
 #!/bin/bash
 # CSV 파일 이름 및 헤더 작성
-csv_file="../log2/mem_log.csv"
+csv_file="../log4/mem_log.csv"
 echo "Iteration,Start Time,End Time,Anomaly Start Time,Anomaly End Time" > $csv_file
 
 # 총 실행 시간 (초)
@@ -12,8 +12,8 @@ normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgs
 # 10번의 실험 반복
 for i in $(seq 1 10)
 do
-    # Random한 시간 설정 (300에서 700 사이의 랜덤한 값)
-    random_time=$((150 + $RANDOM % 100))
+    # Random한 시간 설정 
+    random_time=$((50 + $RANDOM % 300))
     # 현재 시간 기록
     start_time=$(date +"%Y-%m-%d %H:%M:%S")
 

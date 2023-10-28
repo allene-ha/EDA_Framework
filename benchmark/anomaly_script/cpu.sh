@@ -1,7 +1,7 @@
 
 #!/bin/bash
 # CSV 파일 이름 및 헤더 작성
-csv_file="../log2/cpu_log.csv"
+csv_file="../log3/cpu_log.csv"
 echo "Iteration,Start Time,End Time,Anomaly Start Time,Anomaly End Time" > $csv_file
 
 # 총 실행 시간 (초)
