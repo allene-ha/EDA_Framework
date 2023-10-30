@@ -7,15 +7,8 @@ import uuid
 import json
 import pandas as pd
 from typing import Dict, Any, Union
-#import simplejson as json
 import pickle
 from sqlalchemy import create_engine
-
-#from driver.collector.collector_factory import get_collector
-# from driver.database import (
-#     collect_db_level_data_from_database,
-#     collect_table_level_data_from_database,
-# )
 
 metric_tables = ['bgwriter', 'access', 'io', 'os_metric', 'sessions', 'active_sessions', 'waiting_sessions', 'database_statistics', 'conflicts', 'query_statistics','performance']
 non_default_table = ['sessions', 'active_sessions', 'waiting_sessions','query_statistics']
@@ -30,7 +23,6 @@ import logging
 
 from apscheduler.schedulers.background import BlockingScheduler
 
-#from driver.driver_config_builder import DriverConfigBuilder, Overrides
 from driver.pipeline import (
     schedule_or_update_job,
     DB_LEVEL_MONITOR_JOB_ID,
@@ -119,8 +111,6 @@ def collect_performance_data():
     db_user = data['db_user']
     db_password = data['db_password']
     
-    
-    
     # Add collect_metrics function to the scheduler
     # Check if the input DB configuration already exists in the database
     cur = server_conn.cursor()
@@ -184,21 +174,19 @@ def collect_metrics(db_id, db_type, db_host, db_port, db_name, db_user, db_passw
         "organization_id": "test_organization"
     }
     schedule_db_level_monitor_job(driver_config, db_id)
-    #if not config.disable_table_level_stats or not config.disable_index_stats:
-    #    schedule_table_level_monitor_job(config)
     scheduler.start()
     # Run queries to collect metrics and store them in a file or database
 
 def preprocess_dataframe(df, interval):
-    #print(len(df))
-    print(df)
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df.set_index('timestamp', inplace=True)
     # Resample the data to 10-minute intervals and calculate the mean
+
     if 'analysis_time' in df.columns:
         df_resampled = df.groupby('analysis_time').resample(f'{interval}S').mean()
     else:
         df_resampled = df.resample(f'{interval}S').mean()
+
     df_resampled.reset_index(inplace = True)
     df_resampled.fillna(method='ffill', inplace=True)
     return df_resampled
@@ -206,11 +194,8 @@ def preprocess_dataframe(df, interval):
 
 @app.route('/data', methods=['GET'])
 def perform_data_query():
-    
     params_json = request.args.get('params')
     args = json.loads(params_json)
-
-    #print(args)
 
     table = args['table']
     metrics = args['metric']
@@ -225,13 +210,12 @@ def perform_data_query():
 
     if task == 'anomaly detection':
         task = args['task_type']
-    print("server",args)
+
     db_id = get_dbid(args['config'])
     collect_interval = args['config']['interval']
     
 
     data = {}
-    print("METRIC:", metrics)
     if type(metrics) == str:
         metric_string = metrics
     else:
@@ -280,10 +264,7 @@ def perform_data_query():
         ascending = False
         if order == "ASC":
             ascending = True
-        df_task = df_task.groupby('queryid').sum().sort_values(by=metric_string, ascending=ascending).iloc[:num_of_query]
-        #df_task = preprocess_dataframe(df_task, collect_interval)
-        print(df_task)
-        
+        df_task = df_task.groupby('queryid').sum().sort_values(by=metric_string, ascending=ascending).iloc[:num_of_query]        
         
     elif task == 'query analysis':
         sql_query = f"""SELECT timestamp, {metric_string}, queryid, query FROM query_statistics """
@@ -296,7 +277,6 @@ def perform_data_query():
             sql_query += f"""WHERE timestamp BETWEEN (NOW() - INTERVAL '{recent_time_window}') AND NOW()
                             AND dbid = '{db_id}'
                             ORDER BY timestamp ASC;"""
-        #print("ORIGINAL TASK DATA")
         df_task = pd.read_sql_query(sql_query, server_engine)
 
         query_dict = dict(zip(df_task['queryid'], df_task['query']))
@@ -310,9 +290,6 @@ def perform_data_query():
         mask = df_task['queryid'].isin(top_queryid)
         data['top_queryid'] = top_queryid
         df_task = df_task[mask]
-        print("DF_QUERY_ANALYSIS")
-        print(df_task)
-        #df_task = preprocess_dataframe(df_task, collect_interval)
 
        
     elif task == 'load prediction':
@@ -360,10 +337,9 @@ def perform_data_query():
 
         df_task = pd.read_sql_query(sql_query, server_engine)
     elif task == 'anomaly scorer':
-        print("HERE")
+        
         data['metric'] = df_metrics.to_dict()
         sql_query = f"""SELECT timestamp, anomaly_score, analysis_time FROM anomaly_scorer """
-        print(metric_string)
         if recent_time_window == 'Custom':
             sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
                             AND dbid = '{db_id}'
@@ -376,9 +352,7 @@ def perform_data_query():
                             ORDER BY timestamp ASC;"""
 
         df_task = pd.read_sql_query(sql_query, server_engine)
-        print(df_task)
         df_task = preprocess_dataframe(df_task, collect_interval)
-        print(df_task)
     elif task == 'anomaly explanation':
         data['metric'] = df_metrics.to_dict()
         sql_query = f"""SELECT timestamp, score, is_anomaly, anomaly_cause, analysis_time FROM anomaly_explanation """
@@ -434,7 +408,7 @@ def get_schema():
             continue
         cur.execute(f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{table_name}'")
         table_columns = cur.fetchall()
-        #print(table_columns)
+
         # primary key 확인
         cur.execute(f"""
             SELECT CC.COLUMN_NAME AS COLUMN_NAME
@@ -450,15 +424,12 @@ def get_schema():
             ;
         """)
         primary_key_columns = cur.fetchall()
-        #print(primary_key_columns)
 
         if 'dbid' in [column[0] for column in table_columns]:
             cur.execute(f"SELECT * FROM public.{table_name} WHERE dbid = '{db_id}'")
             
             if cur.fetchone():
-                #print(f"Table Name: {table_name}")
                 for column in table_columns:
-                    #print(f"Column Name: {column[0]}, Data Type: {column[1]}")
                     key = False
                     if column in primary_key_columns:
                         key = True
@@ -471,7 +442,6 @@ def get_schema():
     response = {}
     response['sidebar_content'] = result.to_dict()
     response['schema'] =  schema
-    #print(response)
     return json.dumps(response)
 
 
@@ -541,8 +511,6 @@ def fetch_metrics_within_time_range(config=None, start_time='-infinity', end_tim
         print(query)
         cur.execute(query, (db_id,))
         results = cur.fetchall()
-        #result_df.set_index('timestamp', inplace=True)
-        #print(results)
 
         temp_df = pd.DataFrame(results, columns=['timestamp'] + column_names)
         temp_df.set_index('timestamp', inplace=True)
@@ -596,7 +564,6 @@ def train():
     elif task == 'load prediction':
         train_load_prediction(df, pipeline, hyperparameters)
 
-    return "OKAY"
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -605,7 +572,7 @@ def predict():
     
     task = input_data.get('task')
     path = str(input_data.get('path'))
-    print(path)
+
     config = input_data.get('config')
     db_id = get_dbid(config)
 
@@ -638,7 +605,6 @@ def get_trained_models():
         folder_path = '/home/dbeda_framework/model/trained_model/ad'
     file_names = os.listdir(folder_path)
     file_names = [i for i in file_names if 'ckpt' not in i]
-    print(file_names)
 
     return jsonify(file_names)
 
@@ -660,7 +626,6 @@ def train_anomaly_detection(df, pipeline, hyperparameters):
 
 def predict_anomaly_detection(server_conn, db_id, df, path):
     # if path.split('.')[-1] == 'pickle':
-    #     print("HERE")
         #anomaly = orion.detect_with_orion_pipeline(server_conn, db_id, df, path)
     if path.split('_')[0] == 'darts':
         from model import darts
@@ -669,7 +634,6 @@ def predict_anomaly_detection(server_conn, db_id, df, path):
 
 def predict_load_prediction(server_conn, db_id, path, metric, n):
     # if path.split('.')[-1] == 'pickle':
-    #     print("HERE")
         #anomaly = orion.detect_with_orion_pipeline(server_conn, db_id, df, path)
     if path.split('_')[0] == 'darts':
         from model import darts

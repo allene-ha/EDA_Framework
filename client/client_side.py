@@ -26,13 +26,6 @@ def connect_db(db_type='postgres', host='dbeda-client', database='test_cli', use
 def collect_performance_data(config):
 
     url = "http://localhost:85/collect"
-    # config = {'db_type': db_type,
-    #           'db_host': host,
-    #           'db_name':database,
-    #           'db_user':user,
-    #           'db_password':password,
-    #           'db_port':port,
-    #           'interval':interval}
 
     response = requests.post(url, json=config)
     # Check the response status code
@@ -53,7 +46,6 @@ def visualize(config):
     else:
         print(f"Error sending configuration data. Status code: {response.status_code}")
     schema = data['schema']
-    #print(data['sidebar_content'])
     sidebar_content = pd.DataFrame(data['sidebar_content'])
     sidebar = get_sidebar(schema, sidebar_content)
     main = get_widgets(schema, config)
@@ -91,10 +83,7 @@ def predict(config:dict, data:pd.DataFrame, task:str, path:str):
 
     # POST 요청 보내기
     response = requests.post(url, json=data_post)
-    
     data = pickle.loads(response.content)
-
-    
     df = pd.DataFrame(data)
     
     return df
