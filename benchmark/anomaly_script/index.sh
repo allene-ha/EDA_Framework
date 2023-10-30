@@ -3,11 +3,10 @@
 # CSV 파일 이름 및 헤더 작성
 csv_file="../log3/index_log.csv"
 echo "Iteration,Start Time,End Time,Anomaly Start Time,Anomaly End Time" > $csv_file
-
-normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=16 --time=1300 --report-interval=60 oltp_read_write run"
-
-# 총 실행 시간 (초)
 total_time=600
+
+normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=16 --time=$total_time --report-interval=60 oltp_read_write run"
+
 
 # PostgreSQL 데이터베이스 백업 디렉토리 설정
 

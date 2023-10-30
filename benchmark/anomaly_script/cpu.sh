@@ -11,7 +11,7 @@ normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgs
 
 
 # 10번의 실험 반복
-for i in $(seq 1 30)
+for i in $(seq 1 10)
 do
     # Random한 시간 설정 (300에서 700 사이의 랜덤한 값)
     random_time=$((150 + $RANDOM % 100))

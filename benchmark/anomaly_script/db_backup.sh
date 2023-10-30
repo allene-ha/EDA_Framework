@@ -3,16 +3,16 @@
 # CSV 파일 이름 및 헤더 작성
 csv_file="../log3/db_backup_log.csv"
 echo "Iteration,Start Time,End Time,Anomaly Start Time,Anomaly End Time" > $csv_file
-
-normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=32 --time=1300 --report-interval=60 oltp_read_write run"
-
 # 총 실행 시간 (초)
 total_time=600
+normal="sysbench --db-driver=pgsql --pgsql-user=postgres --pgsql-port=5434 --pgsql-password=postgres --pgsql-db=oltpbench --table_size=800000 --tables=150 --threads=32 --time=$total_time --report-interval=60 oltp_read_write run"
+
+
 
 # PostgreSQL 데이터베이스 백업 디렉토리 설정
 
 # 10번의 실험 반복
-for i in $(seq 1 10)
+for i in $(seq 1 20)
 do
     # Random한 시간 설정 (1에서 300 사이의 랜덤한 값)
     random_time=$((100 + $RANDOM % 150))
@@ -30,6 +30,7 @@ do
     # 데이터베이스 백업
     echo "[$anomaly_start_time] Start backup"
     backup_file="../backup.sql"
+    echo "" > $backup_file
     pg_dump --host localhost --port 5434 --username postgres --dbname oltpbench -w --file $backup_file
     
     # 현재 시간 다시 기록
