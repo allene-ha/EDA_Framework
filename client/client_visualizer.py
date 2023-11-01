@@ -4,7 +4,7 @@ from panel import widgets as w
 from bokeh.models.widgets.tables import NumberFormatter, BooleanFormatter
 import datetime as dt
 from datetime import datetime, date, timedelta, timezone
-
+import random
 import plotly.express as px
 import pickle
 import requests
@@ -156,7 +156,7 @@ def query_performance_data(config, table='all', metrics='all', task='metrics', t
         'task':task,
         'config':config,
     }
-    if task == 'anomaly detection':
+    if task == 'anomaly analysis':
         params['task_type'] = type
 
     if start_time is not None: # 왜 str ???
@@ -236,11 +236,13 @@ def get_widgets(schema, config):
                                                             'load prediction', 
                                                             'query ranking', 
                                                             'performance anomaly diagnosis', 
-                                                            'anomaly detection', 
+                                                            'anomaly analysis', 
                                                             'delta between predicted and actual value'], width = 300)
             self.w_task_type = w.Select(name = 'Task type', options = ['anomaly time interval', 
-                                                'anomaly scorer', 
-                                                'anomaly explanation'], width = 200)
+                                                'anomaly score', 
+                                                'anomaly detection',
+                                                'anomaly explanation',
+                                                'anomaly detection and explanation'], width = 200)
 
             self.w_show_bound = w.Select(name = 'Show bounds', options = ['y','n'], width = 300)
             # 중복 허용
@@ -305,10 +307,18 @@ def get_widgets(schema, config):
                     self.widget[1].objects = [pn.Row(self.w_data_x, self.w_num_of_query)]
                     self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
                 
-                elif self.w_task.value =='anomaly detection':
+                elif self.w_task.value =='anomaly analysis':
                     if self.w_task_type.value == 'anomaly explanation':
+                        self.widget[1].objects = [pn.Row(self.w_task_type)]
+                        self.widget[2].objects = [pn.Card(pn.Row(),width =800, collapsible = True, collapsed = True, title = 'Options')]
+                    elif self.w_task_type.value == 'anomaly detection':
                         self.widget[1].objects = [pn.Row(self.w_type, self.w_task_type)]
                         self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =800, collapsible = True, collapsed = True, title = 'Options')]
+                    
+                    elif self.w_task_type.value == 'anomaly detection and explanation':
+                        self.widget[1].objects = [pn.Row(self.w_type, self.w_task_type)]
+                        self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =800, collapsible = True, collapsed = True, title = 'Options')]
+                    
                     else:
                         self.widget[1].objects = [pn.Row(self.w_data_y, self.w_type, self.w_task_type)]
                         self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =800, collapsible = True, collapsed = True, title = 'Options')]
@@ -423,23 +433,32 @@ def get_widgets(schema, config):
                 dashboard = load_prediction_task_viz_template(y=task.w_data_x.value,chart_type = 'line').plot(df, derived_df=df_task)
                 main.append(dashboard)
 
-            elif task.w_task.value == 'anomaly detection':
-                if task.w_task_type.value == 'anomaly explanation': # for demo visualization 
-                    result = query_performance_data(config, w_table.value, task.w_data_y.value, task.w_task.value, type = task.w_task_type.value, start_time='-infinity', end_time='infinity', recent_time_window='Custom')
-                else: 
-                    result = query_performance_data(config, w_table.value, task.w_data_y.value, task.w_task.value, type = task.w_task_type.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
-                           
-                df = pd.DataFrame(result['metric'])
-                df_task = pd.DataFrame(result['task'])
-                df['timestamp'] = pd.to_datetime(df['timestamp'])
-                df_task['timestamp'] = pd.to_datetime(df_task['timestamp'])
+            elif task.w_task.value == 'anomaly analysis':
+                # for demo visualization 
+                # result = query_performance_data(config, w_table.value, task.w_data_y.value, task.w_task.value, type = task.w_task_type.value, start_time='-infinity', end_time='infinity', recent_time_window='Custom')
 
-                if task.w_task_type.value == 'anomaly scorer':
-                    dashboard = anomaly_scorer_task_viz_template(y=task.w_data_y.value,chart_type = 'line').plot(df, derived_df=df_task)
-                elif task.w_task_type.value == 'anomaly time interval':
-                    dashboard = anomaly_time_interval_task_viz_template(y=task.w_data_x.value,chart_type = 'line').plot(df, derived_df=df_task)
+                # if task.w_task_type.value == 'anomaly detection and explanation': 
+                #     result = query_performance_data(config, w_table.value, task.w_data_y.value, task.w_task.value, type = task.w_task_type.value, start_time='-infinity', end_time='infinity', recent_time_window='Custom')
+                # else: 
+                #     result = query_performance_data(config, w_table.value, task.w_data_y.value, task.w_task.value, type = task.w_task_type.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
+                           
+                # df = pd.DataFrame(result['metric'])
+                # df_task = pd.DataFrame(result['task'])
+                # df['timestamp'] = pd.to_datetime(df['timestamp'])
+                # df_task['timestamp'] = pd.to_datetime(df_task['timestamp'])
+                df_task = df = pd.DataFrame()
+
+                if task.w_task_type.value == 'anomaly score':
+                    dashboard = anomaly_score_task_viz_template(y=task.w_data_y.value,chart_type = 'line').plot(df, derived_df=df_task)
+                #elif task.w_task_type.value == 'anomaly time interval':
+                #    dashboard = anomaly_time_interval_task_viz_template(y=task.w_data_x.value,chart_type = 'line').plot(df, derived_df=df_task)
                 elif task.w_task_type.value == 'anomaly explanation':
-                    dashboard = anomaly_explanation_task_viz_template(y='score',chart_type = 'line').plot(df, derived_df=df_task)
+                    dashboard = anomaly_explanation_task_viz_template().plot(df, derived_df=df_task)
+                elif task.w_task_type.value == 'anomaly detection':
+                    dashboard = anomaly_detection_task_viz_template(y=task.w_data_y.value,chart_type = 'line').plot(df, derived_df=df_task)
+                elif task.w_task_type.value == 'anomaly detection and explanation':
+                    dashboard = anomaly_detection_and_explanation_task_viz_template(y='score',chart_type = 'line').plot(df, derived_df=df_task)
+                
                 else:
                     raise AssertionError
                 main.append(dashboard)
@@ -449,10 +468,10 @@ def get_widgets(schema, config):
     w_clean = w.Button(name='Clean', width = 100)
     w_draw.on_click(functools.partial(tasks_to_charts, tasks=tasks))
     def clean_output(button):
-        main.objects = ["### Visualization Widgets", widgets, c_task, pn.Row(w_draw,w_clean)]# c_split, pn.Row(w_draw,w_clean)]
+        main.objects = ["### DB Performance Analysis", widgets, c_task, pn.Row(w_draw,w_clean)]# c_split, pn.Row(w_draw,w_clean)]
 
     w_clean.on_click(clean_output)
-    main = pn.Column("### Visualization Widgets", widgets, c_task, pn.Row(w_draw,w_clean))# c_split, pn.Row(w_draw,w_clean))
+    main = pn.Column("### DB Performance Analysis", widgets, c_task, pn.Row(w_draw,w_clean))# c_split, pn.Row(w_draw,w_clean))
     return main
 
 
@@ -493,7 +512,6 @@ class base_task_viz_template:
         self.label = label
         
     def plot(self, df, derived_df = None, title = ""):
-        print("PLOT")
         # implementation of plot method for the base class
         if self.chart_type == 'scatter':
             fig = px.scatter(df, x=self.x, y=self.y, color=self.color, symbol = self.shape, size = self.size, facet_col=self.col, facet_row = self.row)
@@ -520,7 +538,7 @@ class metrics_task_viz_template(base_task_viz_template):
         self.y = y
         self.chart_type = chart_type
 
-class anomaly_scorer_task_viz_template(base_task_viz_template):
+class anomaly_score_task_viz_template(base_task_viz_template):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
         self.x = 'timestamp'
@@ -562,8 +580,7 @@ class anomaly_scorer_task_viz_template(base_task_viz_template):
         return pn.pane.Plotly(fig)
 
 
-
-class anomaly_explanation_task_viz_template(base_task_viz_template):
+class anomaly_detection_task_viz_template(base_task_viz_template):
     # anomaly score에 anomaly인 포인트는 마커를 다르게 설정
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
@@ -574,22 +591,158 @@ class anomaly_explanation_task_viz_template(base_task_viz_template):
     def plot(self, df, derived_df):
         merged_df = derived_df
 
-        # implementation of plot method for the base class
-        # 라인 차트 생성
-        anomaly_df = merged_df[merged_df['is_anomaly'] == True]
+        n = 50
+        date_rng = pd.date_range(start="2023-10-27 00:00:00", periods=n, freq="10s")
 
-        fig = px.line(merged_df, x=self.x, y=self.y)
-        fig.add_trace(px.scatter(anomaly_df, x=self.x, y=self.y, text='anomaly_cause').data[0])
-        fig.update_traces(marker=dict(size=12, color='red'))
-        fig.update_traces(textposition='top center')
+        # 더미 데이터 생성
+        data = {
+            "timestamp": date_rng,
+            "value": [random.uniform(0, 180) for _ in range(n)],
+            "anomaly_score": [random.uniform(0, 1) for _ in range(n)],
+            "is_anomaly": [random.choice([False, False,False, False,False, False, True, False,False,False, False, False]) for _ in range(n)],
+            "anomaly_cause": [random.choice(["workload spike", "cpu", "memory"]) for _ in range(n)]
+        }
+
+        # 데이터프레임 생성
+        df = pd.DataFrame(data)
+
+        # 그래프 생성
+        fig = go.Figure()
+
+        # 일변수 Anomaly 여부 시각화
+        fig.add_trace(go.Scatter(x=df["timestamp"], y=df["is_anomaly"], mode="lines", name="Anomaly", line=dict(color="red")))
+
+        # 그래프 레이아웃 설정
+        fig.update_layout(legend=dict(orientation="h", y=1.2, x=0)) 
+        fig.update_layout(
+            title='<b>Anomaly Detection</b>',
+            title_font=dict(size=20),
+            title_x=0.5,  # 제목의 가로 위치 (0-1),
+            width=800
+            #template = 'plotly_white'
+
+        )
+        fig.update_layout(xaxis_title="Timestamp", yaxis_title="Anomaly (True/False)")
+
+        return pn.pane.Plotly(fig)
+
+class anomaly_detection_and_explanation_task_viz_template(base_task_viz_template):
+    # anomaly score에 anomaly인 포인트는 마커를 다르게 설정
+    def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
+        super().__init__(chart_type)
+        self.x = 'timestamp'
+        self.y = y
+        self.chart_type = chart_type
+
+    def plot(self, df, derived_df):
+
+        import pytz
+
+        n = 50  # 데이터 포인트 수
+
+        # 날짜 범위 생성
+        date_rng = pd.date_range(start="2023-10-27 00:00:00", periods=n, freq="10s")
+
+        # 기본 timezone을 설정 (예: 'US/Eastern')
+        timezone = pytz.timezone('Asia/Seoul')
+
+        # 더미 데이터 생성
+        data = {
+            "timestamp": [timezone.localize(dt) for dt in date_rng],
+            "value": [random.uniform(0, 180) for _ in range(n)],
+            "anomaly_score": [random.uniform(0, 1) for _ in range(n)],
+            "anomaly_cause": [random.choice(["workload spike", "cpu", "memory"]) for _ in range(n)]
+        }
+
+        # 데이터프레임 생성
+        df = pd.DataFrame(data)
+        df["is_anomaly"] = df["anomaly_score"] >= 0.9
+
+        # 그래프 생성
+        fig = go.Figure()
+
+        # 시계열 데이터를 라인 그래프로 추가
+        fig.add_trace(go.Scatter(x=df["timestamp"], y=df["value"], mode="lines", name="Time Series"))
+
+        df_anomaly = df[df['is_anomaly']]
+
+        # anomaly score에 따라 색상 동적 설정
+        color_scale = "Reds"  # 원하는 색상 스케일 선택
+        colors = df["anomaly_score"]  # anomaly score에 따라 색상 설정
+        colorbar_title = "Anomaly Score"
+
+        # 스캐터 플롯로 추가
+        fig.add_trace(go.Scatter(x=df_anomaly["timestamp"], y=df_anomaly["value"], mode="markers", name="Anomalies",
+                                marker=dict(size=10, color=colors, colorscale=color_scale, colorbar_title=colorbar_title, line=dict(width=1, color="black"))))
+
+        # 범례를 차트 위에 추가
+        fig.update_layout(legend=dict(orientation="h", y=1.2, x=0))
+        fig.update_layout(
+            title='<b>Anomaly Detection and Explanation</b>',
+            title_font=dict(size=20),
+            title_x=0.5,
+            width=800
+        )
+
+        # is_anomaly가 True인 포인트에 빨간색 배경 표시
+        anomaly_indices = df[df["is_anomaly"] == True].index
+
+        for index in anomaly_indices:
+            fig.add_vrect(
+                x0=df["timestamp"][index] - pd.Timedelta("5s"),
+                x1=df["timestamp"][index] + pd.Timedelta("5s"),
+                fillcolor="red",
+                opacity=0.2,
+                line_width=0
+            )
+
+            annotation = go.layout.Annotation(
+                x=df["timestamp"][index],
+                y=df["value"][index],
+                text=df["anomaly_cause"][index],
+                showarrow=True,
+                arrowhead=4,
+                arrowcolor="Red",
+                arrowwidth=1,
+                bgcolor='lightgray',
+                bordercolor="darkgray",
+                borderwidth=1,
+            )
+            fig.add_annotation(annotation)
 
         return pn.pane.Plotly(fig)
 
 
 
-class anomaly_time_interval_task_viz_template(base_task_viz_template):
-    def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
-        super().__init__(chart_type)
+class anomaly_explanation_task_viz_template(base_task_viz_template):
+    def __init__(self, y=None, chart_type=None, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
+        super().__init__()
+
+    def plot(self, df, derived_df):
+        merged_df = derived_df
+
+        n = 50  # 데이터 포인트 수
+
+        # 날짜 범위 생성
+        date_rng = pd.date_range(start="2023-10-27 00:00:00", periods=n, freq="10s")
+
+        # 더미 데이터 생성
+        data = {
+            "timestamp": date_rng,
+            "is_anomaly": [random.choice([False, False,False, False,False, False, True, False,False,False, False, False]) for _ in range(n)],
+            "primary anomaly cause": [random.choice(["workload spike", "cpu", "memory"]) for _ in range(n)],
+            "secondary anomaly cause": [random.choice(["db backup", "poorly written query"]) for _ in range(n)]
+        }
+
+        # 데이터프레임 생성
+        df = pd.DataFrame(data)
+        df_anomaly = df[df['is_anomaly']==True]
+        df_anomaly = df_anomaly.drop(columns=["is_anomaly"])
+
+        table = pn.pane.DataFrame(df_anomaly, escape=False, width = 1000, index=False)
+        return pn.Column("## Anomaly Explanation", table, height=400, width=1000,align='center')
+
+
 
 class load_prediction_task_viz_template(base_task_viz_template):
     def __init__(self, y, chart_type, color=None, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
@@ -612,19 +765,14 @@ class historical_comparison_task_viz_template(base_task_viz_template):
     def plot(self, df, derived_df = None, title = ""):
         period, freq = self.time_interval
         df = df.set_index('timestamp')
-        #df.drop('timestamp', axis=1, inplace=True)
 
-        #print(period,freq)
         shifted_df = df.shift(periods = period, freq=freq)
-        #print(shifted_df)
         shifted_df=shifted_df[:max(df.index)]
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df.index, y=df[self.y], name=self.y))
         fig.add_trace(go.Scatter(x=shifted_df.index, y=shifted_df[self.y], name=self.y+str(period)+" "+freq+" ago"))
-        #display(fig)
         fig.update_layout(title = f"Historical comparison of '{self.y}' ({self.y+str(period)+' '+freq+' ago'})")
-        #fig.update_xaxes(range=[min(df.index), max(df.index)])
 
         return pn.pane.Plotly(fig)
 

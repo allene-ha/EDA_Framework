@@ -45,9 +45,10 @@ def visualize(config):
         data = response.json() # sidebar_content, schema
     else:
         print(f"Error sending configuration data. Status code: {response.status_code}")
+    import time
     schema = data['schema']
     sidebar_content = pd.DataFrame(data['sidebar_content'])
-    sidebar = get_sidebar(schema, sidebar_content)
+    sidebar = get_sidebar(schema, sidebar_content) # 오래걸림
     main = get_widgets(schema, config)
     display(pn.Row(sidebar, main))
 
