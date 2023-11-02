@@ -16,6 +16,12 @@ services:
             - NVIDIA_VISIBLE_DEVICES=all
         volumes:
           - ./:/root/DBEDA
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - capabilities: [gpu]
+
     DBEDA-client:
         shm_size: 4gb
         container_name: dbeda_client_test
@@ -31,3 +37,8 @@ services:
             - NVIDIA_VISIBLE_DEVICES=all
         volumes:
           - ./:/root/DBEDA
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - capabilities: [gpu]
