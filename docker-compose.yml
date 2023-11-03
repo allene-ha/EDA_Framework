@@ -3,7 +3,7 @@ version: "3"
 services:
     DBEDA:
         shm_size: 4gb
-        container_name: dbeda_server_test
+        container_name: dbeda_server
         image: jeha/dbeda_server:latest
         stdin_open: true
         tty: true
@@ -17,14 +17,15 @@ services:
         volumes:
           - ./:/root/DBEDA
         deploy:
-            resources:
-                reservations:
-                    devices:
-                        - capabilities: [gpu]
+          resources:
+            reservations:
+              devices:
+                - capabilities: [gpu]
+                  driver: nvidia
 
     DBEDA-client:
         shm_size: 4gb
-        container_name: dbeda_client_test
+        container_name: dbeda_client
         image: jeha/dbeda-client:latest
         stdin_open: true
         tty: true

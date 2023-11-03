@@ -1,10 +1,10 @@
 # Use a base Docker image with the desired operating system and dependencies
-FROM ubuntu:20.04
-
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu20.04
 
 # Install basic packages
 RUN apt-get update
-RUN apt-get install wget git curl make pip vim sudo tmux libpq-dev sysbench lsb-release -y
+RUN apt update
+RUN apt-get install wget git curl make pip vim sudo tmux libpq-dev sysbench lsb-release -y --fix-missing
 
 # Set the working directory inside the container
 WORKDIR /home/dbeda

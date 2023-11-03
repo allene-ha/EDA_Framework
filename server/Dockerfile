@@ -3,7 +3,8 @@ FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu20.04
 
 # Install basic packages
 RUN apt-get update
-RUN apt-get install wget git curl make pip vim sudo tmux lsb-release -y
+RUN apt update
+RUN apt-get install wget git curl make pip vim sudo tmux lsb-release -y --fix-missing
 
 # Set the working directory inside the container
 WORKDIR /home/dbeda
