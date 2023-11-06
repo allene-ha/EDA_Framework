@@ -638,8 +638,7 @@ class anomaly_detection_and_explanation_task_viz_template(base_task_viz_template
 
         import pytz
 
-        n = 50  # 데이터 포인트 수
-
+        n =  130 # 데이터 포인트 수
         # 날짜 범위 생성
         date_rng = pd.date_range(start="2023-10-27 00:00:00", periods=n, freq="10s")
 

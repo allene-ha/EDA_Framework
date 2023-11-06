@@ -208,7 +208,7 @@ def perform_data_query():
         order = args['order']
         num_of_query = int(args['num_of_query'])
 
-    if task == 'anomaly detection':
+    if task == 'anomaly analysis':
         task = args['task_type']
 
     db_id = get_dbid(args['config'])
@@ -559,11 +559,12 @@ def train():
     
     # preprocessing # not implemented
 
-    if task == 'anomaly detection':
-        train_anomaly_detection(df, pipeline, hyperparameters)
+    if task == 'anomaly analysis':
+        train_anomaly_analysis(df, pipeline, hyperparameters)
     elif task == 'load prediction':
         train_load_prediction(df, pipeline, hyperparameters)
 
+    return "train complete"
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -576,10 +577,10 @@ def predict():
     config = input_data.get('config')
     db_id = get_dbid(config)
 
-    if task == 'anomaly detection':
+    if task == 'anomaly analysis':
         data = input_data.get('data')
         df = pd.read_json(data[0])
-        result_df = predict_anomaly_detection(server_conn, db_id, df, path)
+        result_df = predict_anomaly_analysis(server_conn, db_id, df, path)
     elif task == 'load prediction':
         result_df = predict_load_prediction(server_conn, db_id, path, input_data['metric'], input_data['n'])
     
@@ -593,16 +594,19 @@ def predict():
 
 @app.route('/trained_model', methods=['GET'])
 def get_trained_models():
-    input_data = request.get_json()
+    params_json = request.args.get('params')
+    args = json.loads(params_json)
 
-    config = input_data['config']
-    task = input_data['task']
+    #config = input_data['config']
+    task = args['task']
     
     import os
     if task == 'load prediction':
-        folder_path = '/home/dbeda_framework/model/trained_model/lp'  # Replace with the path to your folder
+        folder_path = '/root/DBEDA/server/model/trained_model/lp'  # Replace with the path to your folder
+    elif task == 'anomaly analysis':
+        folder_path = '/root/DBEDA/server/model/trained_model/ade'
     else:
-        folder_path = '/home/dbeda_framework/model/trained_model/ad'
+        folder_path = '/root/DBEDA/server/model/trained_model/ad'
     file_names = os.listdir(folder_path)
     file_names = [i for i in file_names if 'ckpt' not in i]
 
@@ -616,20 +620,25 @@ def train_load_prediction(df, pipeline, hyperparameters):
         from model import darts
         darts.lp_train_with_darts(df, pipeline, hyperparameters)
 
-def train_anomaly_detection(df, pipeline, hyperparameters):
-    if pipeline in ['lstm_dynamic_threshold']:
-        print("HERE")
-        #orion.train_with_orion_pipeline(df, pipeline, hyperparameters)
-    elif pipeline in ['kmeans_scorer','pyod','wasserstein']:
+def train_anomaly_analysis(df = None, pipeline = 'anomaly_transformer', hyperparameters = {}):
+    if pipeline in ['anomaly_transformer_dbsherlock']: # anoamly detection and explanation
+        from model import anomaly_transformer
+        anomaly_transformer.ade_train_anomaly_transformer_from_dbsherlock(pipeline, hyperparameters)
+        
+    elif pipeline in ['kmeans_scorer','pyod','wasserstein']: # anomaly scorer
         from model import darts
         darts.ad_train_with_darts(df, pipeline, hyperparameters)
 
-def predict_anomaly_detection(server_conn, db_id, df, path):
+def predict_anomaly_analysis(server_conn, db_id, df, path):
     # if path.split('.')[-1] == 'pickle':
         #anomaly = orion.detect_with_orion_pipeline(server_conn, db_id, df, path)
     if path.split('_')[0] == 'darts':
         from model import darts
         anomaly = darts.ad_predict_with_darts(server_conn, db_id, df, path)
+    elif path.split('_')[0] == 'anomaly_transformer':
+        from DBAnomTransformer.detector import DBAnomDector
+        
+
     return anomaly
 
 def predict_load_prediction(server_conn, db_id, path, metric, n):

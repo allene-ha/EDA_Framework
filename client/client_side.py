@@ -52,7 +52,25 @@ def visualize(config):
     main = get_widgets(schema, config)
     display(pn.Row(sidebar, main))
 
-def train(config:dict, data:pd.DataFrame, task:str, pipeline:str='lstm_dynamic_threshold', hyperparameters:dict={}):
+
+def get_trained_model(config:dict, task:str='anomaly analysis'):
+    url = "http://localhost:85/trained_model"
+    params = {
+        'task':task,
+        #'config':config
+        }
+    response = requests.get(url, params ={'params': json.dumps(params)})
+    
+    # Check the response status code
+    if response.status_code == 200:
+        data = response.json() # sidebar_content, schema
+    else:
+        print(f"Error sending configuration data. Status code: {response.status_code}")
+
+    print(data)
+
+
+def train(config:dict, data:pd.DataFrame=pd.DataFrame(), task:str='anomaly detection', pipeline:str='lstm_dynamic_threshold', hyperparameters:dict={}):
     url = "http://localhost:85/train"
     data_post = {
         'data':data.to_json(orient='records'),

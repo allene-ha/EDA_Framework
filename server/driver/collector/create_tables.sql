@@ -89,8 +89,7 @@ CREATE TABLE anomaly_explanation (
     dbid varchar(36) NOT NULL,
     analysis_time TIMESTAMP NOT NULL,
     timestamp TIMESTAMP NOT NULL,
-    
-    score FLOAT NOT NULL,
+    anomaly_score FLOAT NOT NULL,
     is_anomaly BOOLEAN NOT NULL,
     anomaly_cause varchar(200),
     metric varchar(200),
