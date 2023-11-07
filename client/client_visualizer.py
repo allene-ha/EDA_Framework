@@ -5,6 +5,7 @@ from bokeh.models.widgets.tables import NumberFormatter, BooleanFormatter
 import datetime as dt
 from datetime import datetime, date, timedelta, timezone
 import random
+import pytz
 import plotly.express as px
 import pickle
 import requests
@@ -143,7 +144,24 @@ def load_all_metrics(config, start_time=None, end_time=None):
 
     return df
 
-def query_performance_data(config, table='all', metrics='all', task='metrics', type = None, start_time=None, end_time=None, recent_time_window=None,  order = None, num_of_query = None, split_date=None):
+def get_analysis_time(config, table):
+    url = "http://localhost:85/"
+    #print("query_performance_data", config)
+    
+    params = {
+        'table':table,
+        'config':config,
+    }
+    response = requests.get(url+"analysis_time", params ={'params': json.dumps(params)})
+    # Check the response status code
+    if response.status_code == 200:
+        data = response.json() 
+        return list(data['analysis_time'])
+    else:
+        print(f"Error sending configuration data. Status code: {response.status_code}")
+        return ValueError
+
+def query_performance_data(config, table='all', metrics='all', task='metrics', type = None, start_time=None, end_time=None, recent_time_window=None,  order = None, num_of_query = None, split_date=None, analysis_time = None):
     # data
     
     url = "http://localhost:85/"
@@ -170,6 +188,9 @@ def query_performance_data(config, table='all', metrics='all', task='metrics', t
     if order is not None:
         params['order'] = order
         params['num_of_query'] = str(num_of_query)
+    
+    if analysis_time is not None:
+        params['analysis_time'] = analysis_time
     
     print(params)
 
@@ -237,25 +258,28 @@ def get_widgets(schema, config):
                                                             'query ranking', 
                                                             'performance anomaly diagnosis', 
                                                             'anomaly analysis', 
-                                                            'delta between predicted and actual value'], width = 300)
+                                                            'delta between predicted and actual value'], width = 250)
             self.w_task_type = w.Select(name = 'Task type', options = ['anomaly time interval', 
                                                 'anomaly score', 
                                                 'anomaly detection',
                                                 'anomaly explanation',
-                                                'anomaly detection and explanation'], width = 200)
+                                                'anomaly detection and explanation'], width = 250)
 
             self.w_show_bound = w.Select(name = 'Show bounds', options = ['y','n'], width = 300)
             # 중복 허용
             self.w_data_multi = w.MultiSelect(name = 'Data', options = [i[0] for i in schema[w_table.value]], width = 300)
             # 중복 비허용
-            self.w_data_x = w.Select(name = 'Data', options = [i[0] for i in schema[w_table.value]], width = 200)
-            self.w_data_y = w.Select(name = 'Data', options = [i[0] for i in schema[w_table.value]], width = 200)
+            self.w_data_x = w.Select(name = 'Data', options = [i[0] for i in schema[w_table.value]], width = 250)
+            self.w_data_y = w.Select(name = 'Data', options = [i[0] for i in schema[w_table.value]], width = 250)
             
-            self.w_num_of_query = w.IntInput(name='# of queries', value=5, step=1, start=1, end=30, width = 200)
+            self.w_num_of_query = w.IntInput(name='# of queries', value=5, step=1, start=1, end=30, width = 250)
             self.w_color = w.Select(name = 'Color', options = ['None'] + [i[0] for i in schema[w_table.value]], width = 300)
             self.w_shape = w.Select(name = 'Shape', options = ['None'] + [i[0] for i in schema[w_table.value]], width = 300)
-            self.w_dis_type = w.Select(name = 'Type', options = ['histogram', 'box', 'violin'], width = 300)
-            self.w_cor_type = w.Select(name = 'Type', options = ['scatter', 'kernel density estimation', ], width = 300)
+            self.w_dis_type = w.Select(name = 'Type', options = ['histogram', 'box', 'violin'], width = 250)
+            self.w_analysis_time = w.Select(name = 'Analysis Time', options = [''], width = 250)
+            #self.w_dataset = w.Select(name = 'Dataset', options = ['dbsherlock_tpcc_500w'], width = 300)
+            
+            self.w_cor_type = w.Select(name = 'Type', options = ['scatter', 'kernel density estimation', ], width = 250)
             self.w_type = w.Select(name = 'Type', options = ['bar', 'line', 'area'], width = 200)
             self.w_order = w.Select(name = 'Order', options = ["ASC", "DESC"], value = 'DESC', width = 200)
             self.w_time_interval = w.Select(name = 'time interval', options = {'10 minutes':[10,'min'],
@@ -278,6 +302,9 @@ def get_widgets(schema, config):
                 # table을 한정
                 if self.w_task.value == 'query analysis' or self.w_task.value == 'query ranking':
                     w_table.value = 'query_statistics'
+                elif self.w_task_type.value == 'anomaly detection and explanation':
+                    w_table.options = ['dbsherlock_tpcc_500w','eda']
+
                 self.w_data_multi.options = [i[0] for i in schema[w_table.value]]
                 self.w_data_x.options = [i[0] for i in schema[w_table.value]]
                 self.w_data_y.options = [i[0] for i in schema[w_table.value]]
@@ -316,7 +343,10 @@ def get_widgets(schema, config):
                         self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =800, collapsible = True, collapsed = True, title = 'Options')]
                     
                     elif self.w_task_type.value == 'anomaly detection and explanation':
-                        self.widget[1].objects = [pn.Row(self.w_type, self.w_task_type)]
+                        analysis_time = get_analysis_time(config, 'anomaly_explanation') # list
+                        self.w_analysis_time.options = analysis_time
+                        self.widget[0].objects = [pn.Row(self.w_task, self.w_task_type)]
+                        self.widget[1].objects = [pn.Row(self.w_analysis_time, self.w_data_y)]
                         self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =800, collapsible = True, collapsed = True, title = 'Options')]
                     
                     else:
@@ -434,20 +464,19 @@ def get_widgets(schema, config):
                 main.append(dashboard)
 
             elif task.w_task.value == 'anomaly analysis':
-                # for demo visualization 
-                # result = query_performance_data(config, w_table.value, task.w_data_y.value, task.w_task.value, type = task.w_task_type.value, start_time='-infinity', end_time='infinity', recent_time_window='Custom')
 
-                # if task.w_task_type.value == 'anomaly detection and explanation': 
-                #     result = query_performance_data(config, w_table.value, task.w_data_y.value, task.w_task.value, type = task.w_task_type.value, start_time='-infinity', end_time='infinity', recent_time_window='Custom')
+                if task.w_task_type.value == 'anomaly detection and explanation': 
+                    result = query_performance_data(config, table = w_table.value, task = task.w_task.value, type = task.w_task_type.value, start_time='-infinity', end_time='infinity', recent_time_window='Custom', analysis_time = task.w_analysis_time.value)
                 # else: 
                 #     result = query_performance_data(config, w_table.value, task.w_data_y.value, task.w_task.value, type = task.w_task_type.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
-                           
-                # df = pd.DataFrame(result['metric'])
-                # df_task = pd.DataFrame(result['task'])
-                # df['timestamp'] = pd.to_datetime(df['timestamp'])
-                # df_task['timestamp'] = pd.to_datetime(df_task['timestamp'])
-                df_task = df = pd.DataFrame()
-
+                
+                df = pd.DataFrame(result['metric'])
+                if 'timestamp' in df.columns:
+                    df['timestamp'] = pd.to_datetime(df['timestamp'])
+                
+                df_task = pd.DataFrame(result['task'])
+                df_task['timestamp'] = pd.to_datetime(df_task['timestamp'])
+                
                 if task.w_task_type.value == 'anomaly score':
                     dashboard = anomaly_score_task_viz_template(y=task.w_data_y.value,chart_type = 'line').plot(df, derived_df=df_task)
                 #elif task.w_task_type.value == 'anomaly time interval':
@@ -457,12 +486,11 @@ def get_widgets(schema, config):
                 elif task.w_task_type.value == 'anomaly detection':
                     dashboard = anomaly_detection_task_viz_template(y=task.w_data_y.value,chart_type = 'line').plot(df, derived_df=df_task)
                 elif task.w_task_type.value == 'anomaly detection and explanation':
-                    dashboard = anomaly_detection_and_explanation_task_viz_template(y='score',chart_type = 'line').plot(df, derived_df=df_task)
-                
+                    dashboard = anomaly_detection_and_explanation_task_viz_template(y=task.w_data_y.value, chart_type = 'line').plot(df, df_task)
                 else:
                     raise AssertionError
                 main.append(dashboard)
-        NotImplemented
+        
     w_draw = w.Button(name='Draw', width = 100)
     import functools
     w_clean = w.Button(name='Clean', width = 100)
@@ -547,8 +575,7 @@ class anomaly_score_task_viz_template(base_task_viz_template):
 
     def plot(self, df, derived_df):
         merged_df = pd.merge(df, derived_df, on='timestamp')
-        print(merged_df)
-        print("PLOT")
+
         # implementation of plot method for the base class
         if self.chart_type == 'scatter':
             fig = px.scatter(merged_df, x=self.x, y=self.y, color=self.color, symbol = self.shape, size = self.size, facet_col=self.col, facet_row = self.row)
@@ -634,44 +661,26 @@ class anomaly_detection_and_explanation_task_viz_template(base_task_viz_template
         self.y = y
         self.chart_type = chart_type
 
-    def plot(self, df, derived_df):
-
-        import pytz
-
-        n =  130 # 데이터 포인트 수
-        # 날짜 범위 생성
-        date_rng = pd.date_range(start="2023-10-27 00:00:00", periods=n, freq="10s")
-
-        # 기본 timezone을 설정 (예: 'US/Eastern')
-        timezone = pytz.timezone('Asia/Seoul')
-
-        # 더미 데이터 생성
-        data = {
-            "timestamp": [timezone.localize(dt) for dt in date_rng],
-            "value": [random.uniform(0, 180) for _ in range(n)],
-            "anomaly_score": [random.uniform(0, 1) for _ in range(n)],
-            "anomaly_cause": [random.choice(["workload spike", "cpu", "memory"]) for _ in range(n)]
-        }
-
-        # 데이터프레임 생성
-        df = pd.DataFrame(data)
-        df["is_anomaly"] = df["anomaly_score"] >= 0.9
+    def plot(self, df, df_task):
+        df_task['timestamp'] = df_task['timestamp'].dt.tz_localize('Asia/Seoul')
+        df['timestamp'] = df['timestamp'].dt.tz_localize('Asia/Seoul')
 
         # 그래프 생성
         fig = go.Figure()
 
         # 시계열 데이터를 라인 그래프로 추가
-        fig.add_trace(go.Scatter(x=df["timestamp"], y=df["value"], mode="lines", name="Time Series"))
+        fig.add_trace(go.Scatter(x=df["timestamp"], y=df[self.y], mode="lines", name="Time Series"))
 
-        df_anomaly = df[df['is_anomaly']]
+        df_anomaly = df[df_task['is_anomaly']]
+        df_task_anomaly = df_task[df_task['is_anomaly']]
 
         # anomaly score에 따라 색상 동적 설정
         color_scale = "Reds"  # 원하는 색상 스케일 선택
-        colors = df["anomaly_score"]  # anomaly score에 따라 색상 설정
+        colors = df_task_anomaly["anomaly_score"]  # anomaly score에 따라 색상 설정
         colorbar_title = "Anomaly Score"
 
         # 스캐터 플롯로 추가
-        fig.add_trace(go.Scatter(x=df_anomaly["timestamp"], y=df_anomaly["value"], mode="markers", name="Anomalies",
+        fig.add_trace(go.Scatter(x=df_anomaly["timestamp"], y=df_anomaly[self.y], mode="markers", name="Anomalies",
                                 marker=dict(size=10, color=colors, colorscale=color_scale, colorbar_title=colorbar_title, line=dict(width=1, color="black"))))
 
         # 범례를 차트 위에 추가
@@ -684,7 +693,7 @@ class anomaly_detection_and_explanation_task_viz_template(base_task_viz_template
         )
 
         # is_anomaly가 True인 포인트에 빨간색 배경 표시
-        anomaly_indices = df[df["is_anomaly"] == True].index
+        anomaly_indices = df_anomaly.index
 
         for index in anomaly_indices:
             fig.add_vrect(
@@ -697,8 +706,8 @@ class anomaly_detection_and_explanation_task_viz_template(base_task_viz_template
 
             annotation = go.layout.Annotation(
                 x=df["timestamp"][index],
-                y=df["value"][index],
-                text=df["anomaly_cause"][index],
+                y=df[self.y][index],
+                text=df_task["anomaly_cause"][index],
                 showarrow=True,
                 arrowhead=4,
                 arrowcolor="Red",

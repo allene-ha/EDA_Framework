@@ -1,7 +1,7 @@
 import json
 
 
-path = '/root/Anomaly_Explanation/dataset/dbsherlock/converted/tpcc_16w_test.json'
+path = '/root/Anomaly_Explanation/dataset/dbsherlock/converted/tpcc_500w_test.json'
 
  
 # Opening JSON file

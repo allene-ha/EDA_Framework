@@ -210,36 +210,49 @@ def perform_data_query():
 
     if task == 'anomaly analysis':
         task = args['task_type']
+    
+    if 'analysis_time' in args:
+        analysis_time = args['analysis_time']
 
     db_id = get_dbid(args['config'])
     collect_interval = args['config']['interval']
     
 
     data = {}
-    if type(metrics) == str:
-        metric_string = metrics
-    else:
-        metric_string = ', '.join(metrics)
-    # SQL 쿼리문 작성
-    if recent_time_window == 'Custom':
-        sql_query = f"""SELECT timestamp, {metric_string} FROM {table} 
-                        WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
-                        AND dbid = '{db_id}'
-                        ORDER BY timestamp ASC;"""
-    else:
-        sql_query = f"""SELECT timestamp, {metric_string} FROM {table}  
-                        WHERE timestamp BETWEEN (NOW() - INTERVAL '{recent_time_window}') AND NOW()
-                        AND dbid = '{db_id}'
-                        ORDER BY timestamp ASC;"""
 
-    print(sql_query)
-        # Pandas DataFrame으로 변환
-    df_metrics = pd.read_sql_query(sql_query, server_engine)
-    print(df_metrics)
-    df_metrics = preprocess_dataframe(df_metrics, collect_interval)
-    df_metrics['timestamp'] = df_metrics['timestamp'].astype(str)
-    
-    print(df_metrics)
+    # fetch metric data
+    if task == 'anomaly detection and explanation' or task == 'anomaly analysis':
+        if metrics == 'all':
+            sql_query = f"""SELECT * FROM {table} """
+            if 'analysis_time' in args:
+                sql_query += f"""where analysis_time = '{analysis_time}' """
+            sql_query += f"""ORDER BY timestamp ASC;"""
+            df_metrics = pd.read_sql_query(sql_query, server_engine)
+            # df_metrics = preprocess_dataframe(df_metrics, collect_interval)
+            df_metrics['timestamp'] = df_metrics['timestamp'].astype(str)
+        
+    else:
+        if type(metrics) == str:
+            metric_string = metrics
+        else:
+            metric_string = ', '.join(metrics)
+        # SQL 쿼리문 작성
+        if recent_time_window == 'Custom':
+            sql_query = f"""SELECT timestamp, {metric_string} FROM {table} 
+                            WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
+                            AND dbid = '{db_id}'
+                            ORDER BY timestamp ASC;"""
+        else:
+            sql_query = f"""SELECT timestamp, {metric_string} FROM {table}  
+                            WHERE timestamp BETWEEN (NOW() - INTERVAL '{recent_time_window}') AND NOW()
+                            AND dbid = '{db_id}'
+                            ORDER BY timestamp ASC;"""
+
+            # Pandas DataFrame으로 변환
+        df_metrics = pd.read_sql_query(sql_query, server_engine)
+        df_metrics = preprocess_dataframe(df_metrics, collect_interval)
+        df_metrics['timestamp'] = df_metrics['timestamp'].astype(str)
+        
     if task == 'metrics':
         data['metric'] = df_metrics.to_dict()
        
@@ -353,20 +366,22 @@ def perform_data_query():
 
         df_task = pd.read_sql_query(sql_query, server_engine)
         df_task = preprocess_dataframe(df_task, collect_interval)
-    elif task == 'anomaly explanation':
+    elif task == 'anomaly detection and explanation':
         data['metric'] = df_metrics.to_dict()
-        sql_query = f"""SELECT timestamp, score, is_anomaly, anomaly_cause, analysis_time FROM anomaly_explanation """
-        
-        sql_query += f"""WHERE dbid = '{db_id}' ORDER BY timestamp ASC;"""
+
+        sql_query = f"""SELECT timestamp, anomaly_score, is_anomaly, anomaly_cause, analysis_time FROM anomaly_explanation """
+        sql_query += f"""WHERE dbid = '{db_id}' """
+        if 'analysis_time' in args:
+            sql_query += f""" and analysis_time = '{analysis_time}'"""
+
+        sql_query += """ORDER BY timestamp ASC;"""
         # if recent_time_window == 'Custom':
         #     sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
         #                     AND dbid = '{db_id}'
-        #                     AND (metric = '{metric_string}' OR metric IS NULL)
         #                     ORDER BY timestamp ASC;"""
         # else:
         #     sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
         #                     AND dbid = '{db_id}'
-        #                     AND metric = '{metric_string}'
         #                     ORDER BY timestamp ASC;"""
 
         df_task = pd.read_sql_query(sql_query, server_engine)
@@ -379,6 +394,25 @@ def perform_data_query():
         df_task['analysis_time'] = df_task['analysis_time'].astype(str)
     data['task'] = df_task.to_dict()    
     return json.dumps(data)
+
+
+@app.route('/analysis_time', methods=['GET'])
+def get_analysis_time():
+    params_json = request.args.get('params')
+    args = json.loads(params_json)
+
+    table = args['table']
+    db_id = get_dbid(args['config'])
+
+    sql_query = f'SELECT DISTINCT analysis_time from {table}'
+    result_df = pd.read_sql_query(sql_query, server_engine)
+    result = result_df['analysis_time'].astype(str)
+    print(result_df)
+    response = {}
+    response['analysis_time'] = list(result)
+    print(response['analysis_time'])
+    return json.dumps(response)
+
 
 
 @app.route('/schema', methods=['GET'])
@@ -579,7 +613,7 @@ def predict():
 
     if task == 'anomaly analysis':
         data = input_data.get('data')
-        df = pd.read_json(data[0])
+        df = pd.read_json(data)
         result_df = predict_anomaly_analysis(server_conn, db_id, df, path)
     elif task == 'load prediction':
         result_df = predict_load_prediction(server_conn, db_id, path, input_data['metric'], input_data['n'])
@@ -635,8 +669,9 @@ def predict_anomaly_analysis(server_conn, db_id, df, path):
     if path.split('_')[0] == 'darts':
         from model import darts
         anomaly = darts.ad_predict_with_darts(server_conn, db_id, df, path)
-    elif path.split('_')[0] == 'anomaly_transformer':
-        from DBAnomTransformer.detector import DBAnomDector
+    elif path.split('_')[0] == 'DBAT':
+        from model import anomaly_transformer
+        anomaly = anomaly_transformer.ade_predict_anomaly_transformer(server_conn, db_id, df, path)
         
 
     return anomaly
