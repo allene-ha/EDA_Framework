@@ -28,7 +28,7 @@ To set up the client component, follow these steps:
    ```
 
 ## Example Usage
-Click `client_tutorial.ipynb`
+Click `tutorial.ipynb`
 
 ### Register Database Configuration
 
