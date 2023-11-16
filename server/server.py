@@ -35,6 +35,7 @@ scheduler = BlockingScheduler(daemon = True, job_defaults={'max_instances': 20})
 with open('../port.json', 'r') as json_file:
     data = json.load(json_file)
     server_db_port = data.get('serverdb')
+    server_port = data.get('server')
 
 # Replace the placeholder values with your actual database connection details
 server_engine = create_engine(f'postgresql://postgres:postgres@localhost:{server_db_port}/dbeda')
@@ -699,4 +700,4 @@ def predict_load_prediction(server_conn, db_id, path, metric, n):
 
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=84, debug=True)
+    app.run(host="0.0.0.0", port=server_port, debug=True)
