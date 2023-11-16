@@ -2,7 +2,6 @@
 CREATE TABLE bgwriter (
     timestamp TIMESTAMP,
     dbid varchar(36),
-   
     PRIMARY KEY (timestamp)
 );
 CREATE TABLE access (
@@ -61,7 +60,7 @@ CREATE TABLE query_statistics (
 CREATE TABLE performance (
     timestamp TIMESTAMP,
     dbid varchar(36), 
-    PRIMARY KEY (timestamp, queryid)
+    PRIMARY KEY (timestamp)
 );
 
 

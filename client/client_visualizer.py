@@ -69,7 +69,9 @@ css = '''
 pn.extension('plotly','tabulator',  sizing_mode = 'stretch_width', css_files=[pn.io.resources.CSS_URLS['font-awesome']], raw_css = [css])
 ui = None #,
 px.defaults.template = "plotly_white"
-
+with open('../port.json', 'r') as json_file:
+    data = json.load(json_file)
+    server_port = data.get('server')
 
 def get_sidebar(schema, sidebar_content):
     
@@ -118,7 +120,7 @@ def query_all_metrics_into_csv(config, save_dir, cause):
 
 
 def load_all_metrics(config, start_time=None, end_time=None):
-    url = "http://localhost:85/"
+    url = f"http://localhost:{server_port}/"
     
     params = {
         'config':config,
@@ -145,7 +147,7 @@ def load_all_metrics(config, start_time=None, end_time=None):
     return df
 
 def get_analysis_time(config, table):
-    url = "http://localhost:85/"
+    url = f"http://localhost:{server_port}/"
     #print("query_performance_data", config)
     
     params = {
@@ -164,7 +166,7 @@ def get_analysis_time(config, table):
 def query_performance_data(config, table='all', metrics='all', task='metrics', type = None, start_time=None, end_time=None, recent_time_window=None,  order = None, num_of_query = None, split_date=None, analysis_time = None):
     # data
     
-    url = "http://localhost:85/"
+    url = f"http://localhost:{server_port}/"
     #print("query_performance_data", config)
     
     params = {
@@ -237,7 +239,7 @@ def get_widgets(schema, config):
                                                     'Last 12 hours':'12 hours',
                                                     'Last 24 hours':'1 day', 'Custom':''}, width = 220)
     # custom 선택되면 time range 선택하는 위젯 visible하게 변경
-    w_time_custom = w.DatetimeRangePicker(name='', value=(datetime.now() - timedelta(minutes = 30), datetime.now()), width = 220)
+    w_time_custom = w.DatetimeRangePicker(name='Custom time', value=(datetime.now() - timedelta(minutes = 30), datetime.now()), width = 220)
     w_time_custom.disabled = True
     w_refresh = w.Select(name = 'Auto refresh', options = {'Off':'None',  'Every 5 minutes':300000, 
                                                                             'Every 10 minutes': 600000, 
@@ -364,7 +366,7 @@ def get_widgets(schema, config):
             
 
 
-    widgets = pn.Row(w_title, w_table, pn.Column(w_time, w_time_custom))#, w_refresh, )
+    widgets = pn.Row(w_title, w_table, w_time, w_time_custom)#, w_refresh, )
     def custom_time(event):
         if w_time.value == '':
             w_time_custom.disabled = False

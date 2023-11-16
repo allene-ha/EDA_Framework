@@ -20,7 +20,7 @@ RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo 
 RUN apt-get update
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y install postgresql-14 
-EXPOSE 5434
+EXPOSE 5438
 RUN service postgresql restart
 # Set the PostgreSQL user 'postgres' password to 'postgres'
 
@@ -38,7 +38,7 @@ RUN echo "pg_stat_statements.track = all" >> /etc/postgresql/14/main/postgresql.
 
 # Register the allowed IP address in pg_hba.conf
 RUN echo "host all all 0.0.0.0/0 md5" >> /etc/postgresql/14/main/pg_hba.conf
-RUN sed -i 's/port = 5432/port = 5434/g' /etc/postgresql/14/main/postgresql.conf
+RUN sed -i 's/port = 5432/port = 5438/g' /etc/postgresql/14/main/postgresql.conf
 RUN export PATH=$PATH:~/.local/bin
 
 USER root

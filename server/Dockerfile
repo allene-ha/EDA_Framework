@@ -20,7 +20,7 @@ RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo 
 RUN apt-get update
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y install postgresql-14 
-EXPOSE 5433
+EXPOSE 5437
 RUN service postgresql restart
 # Set the PostgreSQL user 'postgres' password to 'postgres'
 
@@ -32,7 +32,7 @@ psql -c "CREATE DATABASE dbeda;" && \
 psql -d dbeda -c "CREATE TABLE db_config (id VARCHAR(50) PRIMARY KEY, db_type VARCHAR(50) NOT NULL, db_host VARCHAR(50) NOT NULL, db_port VARCHAR(50) NOT NULL, db_name VARCHAR(50) NOT NULL, db_user VARCHAR(50) NOT NULL, db_password VARCHAR(50) NOT NULL);"
 
 
-RUN sed -i 's/port = 5432/port = 5433/g' /etc/postgresql/14/main/postgresql.conf
+RUN sed -i 's/port = 5432/port = 5437/g' /etc/postgresql/14/main/postgresql.conf
 RUN echo "host all all 0.0.0.0/0 md5" >> /etc/postgresql/14/main/pg_hba.conf
 RUN echo "listen_addresses='*'" >> /etc/postgresql/14/main/postgresql.conf
 

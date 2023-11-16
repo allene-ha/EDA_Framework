@@ -32,15 +32,20 @@ from driver.pipeline import (
 # Setup the scheduler that will poll for new configs and run the core pipeline
 scheduler = BlockingScheduler(daemon = True, job_defaults={'max_instances': 20})
 
+with open('../port.json', 'r') as json_file:
+    data = json.load(json_file)
+    server_db_port = data.get('serverdb')
+
 # Replace the placeholder values with your actual database connection details
-server_engine = create_engine('postgresql://postgres:postgres@localhost:5433/dbeda')
+server_engine = create_engine(f'postgresql://postgres:postgres@localhost:{server_db_port}/dbeda')
+
 
 server_conn = psycopg2.connect(
         host='localhost',
         database='dbeda',
         user='postgres',
         password='postgres',
-        port=5433
+        port=server_db_port,
     )
 
 def schedule_db_level_monitor_job(config, db_id) -> None:
@@ -250,6 +255,8 @@ def perform_data_query():
 
             # Pandas DataFrame으로 변환
         df_metrics = pd.read_sql_query(sql_query, server_engine)
+        print(sql_query)
+        print(df_metrics)
         df_metrics = preprocess_dataframe(df_metrics, collect_interval)
         df_metrics['timestamp'] = df_metrics['timestamp'].astype(str)
         
@@ -686,4 +693,4 @@ def predict_load_prediction(server_conn, db_id, path, metric, n):
 
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=85, debug=True)
+    app.run(host="0.0.0.0", port=84, debug=True)
