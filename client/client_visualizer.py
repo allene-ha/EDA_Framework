@@ -514,7 +514,7 @@ def get_widgets(schema, config):
         df_task = pd.DataFrame(result['task'])
         df_task['timestamp'] = pd.to_datetime(df_task['timestamp'])
         
-        dashboard = anomaly_detection_and_explanation_task_viz_template(y=task.w_data_y.value, chart_type = 'line').plot(df, df_task)
+        dashboard = anomaly_detection_and_explanation_task_viz_template(y=task.w_data_multi.value[0], chart_type = 'line').plot(df, df_task)
        
         main.append(dashboard)
 
