@@ -2,7 +2,6 @@
 CREATE TABLE bgwriter (
     timestamp TIMESTAMP,
     dbid varchar(36),
-   
     PRIMARY KEY (timestamp)
 );
 CREATE TABLE access (
@@ -61,7 +60,7 @@ CREATE TABLE query_statistics (
 CREATE TABLE performance (
     timestamp TIMESTAMP,
     dbid varchar(36), 
-    PRIMARY KEY (timestamp, queryid)
+    PRIMARY KEY (timestamp)
 );
 
 
@@ -89,10 +88,10 @@ CREATE TABLE anomaly_explanation (
     dbid varchar(36) NOT NULL,
     analysis_time TIMESTAMP NOT NULL,
     timestamp TIMESTAMP NOT NULL,
-    
-    score FLOAT NOT NULL,
+    anomaly_score FLOAT NOT NULL,
     is_anomaly BOOLEAN NOT NULL,
     anomaly_cause varchar(200),
+    dataset varchar(36),
     metric varchar(200),
     PRIMARY KEY (dbid, timestamp, analysis_time)
 );

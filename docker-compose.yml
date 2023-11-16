@@ -17,10 +17,11 @@ services:
         volumes:
           - ./:/root/DBEDA
         deploy:
-            resources:
-                reservations:
-                    devices:
-                        - capabilities: [gpu]
+          resources:
+            reservations:
+              devices:
+                - capabilities: [gpu]
+                  driver: nvidia
 
     DBEDA-client-hkkang:
         shm_size: 4gb

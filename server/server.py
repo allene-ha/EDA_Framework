@@ -32,15 +32,20 @@ from driver.pipeline import (
 # Setup the scheduler that will poll for new configs and run the core pipeline
 scheduler = BlockingScheduler(daemon = True, job_defaults={'max_instances': 20})
 
+with open('../port.json', 'r') as json_file:
+    data = json.load(json_file)
+    server_db_port = data.get('serverdb')
+
 # Replace the placeholder values with your actual database connection details
-server_engine = create_engine('postgresql://postgres:postgres@localhost:5433/dbeda')
+server_engine = create_engine(f'postgresql://postgres:postgres@localhost:{server_db_port}/dbeda')
+
 
 server_conn = psycopg2.connect(
         host='localhost',
         database='dbeda',
         user='postgres',
         password='postgres',
-        port=5433
+        port=server_db_port,
     )
 
 def schedule_db_level_monitor_job(config, db_id) -> None:
@@ -208,38 +213,59 @@ def perform_data_query():
         order = args['order']
         num_of_query = int(args['num_of_query'])
 
-    if task == 'anomaly detection':
+    if task == 'anomaly analysis':
         task = args['task_type']
+    
+    if 'analysis_time' in args:
+        analysis_time = args['analysis_time']
 
     db_id = get_dbid(args['config'])
     collect_interval = args['config']['interval']
     
 
     data = {}
-    if type(metrics) == str:
-        metric_string = metrics
-    else:
-        metric_string = ', '.join(metrics)
-    # SQL 쿼리문 작성
-    if recent_time_window == 'Custom':
-        sql_query = f"""SELECT timestamp, {metric_string} FROM {table} 
-                        WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
-                        AND dbid = '{db_id}'
-                        ORDER BY timestamp ASC;"""
-    else:
-        sql_query = f"""SELECT timestamp, {metric_string} FROM {table}  
-                        WHERE timestamp BETWEEN (NOW() - INTERVAL '{recent_time_window}') AND NOW()
-                        AND dbid = '{db_id}'
-                        ORDER BY timestamp ASC;"""
 
-    print(sql_query)
-        # Pandas DataFrame으로 변환
-    df_metrics = pd.read_sql_query(sql_query, server_engine)
-    print(df_metrics)
-    df_metrics = preprocess_dataframe(df_metrics, collect_interval)
-    df_metrics['timestamp'] = df_metrics['timestamp'].astype(str)
-    
-    print(df_metrics)
+    # fetch metric data
+    if task == 'anomaly detection and explanation' or task == 'anomaly analysis':
+        if metrics == 'all':
+            sql_query = f"""SELECT * FROM {table} """
+            if 'analysis_time' in args:
+                sql_query += f"""where analysis_time = '{analysis_time}' """
+            sql_query += f"""ORDER BY timestamp ASC;"""
+            df_metrics = pd.read_sql_query(sql_query, server_engine)
+            # df_metrics = preprocess_dataframe(df_metrics, collect_interval)
+            df_metrics['timestamp'] = df_metrics['timestamp'].astype(str)
+        
+    else:
+        if type(metrics) == str:
+            metric_string = metrics
+        else:
+            metric_string = ', '.join(metrics)
+        # SQL 쿼리문 작성
+        if recent_time_window == 'Custom':
+            sql_query = f"""SELECT timestamp, {metric_string} FROM {table} 
+                            WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
+                            AND dbid = '{db_id}'
+                            ORDER BY timestamp ASC;"""
+        else:
+            sql_query = f"""SELECT timestamp, {metric_string} FROM {table}  
+                            WHERE timestamp >= NOW() - INTERVAL '{recent_time_window}'
+                            AND dbid = '{db_id}'
+                            ORDER BY timestamp ASC;"""
+
+
+# SELECT timestamp, tps FROM performance  
+# WHERE timestamp >= now() - INTERVAL '10 MINUTE' 
+
+# AND  dbid = 'e8345ecc-d9b8-420c-a4ac-2baf71765aa6'
+# ORDER BY timestamp ASC;
+            # Pandas DataFrame으로 변환
+        df_metrics = pd.read_sql_query(sql_query, server_engine)
+        print(sql_query)
+        print(df_metrics)
+        df_metrics = preprocess_dataframe(df_metrics, collect_interval)
+        df_metrics['timestamp'] = df_metrics['timestamp'].astype(str)
+        
     if task == 'metrics':
         data['metric'] = df_metrics.to_dict()
        
@@ -353,20 +379,22 @@ def perform_data_query():
 
         df_task = pd.read_sql_query(sql_query, server_engine)
         df_task = preprocess_dataframe(df_task, collect_interval)
-    elif task == 'anomaly explanation':
+    elif task == 'anomaly detection and explanation':
         data['metric'] = df_metrics.to_dict()
-        sql_query = f"""SELECT timestamp, score, is_anomaly, anomaly_cause, analysis_time FROM anomaly_explanation """
-        
-        sql_query += f"""WHERE dbid = '{db_id}' ORDER BY timestamp ASC;"""
+
+        sql_query = f"""SELECT timestamp, anomaly_score, is_anomaly, anomaly_cause, analysis_time FROM anomaly_explanation """
+        sql_query += f"""WHERE dbid = '{db_id}' """
+        if 'analysis_time' in args:
+            sql_query += f""" and analysis_time = '{analysis_time}'"""
+
+        sql_query += """ORDER BY timestamp ASC;"""
         # if recent_time_window == 'Custom':
         #     sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
         #                     AND dbid = '{db_id}'
-        #                     AND (metric = '{metric_string}' OR metric IS NULL)
         #                     ORDER BY timestamp ASC;"""
         # else:
         #     sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
         #                     AND dbid = '{db_id}'
-        #                     AND metric = '{metric_string}'
         #                     ORDER BY timestamp ASC;"""
 
         df_task = pd.read_sql_query(sql_query, server_engine)
@@ -379,6 +407,25 @@ def perform_data_query():
         df_task['analysis_time'] = df_task['analysis_time'].astype(str)
     data['task'] = df_task.to_dict()    
     return json.dumps(data)
+
+
+@app.route('/analysis_time', methods=['GET'])
+def get_analysis_time():
+    params_json = request.args.get('params')
+    args = json.loads(params_json)
+
+    table = args['table']
+    db_id = get_dbid(args['config'])
+
+    sql_query = f'SELECT DISTINCT analysis_time from {table}'
+    result_df = pd.read_sql_query(sql_query, server_engine)
+    result = result_df['analysis_time'].astype(str)
+    print(result_df)
+    response = {}
+    response['analysis_time'] = list(result)
+    print(response['analysis_time'])
+    return json.dumps(response)
+
 
 
 @app.route('/schema', methods=['GET'])
@@ -559,11 +606,12 @@ def train():
     
     # preprocessing # not implemented
 
-    if task == 'anomaly detection':
-        train_anomaly_detection(df, pipeline, hyperparameters)
+    if task == 'anomaly analysis':
+        train_anomaly_analysis(df, pipeline, hyperparameters)
     elif task == 'load prediction':
         train_load_prediction(df, pipeline, hyperparameters)
 
+    return "train complete"
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -576,10 +624,10 @@ def predict():
     config = input_data.get('config')
     db_id = get_dbid(config)
 
-    if task == 'anomaly detection':
+    if task == 'anomaly analysis':
         data = input_data.get('data')
-        df = pd.read_json(data[0])
-        result_df = predict_anomaly_detection(server_conn, db_id, df, path)
+        df = pd.read_json(data)
+        result_df = predict_anomaly_analysis(server_conn, db_id, df, path)
     elif task == 'load prediction':
         result_df = predict_load_prediction(server_conn, db_id, path, input_data['metric'], input_data['n'])
     
@@ -593,16 +641,19 @@ def predict():
 
 @app.route('/trained_model', methods=['GET'])
 def get_trained_models():
-    input_data = request.get_json()
+    params_json = request.args.get('params')
+    args = json.loads(params_json)
 
-    config = input_data['config']
-    task = input_data['task']
+    #config = input_data['config']
+    task = args['task']
     
     import os
     if task == 'load prediction':
-        folder_path = '/home/dbeda_framework/model/trained_model/lp'  # Replace with the path to your folder
+        folder_path = '/root/DBEDA/server/model/trained_model/lp'  # Replace with the path to your folder
+    elif task == 'anomaly analysis':
+        folder_path = '/root/DBEDA/server/model/trained_model/ade'
     else:
-        folder_path = '/home/dbeda_framework/model/trained_model/ad'
+        folder_path = '/root/DBEDA/server/model/trained_model/ad'
     file_names = os.listdir(folder_path)
     file_names = [i for i in file_names if 'ckpt' not in i]
 
@@ -616,20 +667,26 @@ def train_load_prediction(df, pipeline, hyperparameters):
         from model import darts
         darts.lp_train_with_darts(df, pipeline, hyperparameters)
 
-def train_anomaly_detection(df, pipeline, hyperparameters):
-    if pipeline in ['lstm_dynamic_threshold']:
-        print("HERE")
-        #orion.train_with_orion_pipeline(df, pipeline, hyperparameters)
-    elif pipeline in ['kmeans_scorer','pyod','wasserstein']:
+def train_anomaly_analysis(df = None, pipeline = 'anomaly_transformer', hyperparameters = {}):
+    if pipeline in ['anomaly_transformer_dbsherlock']: # anoamly detection and explanation
+        from model import anomaly_transformer
+        anomaly_transformer.ade_train_anomaly_transformer_from_dbsherlock(pipeline, hyperparameters)
+        
+    elif pipeline in ['kmeans_scorer','pyod','wasserstein']: # anomaly scorer
         from model import darts
         darts.ad_train_with_darts(df, pipeline, hyperparameters)
 
-def predict_anomaly_detection(server_conn, db_id, df, path):
+def predict_anomaly_analysis(server_conn, db_id, df, path):
     # if path.split('.')[-1] == 'pickle':
         #anomaly = orion.detect_with_orion_pipeline(server_conn, db_id, df, path)
     if path.split('_')[0] == 'darts':
         from model import darts
         anomaly = darts.ad_predict_with_darts(server_conn, db_id, df, path)
+    elif path.split('_')[0] == 'DBAT':
+        from model import anomaly_transformer
+        anomaly = anomaly_transformer.ade_predict_anomaly_transformer(server_conn, db_id, df, path)
+        
+
     return anomaly
 
 def predict_load_prediction(server_conn, db_id, path, metric, n):
@@ -642,4 +699,4 @@ def predict_load_prediction(server_conn, db_id, path, metric, n):
 
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=85, debug=True)
+    app.run(host="0.0.0.0", port=84, debug=True)

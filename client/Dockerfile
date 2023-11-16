@@ -1,10 +1,10 @@
 # Use a base Docker image with the desired operating system and dependencies
-FROM ubuntu:20.04
-
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu20.04
 
 # Install basic packages
 RUN apt-get update
-RUN apt-get install wget git curl make pip vim sudo tmux libpq-dev sysbench lsb-release -y
+RUN apt update
+RUN apt-get install wget git curl make pip vim sudo tmux libpq-dev sysbench lsb-release -y --fix-missing
 
 # Set the working directory inside the container
 WORKDIR /home/dbeda
@@ -20,7 +20,7 @@ RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo 
 RUN apt-get update
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y install postgresql-14 
-EXPOSE 5434
+EXPOSE 5438
 RUN service postgresql restart
 # Set the PostgreSQL user 'postgres' password to 'postgres'
 
@@ -38,7 +38,7 @@ RUN echo "pg_stat_statements.track = all" >> /etc/postgresql/14/main/postgresql.
 
 # Register the allowed IP address in pg_hba.conf
 RUN echo "host all all 0.0.0.0/0 md5" >> /etc/postgresql/14/main/pg_hba.conf
-RUN sed -i 's/port = 5432/port = 5434/g' /etc/postgresql/14/main/postgresql.conf
+RUN sed -i 's/port = 5432/port = 5438/g' /etc/postgresql/14/main/postgresql.conf
 RUN export PATH=$PATH:~/.local/bin
 
 USER root
