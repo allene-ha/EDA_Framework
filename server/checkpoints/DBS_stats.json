@@ -1,0 +1,5 @@
+{
+    "anomaly_threshold": 0.26461836584650283,
+    "stats_weight": 0.03,
+    "stats_feat_dim": 1
+}
