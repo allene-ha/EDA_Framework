@@ -273,7 +273,7 @@ def perform_data_query():
         df_metrics = preprocess_dataframe(df_metrics, collect_interval)
         df_metrics['timestamp'] = df_metrics['timestamp'].astype(str)
         
-    if task == 'metrics':
+    if task == 'timeseries analysis':
         data['metric'] = df_metrics.to_dict()
        
         return json.dumps(data)
