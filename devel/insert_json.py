@@ -5,7 +5,8 @@ json_file_path = 'workload_spike_1_result.json'
 df = pd.read_json(json_file_path)
 df['analysis_time'] = datetime.datetime.now()
 df['timestamp'] = df.index
-df['dbid'] = '323dc0c5-6c1a-4bfa-b34a-398ade69251d'
+# df['dbid'] = '323dc0c5-6c1a-4bfa-b34a-398ade69251d'
+df['dbid'] = '1de2a78b-1362-4062-b852-26a1df3dfdbd'
 
 print(df)
 
