@@ -14,6 +14,7 @@ metric_tables = ['bgwriter', 'access', 'io', 'os_metric', 'sessions', 'active_se
 non_default_table = ['sessions', 'active_sessions', 'waiting_sessions','query_statistics']
 derived_metric_tables = ['load_prediction', 'anomaly_time_interval', 'anomaly_scorer', 'anomaly_detector']
 db_statistics_tables = ['database_statistics', 'conflicts']
+datasets = ['dbsherlock']
 
 """
 The main entrypoint for the driver. The driver will poll for new configurations and schedule
@@ -230,8 +231,6 @@ def perform_data_query():
     if task == 'anomaly detection and explanation' or task == 'anomaly analysis':
         if metrics == 'all':
             sql_query = f"""SELECT * FROM {table} """
-            if 'analysis_time' in args:
-                sql_query += f"""where analysis_time = '{analysis_time}' """
             sql_query += f"""ORDER BY timestamp ASC;"""
             df_metrics = pd.read_sql_query(sql_query, server_engine)
             # df_metrics = preprocess_dataframe(df_metrics, collect_interval)
@@ -243,24 +242,31 @@ def perform_data_query():
         else:
             metric_string = ', '.join(metrics)
         # SQL 쿼리문 작성
-        if recent_time_window == 'Custom':
-            sql_query = f"""SELECT timestamp, {metric_string} FROM {table} 
-                            WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
-                            AND dbid = '{db_id}'
-                            ORDER BY timestamp ASC;"""
+        sql_query = ''
+        
+        # Select From
+        if metrics == 'all':
+            sql_query += f"""SELECT * FROM {table} """  
         else:
-            sql_query = f"""SELECT timestamp, {metric_string} FROM {table}  
-                            WHERE timestamp >= NOW() - INTERVAL '{recent_time_window}'
+            sql_query += f"""SELECT timestamp, {metric_string} FROM {table} """
+
+        # Where
+        if recent_time_window == 'Custom':
+            sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
+                            AND dbid = '{db_id}'
+                            ORDER BY timestamp ASC;"""
+        elif recent_time_window == 'All':
+            if table in datasets:
+                sql_query += f"""ORDER BY timestamp ASC;"""
+            else:
+                sql_query += f"""WHERE dbid = '{db_id}'
+                                ORDER BY timestamp ASC;"""
+        else:
+            sql_query += f"""WHERE timestamp >= NOW() - INTERVAL '{recent_time_window}'
                             AND dbid = '{db_id}'
                             ORDER BY timestamp ASC;"""
 
 
-# SELECT timestamp, tps FROM performance  
-# WHERE timestamp >= now() - INTERVAL '10 MINUTE' 
-
-# AND  dbid = 'e8345ecc-d9b8-420c-a4ac-2baf71765aa6'
-# ORDER BY timestamp ASC;
-            # Pandas DataFrame으로 변환
         df_metrics = pd.read_sql_query(sql_query, server_engine)
         print(sql_query)
         print(df_metrics)
@@ -385,21 +391,11 @@ def perform_data_query():
 
         sql_query = f"""SELECT timestamp, anomaly_score, is_anomaly, anomaly_cause, analysis_time FROM anomaly_explanation """
         sql_query += f"""WHERE dbid = '{db_id}' """
-        if 'analysis_time' in args:
+        if 'analysis_time' in args and analysis_time != '':
             sql_query += f""" and analysis_time = '{analysis_time}'"""
 
         sql_query += """ORDER BY timestamp ASC;"""
-        # if recent_time_window == 'Custom':
-        #     sql_query += f"""WHERE timestamp BETWEEN '{start_time}' AND '{end_time}'
-        #                     AND dbid = '{db_id}'
-        #                     ORDER BY timestamp ASC;"""
-        # else:
-        #     sql_query += f"""WHERE timestamp BETWEEN NOW() - INTERVAL '{recent_time_window}' AND NOW()
-        #                     AND dbid = '{db_id}'
-        #                     ORDER BY timestamp ASC;"""
-
         df_task = pd.read_sql_query(sql_query, server_engine)
-        #df_task = preprocess_dataframe(df_task, collect_interval)
 
     
     if 'timestamp' in df_task:
@@ -431,6 +427,7 @@ def get_analysis_time():
 
 @app.route('/schema', methods=['GET'])
 def get_schema():
+    
     config = request.args.to_dict()
     db_id = get_dbid(config)
     # 커서 생성
@@ -456,7 +453,8 @@ def get_schema():
             continue
         cur.execute(f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{table_name}'")
         table_columns = cur.fetchall()
-
+        if len(table_columns) <= 2:
+            continue
         # primary key 확인
         cur.execute(f"""
             SELECT CC.COLUMN_NAME AS COLUMN_NAME
@@ -474,8 +472,7 @@ def get_schema():
         primary_key_columns = cur.fetchall()
 
         if 'dbid' in [column[0] for column in table_columns]:
-            cur.execute(f"SELECT * FROM public.{table_name} WHERE dbid = '{db_id}'")
-            
+            cur.execute(f"SELECT * FROM public.{table_name} WHERE dbid = '{db_id}'") 
             if cur.fetchone():
                 for column in table_columns:
                     key = False
@@ -484,6 +481,19 @@ def get_schema():
                     new_df = pd.DataFrame({'table': [table_name], 'column':[column[0]], 'type':[column[1]], 'key':[key]})
                     result = pd.concat([result, new_df],ignore_index=True)
                 schema[table_name] = table_columns
+        
+        elif table_name in datasets:
+            cur.execute(f"SELECT * FROM public.{table_name}")
+            if cur.fetchone():
+                for column in table_columns:
+                    key = False
+                    if column in primary_key_columns:
+                        key = True
+                    new_df = pd.DataFrame({'table': [table_name], 'column':[column[0]], 'type':[column[1]], 'key':[key]})
+                    result = pd.concat([result, new_df],ignore_index=True)
+                schema[table_name] = table_columns
+            print(schema[table_name])
+
 
     # 커서와 연결 닫기
     cur.close()
@@ -568,25 +578,6 @@ def fetch_metrics_within_time_range(config=None, start_time='-infinity', end_tim
 
     result_df['timestamp'] = result_df['timestamp'].astype(str)
     print(result_df)
-    # DataFrame을 pickle로 직렬화
-    serialized_df = pickle.dumps(result_df)
-
-    # Response 객체에 직렬화된 데이터와 MIME 타입을 지정하여 담기
-    response = Response(serialized_df, mimetype='application/octet-stream')
-
-    return response
-
-@app.route('/experiment', methods=['POST'])
-def experiment():
-    input_data = request.get_json()
-    data = input_data.get('data')
-    df = pd.read_json(data)
-    task = input_data.get('task')
-    pipeline = input_data.get('pipeline')
-    hyperparameters = input_data.get('hyperparameters')
-    
-    result_df = pd.DataFrame() # 모델에 맞게 함수를 적용
-
     # DataFrame을 pickle로 직렬화
     serialized_df = pickle.dumps(result_df)
 

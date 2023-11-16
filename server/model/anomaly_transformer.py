@@ -3,6 +3,7 @@ import pandas as pd
 from omegaconf import OmegaConf
 from DBAnomTransformer.config.utils import default_config
 from DBAnomTransformer.detector import DBAnomDector
+import json
 import pytz
 import random
 from sqlalchemy import create_engine
@@ -24,6 +25,12 @@ CAUSES_EDA = [  'CPU Saturation',
                 'Memory Saturation', 
                 'Poorly Written Query', 
                 'Workload Spike']
+
+with open('../port.json', 'r') as json_file:
+    data = json.load(json_file)
+    server_db_port = data.get('serverdb')
+    server_port = data.get('server')
+
 def ade_train_anomaly_transformer_from_dbsherlock(pipeline, hyperparameters):
     # DB Sherlock 데이터 불러오기
     dataset_name = "DBS"
@@ -47,7 +54,7 @@ def ade_train_anomaly_transformer_from_dbsherlock(pipeline, hyperparameters):
     current_time = datetime.now()
     timestamp = current_time.strftime("%Y%m%d_%H%M%S")
     filename = f"DBAT_{pipeline}_{timestamp}.pickle"
-    with open(f'server/model/trained_model/ade/{filename}', 'wb+') as file:
+    with open(f'model/trained_model/ade/{filename}', 'wb+') as file:
         pickle.dump(detector, file)
         print(f"saved model {filename}")
 
@@ -70,11 +77,9 @@ def ade_predict_anomaly_transformer(server_conn, db_id, test_df, path):
         detector = pickle.load(file)
     # test_df.columns = ['timestamp', 'metric1', ...]
     test_data = test_df.drop(columns=['timestamp'])
-    if 'Combined Avg Latency' in test_data.columns:
-        test_data = test_data.drop(columns=['Combined Avg Latency'])
-    if 'Epoch' in test_data.columns:
-        test_data = test_data.drop(columns=['Epoch'])
-    
+    if 'combined_avg_latency' in test_data.columns:
+        test_data = test_data.drop(columns=['combined_avg_latency'])
+
 
     if len(test_data.columns) == 200: # DBSHERLOCK
         dataset = 'dbsherlock_tpcc_500w'
@@ -118,11 +123,11 @@ def ade_predict_anomaly_transformer(server_conn, db_id, test_df, path):
     # Execute the INSERT query
     cur.executemany(f"INSERT INTO anomaly_explanation VALUES ({placeholders})", values)
 
-    test_df['analysis_time'] = current_time
-    test_df['dbid'] = db_id
-    server_engine = create_engine('postgresql://postgres:postgres@localhost:5433/dbeda')
+    #test_df['analysis_time'] = current_time
+    #test_df['dbid'] = db_id
+    #server_engine = create_engine(f'postgresql://postgres:postgres@localhost:{server_db_port}/dbeda')
 
-    test_df.to_sql(dataset, server_engine, if_exists='append', index=False)
+    #test_df.to_sql(dataset, server_engine, if_exists='append', index=False)
     
     # Commit the changes
     server_conn.commit()
