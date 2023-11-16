@@ -163,7 +163,7 @@ def get_analysis_time(config, table):
         print(f"Error sending configuration data. Status code: {response.status_code}")
         return ValueError
 
-def query_performance_data(config, table='all', metrics='all', task='metrics', type = None, start_time=None, end_time=None, recent_time_window=None,  order = None, num_of_query = None, split_date=None, analysis_time = None):
+def query_performance_data(config, table='all', metrics='all', task='timeseries analysis', type = None, start_time=None, end_time=None, recent_time_window=None,  order = None, num_of_query = None, split_date=None, analysis_time = None):
     # data
     if start_time == end_time == recent_time_window == None:
         recent_time_window = 'All'
@@ -252,7 +252,7 @@ def get_widgets(schema, config):
     class task_widget():
         def __init__(self):
             self.w_task = w.Select(name = 'Task', options = ["Choose a task",
-                                                            'metrics', # ok
+                                                            'timeseries analysis', # ok
                                                             'historical comparison', #ok
                                                             'query analysis', #ok
                                                             'distribution', #ok
@@ -312,7 +312,7 @@ def get_widgets(schema, config):
                 self.w_data_x.options = [i[0] for i in schema[w_table.value]]
                 self.w_data_y.options = [i[0] for i in schema[w_table.value]]
                 
-                if self.w_task.value == 'metrics':
+                if self.w_task.value == 'timeseries analysis':
                     self.widget[1].objects = [pn.Row(self.w_data_multi, self.w_type)]
                     self.widget[2].objects = [pn.Card(pn.Row(self.w_color, self.w_shape),width =1000, collapsible = True, collapsed = True, title = 'Options')]
                 
@@ -412,7 +412,7 @@ def get_widgets(schema, config):
 
     def tasks_to_charts(clicked_button, tasks):
         for task in tasks:
-            if task.w_task.value == "metrics":
+            if task.w_task.value == 'timeseries analysis':
                 result = query_performance_data(config, w_table.value, task.w_data_multi.value, task.w_task.value, start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
                 df = pd.DataFrame(result['metric'])
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
@@ -437,21 +437,21 @@ def get_widgets(schema, config):
                 main.append(dashboard)
 
             elif task.w_task.value == "correlation":
-                result = query_performance_data(config, w_table.value, task.w_data_x.value+", "+task.w_data_y.value, 'metrics', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
+                result = query_performance_data(config, w_table.value, task.w_data_x.value+", "+task.w_data_y.value, 'timeseries analysis', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
                 df = pd.DataFrame(result['metric'])
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
                 dashboard = correlation_task_viz_template(y=task.w_data_y.value, x= task.w_data_x.value, chart_type = task.w_cor_type.value).plot(df)
                 main.append(dashboard)
 
             elif task.w_task.value == "distribution":
-                result = query_performance_data(config, w_table.value, task.w_data_x.value, 'metrics', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
+                result = query_performance_data(config, w_table.value, task.w_data_x.value, 'timeseries analysis', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
                 df = pd.DataFrame(result['metric'])
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
                 dashboard = distribution_task_viz_template(x=task.w_data_x.value, chart_type = task.w_dis_type.value).plot(df)
                 main.append(dashboard)
             
             elif task.w_task.value == "historical comparison":
-                result = query_performance_data(config, w_table.value, task.w_data_y.value, 'metrics', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
+                result = query_performance_data(config, w_table.value, task.w_data_y.value, 'timeseries analysis', start_time=w_time_custom.value[0], end_time=w_time_custom.value[1], recent_time_window=w_time.value)
                 df = pd.DataFrame(result['metric'])
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
                 dashboard = historical_comparison_task_viz_template(y=task.w_data_y.value, chart_type = task.w_dis_type.value, time_interval = task.w_time_interval.value).plot(df)
