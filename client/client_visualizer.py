@@ -165,7 +165,8 @@ def get_analysis_time(config, table):
 
 def query_performance_data(config, table='all', metrics='all', task='metrics', type = None, start_time=None, end_time=None, recent_time_window=None,  order = None, num_of_query = None, split_date=None, analysis_time = None):
     # data
-    
+    if start_time == end_time == recent_time_window == None:
+        recent_time_window = 'All'
     url = f"http://localhost:{server_port}/"
     #print("query_performance_data", config)
     
@@ -179,7 +180,7 @@ def query_performance_data(config, table='all', metrics='all', task='metrics', t
     if task == 'anomaly analysis':
         params['task_type'] = type
 
-    if start_time is not None: # 왜 str ???
+    if start_time is not None: 
         if isinstance(start_time, datetime):
             start_time = start_time.strftime("%Y-%m-%d %H:%M:%S")
             end_time = end_time.strftime("%Y-%m-%d %H:%M:%S")
@@ -193,8 +194,6 @@ def query_performance_data(config, table='all', metrics='all', task='metrics', t
     
     if analysis_time is not None:
         params['analysis_time'] = analysis_time
-    
-    print(params)
 
     response = requests.get(url+"data", params ={'params': json.dumps(params)})
     # Check the response status code
@@ -237,7 +236,9 @@ def get_widgets(schema, config):
                                                     'Last hour':'1 hour',
                                                     'Last 4 hours':'4 hours',
                                                     'Last 12 hours':'12 hours',
-                                                    'Last 24 hours':'1 day', 'Custom':''}, width = 220)
+                                                    'Last 24 hours':'1 day', 
+                                                    'Custom':'Custom', 
+                                                    'All':'All'}, width = 220)
     # custom 선택되면 time range 선택하는 위젯 visible하게 변경
     w_time_custom = w.DatetimeRangePicker(name='Custom time', value=(datetime.now() - timedelta(minutes = 30), datetime.now()), width = 220)
     w_time_custom.disabled = True
@@ -305,7 +306,7 @@ def get_widgets(schema, config):
                 if self.w_task.value == 'query analysis' or self.w_task.value == 'query ranking':
                     w_table.value = 'query_statistics'
                 elif self.w_task_type.value == 'anomaly detection and explanation':
-                    w_table.options = ['dbsherlock_tpcc_500w','eda']
+                    w_table.options = ['dbsherlock','eda']
 
                 self.w_data_multi.options = [i[0] for i in schema[w_table.value]]
                 self.w_data_x.options = [i[0] for i in schema[w_table.value]]
@@ -496,12 +497,32 @@ def get_widgets(schema, config):
     w_draw = w.Button(name='Draw', width = 100)
     import functools
     w_clean = w.Button(name='Clean', width = 100)
+    w_show_anomaly = w.Button(name='Show Anomaly', width = 100)
     w_draw.on_click(functools.partial(tasks_to_charts, tasks=tasks))
     def clean_output(button):
-        main.objects = ["### DB Performance Analysis", widgets, c_task, pn.Row(w_draw,w_clean)]# c_split, pn.Row(w_draw,w_clean)]
+        main.objects = ["### DB Performance Analysis", widgets, c_task, pn.Row(w_draw,w_clean, w_show_anomaly)]# c_split, pn.Row(w_draw,w_clean)]
+    
+    def show_anomaly(button):
+        main.objects = ["### DB Performance Analysis", widgets, c_task, pn.Row(w_draw,w_clean, w_show_anomaly)]# c_split, pn.Row(w_draw,w_clean)]
+    
+        result = query_performance_data(config, table = w_table.value, task = 'anomaly analysis', type = 'anomaly detection and explanation', analysis_time = task.w_analysis_time.value)
+        
+        df = pd.DataFrame(result['metric'])
+        if 'timestamp' in df.columns:
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+        
+        df_task = pd.DataFrame(result['task'])
+        df_task['timestamp'] = pd.to_datetime(df_task['timestamp'])
+        
+        dashboard = anomaly_detection_and_explanation_task_viz_template(y=task.w_data_y.value, chart_type = 'line').plot(df, df_task)
+       
+        main.append(dashboard)
+
 
     w_clean.on_click(clean_output)
-    main = pn.Column("### DB Performance Analysis", widgets, c_task, pn.Row(w_draw,w_clean))# c_split, pn.Row(w_draw,w_clean))
+    w_show_anomaly.on_click(show_anomaly)
+
+    main = pn.Column("### DB Performance Analysis", widgets, c_task, pn.Row(w_draw,w_clean, w_show_anomaly))# c_split, pn.Row(w_draw,w_clean))
     return main
 
 
@@ -555,8 +576,7 @@ class base_task_viz_template:
 
         fig.update_layout(
             title=title,
-            #xaxis_title='Sepal Length (cm)',
-            #yaxis_title='Sepal Width (cm)'
+     
         )
         return pn.pane.Plotly(fig)
 
@@ -691,7 +711,7 @@ class anomaly_detection_and_explanation_task_viz_template(base_task_viz_template
             title='<b>Anomaly Detection and Explanation</b>',
             title_font=dict(size=20),
             title_x=0.5,
-            width=800
+           # width=800
         )
 
         # is_anomaly가 True인 포인트에 빨간색 배경 표시
@@ -841,7 +861,6 @@ class query_analysis_task_viz_template(base_task_viz_template):
     def __init__(self, y, chart_type, shape=None, pattern=None, size=None, row=None, col=None, tab=None, legend=None, label=None):
         super().__init__(chart_type)
         self.x = 'timestamp'
-        print("log")
         self.y = y
         self.color = 'queryid'
         self.chart_type = chart_type
