@@ -282,7 +282,7 @@ def get_widgets(schema, config):
             #self.w_dataset = w.Select(name = 'Dataset', options = ['dbsherlock_tpcc_500w'], width = 300)
             
             self.w_cor_type = w.Select(name = 'Type', options = ['scatter', 'kernel density estimation', ], width = 250)
-            self.w_type = w.Select(name = 'Type', options = ['bar', 'line', 'area'], width = 200)
+            self.w_type = w.Select(name = 'Type', options = ['line','bar',  'area'], width = 200)
             self.w_order = w.Select(name = 'Order', options = ["ASC", "DESC"], value = 'DESC', width = 200)
             self.w_time_interval = w.Select(name = 'time interval', options = {'10 minutes':[10,'min'],
                                                                                 '30 minutes':[30,'min'],

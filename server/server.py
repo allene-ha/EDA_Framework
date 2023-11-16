@@ -249,10 +249,16 @@ def perform_data_query():
                             ORDER BY timestamp ASC;"""
         else:
             sql_query = f"""SELECT timestamp, {metric_string} FROM {table}  
-                            WHERE timestamp BETWEEN (NOW() - INTERVAL '{recent_time_window}') AND NOW()
+                            WHERE timestamp >= NOW() - INTERVAL '{recent_time_window}'
                             AND dbid = '{db_id}'
                             ORDER BY timestamp ASC;"""
 
+
+# SELECT timestamp, tps FROM performance  
+# WHERE timestamp >= now() - INTERVAL '10 MINUTE' 
+
+# AND  dbid = 'e8345ecc-d9b8-420c-a4ac-2baf71765aa6'
+# ORDER BY timestamp ASC;
             # Pandas DataFrame으로 변환
         df_metrics = pd.read_sql_query(sql_query, server_engine)
         print(sql_query)
