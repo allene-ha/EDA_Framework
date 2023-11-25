@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 from omegaconf import OmegaConf
 from DBAnomTransformer.config.utils import default_config
