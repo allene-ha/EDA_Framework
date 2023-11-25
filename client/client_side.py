@@ -2,9 +2,8 @@ import requests
 import pandas as pd
 from client_visualizer import * 
 
-with open('../port.json', 'r') as json_file:
-    data = json.load(json_file)
-    server_port = data.get('server')
+from config_utils import config
+server_port = config.get('server')
 
 
 def connect_db(db_type='postgres', host='dbeda-client', database='test_cli', user='postgres', password='postgres', port='5434', interval ='10'):

@@ -11,19 +11,14 @@ from omegaconf import OmegaConf
 
 from DBAnomTransformer.config.utils import default_config
 from DBAnomTransformer.detector import DBAnomDector
-
+from config_utils import config
 dataset_name = "DBS"
 #dataset_name = "EDA"
 
 # Create config
 eda_config = default_config
 dbsherlock_config = OmegaConf.create(
-    {
-        "model": {"num_anomaly_cause": 11, "num_feature": 200},
-        "model_path": "checkpoints/DBS_checkpoint.pth",
-        "scaler_path": "checkpoints/DBS_scaler.pkl",
-        "stats_path": "checkpoints/DBS_stats.json",
-    }
+    config.get('dbsherlock')
 )
 
 

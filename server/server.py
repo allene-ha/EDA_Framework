@@ -9,6 +9,7 @@ import pandas as pd
 from typing import Dict, Any, Union
 import pickle
 from sqlalchemy import create_engine
+from config_utils import config
 
 metric_tables = ['bgwriter', 'access', 'io', 'os_metric', 'sessions', 'active_sessions', 'waiting_sessions', 'database_statistics', 'conflicts', 'query_statistics','performance']
 non_default_table = ['sessions', 'active_sessions', 'waiting_sessions','query_statistics']
@@ -33,10 +34,8 @@ from driver.pipeline import (
 # Setup the scheduler that will poll for new configs and run the core pipeline
 scheduler = BlockingScheduler(daemon = True, job_defaults={'max_instances': 20})
 
-with open('../port.json', 'r') as json_file:
-    data = json.load(json_file)
-    server_db_port = data.get('serverdb')
-    server_port = data.get('server')
+server_db_port = config.get('serverdb')
+server_port = config.get('server')
 
 # Replace the placeholder values with your actual database connection details
 server_engine = create_engine(f'postgresql://postgres:postgres@localhost:{server_db_port}/dbeda')
@@ -76,8 +75,6 @@ def connect_user_database():
     db_name = data['db_name']
     db_user = data['db_user']
     db_password = data['db_password']
-    
-    
     
     # Add collect_metrics function to the scheduler
     # Check if the input DB configuration already exists in the database
@@ -597,7 +594,7 @@ def train():
     hyperparameters = input_data.get('hyperparameters')
     
     # preprocessing # not implemented
-
+    print(f"Task: {task}")
     if task == 'anomaly analysis':
         train_anomaly_analysis(df, pipeline, hyperparameters)
     elif task == 'load prediction':

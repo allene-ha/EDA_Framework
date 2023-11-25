@@ -1,11 +1,10 @@
 from sqlalchemy import create_engine
 import json
 import pandas as pd
+from config_utils import config
 
-with open('../port.json', 'r') as json_file:
-    data = json.load(json_file)
-    server_db_port = data.get('serverdb')
-    server_port = data.get('server')
+server_db_port = config.get('serverdb')
+server_port = config.get('server')
 
 # Replace the placeholder values with your actual database connection details
 server_engine = create_engine(f'postgresql://postgres:postgres@localhost:{server_db_port}/dbeda')
