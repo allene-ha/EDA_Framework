@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 from omegaconf import OmegaConf
 from DBAnomTransformer.config.utils import default_config
@@ -9,6 +8,7 @@ import random
 from sqlalchemy import create_engine
 from datetime import datetime
 import pickle
+from config_utils import config
 CAUSES_DBSHERLOCK = ['Poorly Written Query', 
                      'Poor Physical Design', 
                      'Workload Spike', 
@@ -26,29 +26,24 @@ CAUSES_EDA = [  'CPU Saturation',
                 'Poorly Written Query', 
                 'Workload Spike']
 
-with open('../port.json', 'r') as json_file:
-    data = json.load(json_file)
-    server_db_port = data.get('serverdb')
-    server_port = data.get('server')
+
+
+server_db_port = config.get('serverdb')
+server_port = config.get('server')
 
 def ade_train_anomaly_transformer_from_dbsherlock(pipeline, hyperparameters):
     # DB Sherlock 데이터 불러오기
     dataset_name = "DBS"
-    
+
     dbsherlock_config = OmegaConf.create(
-        {
-            "model": {"num_anomaly_cause": 11, "num_feature": 200},
-            "model_path": "checkpoints/DBS_checkpoint.pth",
-            "scaler_path": "checkpoints/DBS_scaler.pkl",
-            "stats_path": "checkpoints/DBS_stats.json",
-        }
+        config.get('dbsherlock')
     )
 
     detector = DBAnomDector(override_config=dbsherlock_config)
-    detector.train(
-        dataset_path="/root/Anomaly_Explanation/dataset/dbsherlock/converted/tpcc_500w_test.json",
-        dataset_name="DBS",
-    )
+    # detector.train(
+    #     dataset_path="/root/Anomaly_Explanation/dataset/dbsherlock/converted/tpcc_500w_test.json",
+    #     dataset_name="DBS",
+    # )
     
 
     current_time = datetime.now()
@@ -62,7 +57,7 @@ def ade_train_anomaly_transformer_from_dbsherlock(pipeline, hyperparameters):
 def ade_train_anomaly_transformer(train_df, pipeline, hyperparameters):
     train_df.fillna(method='ffill', inplace = True)
     detector = DBAnomDector()
-    detector.train(dataset_path="dataset/EDA/")
+    # detector.train(dataset_path="dataset/EDA/")
 
     current_time = datetime.now()
     timestamp = current_time.strftime("%Y%m%d_%H%M%S")

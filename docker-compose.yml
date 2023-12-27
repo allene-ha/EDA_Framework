@@ -1,9 +1,9 @@
 version: "3"
 
 services:
-    DBEDA:
+    DBEDA-hkkang:
         shm_size: 4gb
-        container_name: dbeda_server
+        container_name: dbeda_server_test-hkkang
         image: jeha/dbeda_server:latest
         stdin_open: true
         tty: true
@@ -23,9 +23,9 @@ services:
                 - capabilities: [gpu]
                   driver: nvidia
 
-    DBEDA-client:
+    DBEDA-client-hkkang:
         shm_size: 4gb
-        container_name: dbeda_client
+        container_name: dbeda_client_test-hkkang
         image: jeha/dbeda-client:latest
         stdin_open: true
         tty: true

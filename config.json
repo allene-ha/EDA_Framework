@@ -1,0 +1,12 @@
+{
+    "clientdb": 5438,
+    "serverdb": 5437,
+    "server": 85,
+    "dbsherlock": {
+      "model": {"num_anomaly_cause": 11, "num_feature": 200},
+        "model_path": "checkpoints/DBS_checkpoint.pth",
+        "scaler_path": "checkpoints/DBS_scaler.pkl",
+        "stats_path": "checkpoints/DBS_config.json"
+    }
+}
+  

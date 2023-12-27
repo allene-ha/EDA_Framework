@@ -14,7 +14,7 @@ from functools import partial
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 from IPython.display import display, clear_output
-
+from config_utils import config
 
 import sys
 stdout = sys.stdout
@@ -69,9 +69,8 @@ css = '''
 pn.extension('plotly','tabulator',  sizing_mode = 'stretch_width', css_files=[pn.io.resources.CSS_URLS['font-awesome']], raw_css = [css])
 ui = None #,
 px.defaults.template = "plotly_white"
-with open('../port.json', 'r') as json_file:
-    data = json.load(json_file)
-    server_port = data.get('server')
+
+server_port = config.get('server')
 
 def get_sidebar(schema, sidebar_content):
     

@@ -15,7 +15,7 @@ To set up the server component, follow these steps:
    service postgresql start
    cd /root/DBEDA/server
    pip install -r server_requirements.txt
-   python3 server_collector.py
+   python3 server.py
    ```
 ### Client
 To set up the client component, follow these steps:
@@ -28,7 +28,7 @@ To set up the client component, follow these steps:
    ```
 
 ## Example Usage
-Click `tutorial.ipynb`
+Click `DBEDA.ipynb`
 
 ### Register Database Configuration
 
